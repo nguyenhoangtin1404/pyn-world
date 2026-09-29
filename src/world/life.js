@@ -285,28 +285,26 @@ export function createLife({ terrain, track, scenery, train }) {
     }
   });
 
-  // Villagers walking between houses and the station platform, routed around obstacles.
+  // People walking between houses and a platform, routed around obstacles. There are two areas —
+  // the village by the station and the town by the halt — each with its own nav grid; people who
+  // ride the train get off at the other stop and go about their day there.
   const walkHeight = scenery.walkHeight;
-  const rawStops = [
-    ...scenery.homes.map((p) => ({ p, face: null, indoor: true })),
-    ...scenery.platformSpots.map((p) => {
-      // Stand facing the track while waiting for the train.
-      let best = null, bd = Infinity;
-      for (const f of track.frames) {
-        const d = (f.p.x - p.x) ** 2 + (f.p.z - p.z) ** 2;
-        if (d < bd) {
-          bd = d;
-          best = f;
-        }
+  const faceTrack = (p) => {
+    // Stand facing the track while waiting for the train.
+    let best = null, bd = Infinity;
+    for (const f of track.frames) {
+      const d = (f.p.x - p.x) ** 2 + (f.p.z - p.z) ** 2;
+      if (d < bd) {
+        bd = d;
+        best = f;
       }
-      return { p, face: Math.atan2(best.p.x - p.x, best.p.z - p.z) };
-    }),
-  ];
-  const villagers = [];
-  const kids = [];
-  let nav = null;
-  let stops = [];
-  if (rawStops.length > 1) {
+    }
+    return Math.atan2(best.p.x - p.x, best.p.z - p.z);
+  };
+  const areas = [];
+  scenery.stations.forEach((st, index) => {
+    const rawStops = [...st.homes.map((p) => ({ p, face: null, indoor: true })), ...st.platformSpots.map((p) => ({ p, face: faceTrack(p) }))];
+    if (rawStops.length < 2) return;
     const b = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
     for (const { p } of rawStops) {
       b.minX = Math.min(b.minX, p.x - 30);
@@ -319,44 +317,55 @@ export function createLife({ terrain, track, scenery, train }) {
     b.minZ = Math.max(b.minZ, -lim);
     b.maxX = Math.min(b.maxX, lim);
     b.maxZ = Math.min(b.maxZ, lim);
-    nav = new NavGrid(b, walkHeight, scenery.colliders);
+    const nav = new NavGrid(b, walkHeight, scenery.colliders);
     // Snap every stop onto a walkable cell, and keep only stops reachable from the platform.
-    stops = rawStops.map((s) => ({ ...s, p: nav.nearestFree(s.p.x, s.p.z) })).filter((s) => s.p);
+    let stops = rawStops.map((s) => ({ ...s, p: nav.nearestFree(s.p.x, s.p.z) })).filter((s) => s.p);
     const anchor = stops.find((s) => s.face != null) || stops[0];
     const main = nav.regionAt(anchor.p.x, anchor.p.z);
     stops = stops.filter((s) => nav.regionAt(s.p.x, s.p.z) === main);
+    areas.push({ index, nav, stops, platformStops: stops.filter((s) => s.face != null), out: st.out, platformY: st.point(0.5, 0.5).y });
+  });
+  const areaAt = (stopIndex) => areas.find((ar) => ar.index === stopIndex);
+  const nav = areas[0]?.nav ?? null; // the station's grid (pigeons use it)
 
-    // Half of all trips go to the station, the rest to a random house.
-    const platformStops = stops.filter((s) => s.face != null);
-    const pickStop = (not) => {
-      let s;
-      do s = platformStops.length && rng() < 0.5 ? platformStops[Math.floor(rng() * platformStops.length)] : stops[Math.floor(rng() * stops.length)];
-      while (s === not && stops.length > 1);
-      return s;
-    };
-    const plan = (w) => {
-      for (let tries = 0; tries < 4; tries++) {
-        const stop = pickStop(w.stop);
-        // Don't all stand on the exact same spot: pick a free place a little around the stop.
-        // Indoors the spread stays small, so the goal doesn't end up outside behind a wall.
-        const a = rng() * Math.PI * 2, r = stop.indoor ? rng() * 0.8 : 0.6 + rng() * 1.6;
-        let goal = nav.nearestFree(stop.p.x + Math.cos(a) * r, stop.p.z + Math.sin(a) * r, stop.indoor ? 1 : 2);
-        if (!goal || nav.regionAt(goal.x, goal.z) !== nav.regionAt(stop.p.x, stop.p.z)) goal = stop.p;
-        const path = nav.findPath(w.pos, goal);
-        if (path && path.length) {
-          w.stop = stop;
-          w.path = path;
-          w.pi = 0;
-          return;
-        }
+  // Half of all trips go to the platform, the rest to a random house.
+  const pickStop = (area, not) => {
+    const { stops, platformStops } = area;
+    let s;
+    do s = platformStops.length && rng() < 0.5 ? platformStops[Math.floor(rng() * platformStops.length)] : stops[Math.floor(rng() * stops.length)];
+    while (s === not && stops.length > 1);
+    return s;
+  };
+  const plan = (w) => {
+    const nav = w.area.nav;
+    for (let tries = 0; tries < 4; tries++) {
+      const stop = pickStop(w.area, w.stop);
+      // Don't all stand on the exact same spot: pick a free place a little around the stop.
+      // Indoors the spread stays small, so the goal doesn't end up outside behind a wall.
+      const a = rng() * Math.PI * 2, r = stop.indoor ? rng() * 0.8 : 0.6 + rng() * 1.6;
+      let goal = nav.nearestFree(stop.p.x + Math.cos(a) * r, stop.p.z + Math.sin(a) * r, stop.indoor ? 1 : 2);
+      if (!goal || nav.regionAt(goal.x, goal.z) !== nav.regionAt(stop.p.x, stop.p.z)) goal = stop.p;
+      const path = nav.findPath(w.pos, goal);
+      if (path && path.length) {
+        w.stop = stop;
+        w.path = path;
+        w.pi = 0;
+        return;
       }
-      w.path = null;
-      w.pause = 3;
-    };
+    }
+    w.path = null;
+    w.pause = 3;
+  };
 
-    for (let i = 0; i < 12; i++) {
+  const villagers = [];
+  const kids = [];
+  areas.forEach((area, ai) => {
+    const n = ai === 0 ? 12 : 10;
+    const first = villagers.length;
+    for (let i = 0; i < n; i++) {
       const w = new Walker(rng, walkHeight);
-      w.stop = pickStop(null);
+      w.area = area;
+      w.stop = pickStop(area, null);
       w.place(w.stop.p);
       w.pause = rng() * 4;
       w.plan = plan;
@@ -364,25 +373,30 @@ export function createLife({ terrain, track, scenery, train }) {
       group.add(w.group);
     }
     // Children tag along beside a grown-up.
-    for (let i = 0; i < Math.min(4, villagers.length); i++) {
-      const parent = villagers[i * 3];
+    for (let i = 0; i < Math.min(ai === 0 ? 4 : 3, n); i++) {
+      const parent = villagers[first + i * 3];
       const k = new Walker(rng, walkHeight, { kind: 'child', speed: 2.4 });
       k.parent = parent;
       k.side = rng() < 0.5 ? -1 : 1;
       k.spot = new THREE.Vector3();
-      k.place(nav.nearestFree(parent.pos.x + 1, parent.pos.z) || parent.pos);
+      k.place(area.nav.nearestFree(parent.pos.x + 1, parent.pos.z) || parent.pos);
       kids.push(k);
       group.add(k.group);
     }
-  }
+  });
+  // Doors open for anyone standing next to them.
+  scenery.setPeople(() => {
+    const list = [];
+    for (const w of villagers) if (w.group.visible) list.push(w.pos);
+    for (const k of kids) if (k.group.visible) list.push(k.pos);
+    return list;
+  });
 
   // ---- Getting on and off the train
-  // Villagers waiting on the platform board when the doors open, ride one lap, and get off at the
-  // next stop. The train holds at the station until nobody is still walking to or from a door.
-  const platformY = scenery.platformPoint(0.5, 0.5).y;
-  const out = scenery.outward;
+  // People waiting on the platform board when the doors open and get off at the next stop (the
+  // other area). The train holds until nobody is still walking to or from a door.
   const doorPos = new THREE.Vector3();
-  const doors = () => {
+  const doors = (out) => {
     const list = [];
     for (let car = 1; car <= 3; car++) {
       for (const end of [-1, 1]) list.push({ car, end, p: train.doorPoint(car, end, out, new THREE.Vector3()) });
@@ -396,27 +410,30 @@ export function createLife({ terrain, track, scenery, train }) {
   let handledStop = 0;
 
   function onTrainArrived() {
-    const ds = doors();
-    // Riders from the previous lap get off first, one after another.
+    const here = areaAt(train.stopIndex);
+    if (!here) return;
+    const ds = doors(here.out);
+    // Riders get off first, one after another, and now live around this stop.
     let delay = 0.3;
     for (const w of villagers) {
       if (w.mode !== 'riding' || w.boardedStop >= train.stopId) continue;
       w.mode = 'waitAlight';
       w.alightDelay = delay;
       w.door = ds[Math.floor(rng() * ds.length)];
+      w.area = here;
       delay += 0.9;
     }
     // Then some of the people waiting on the platform get on.
     let aboard = villagers.filter((w) => w.mode === 'riding' || w.mode === 'waitAlight').length;
     for (const w of villagers) {
-      // Anyone waiting on — or heading for — the platform may hop on.
-      if (w.mode || w.stop?.face == null || aboard >= 6 || rng() > 0.85) continue;
+      // Anyone waiting on — or heading for — this platform may hop on.
+      if (w.mode || w.area !== here || w.stop?.face == null || aboard >= 6 || rng() > 0.85) continue;
       let best = null;
       for (const d of ds) if (!best || d.p.distanceToSquared(w.pos) < best.p.distanceToSquared(w.pos)) best = d;
       if (best.p.distanceTo(w.pos) > 25) continue; // too far away to make it
-      const approach = best.p.clone().addScaledVector(out, 2.1);
-      const goal = nav.nearestFree(approach.x, approach.z, 2);
-      const path = goal && nav.findPath(w.pos, goal);
+      const approach = best.p.clone().addScaledVector(here.out, 2.1);
+      const goal = here.nav.nearestFree(approach.x, approach.z, 2);
+      const path = goal && here.nav.findPath(w.pos, goal);
       if (!path) continue;
       w.mode = 'toTrain';
       w.door = best;
@@ -432,10 +449,11 @@ export function createLife({ terrain, track, scenery, train }) {
     switch (w.mode) {
       case 'riding':
         return true;
-      case 'waitAlight':
+      case 'waitAlight': {
         w.alightDelay -= dt;
         if (w.alightDelay > 0) return true;
         // Step out of the door onto the platform.
+        const { out, platformY, nav } = w.area;
         train.doorPoint(w.door.car, w.door.end, out, doorPos);
         w.pos.set(doorPos.x, platformY, doorPos.z);
         w.fixedY = platformY - 0.05;
@@ -444,13 +462,14 @@ export function createLife({ terrain, track, scenery, train }) {
         w.group.visible = true;
         w.mode = 'alighting';
         return true;
+      }
       case 'alighting':
         if (w.step(w.exit, dt, t)) {
           w.mode = null;
           w.fixedY = null;
           w.path = null;
           w.pause = 0.5;
-          w.stop = null; // next plan() heads home
+          w.stop = null; // next plan() heads somewhere in the new area
         }
         return true;
       case 'toTrain':
@@ -461,7 +480,7 @@ export function createLife({ terrain, track, scenery, train }) {
         }
         if (w.step(w.path[w.pi], dt, t) && ++w.pi >= w.path.length) {
           w.mode = 'boarding';
-          w.fixedY = platformY - 0.05;
+          w.fixedY = w.area.platformY - 0.05;
         }
         return true;
       case 'boarding':
@@ -478,7 +497,7 @@ export function createLife({ terrain, track, scenery, train }) {
   }
 
   updaters.push((dt, t, env) => {
-    if (dt === 0 || !nav) return;
+    if (dt === 0 || !areas.length) return;
     const rainy = env.rain > 0.3;
     if (train && train.stopped && train.doorOpen > 0.95 && handledStop !== train.stopId) {
       handledStop = train.stopId;
@@ -509,6 +528,7 @@ export function createLife({ terrain, track, scenery, train }) {
     }
     for (const k of kids) {
       const p = k.parent;
+      const nav = p.area.nav;
       k.person.setUmbrella(rainy && !scenery.isIndoors(k.pos.x, k.pos.z));
       // On the train with the parent: hidden while riding, stepping through the door right behind them.
       if (p.mode === 'riding' || p.mode === 'waitAlight') {
@@ -516,7 +536,8 @@ export function createLife({ terrain, track, scenery, train }) {
         continue;
       }
       if (!k.group.visible) {
-        k.pos.copy(p.pos).addScaledVector(out, 0.6);
+        k.pos.copy(p.pos).addScaledVector(p.area.out, 0.6);
+        k.path = null;
         k.group.visible = true;
       }
       if (p.mode === 'boarding' || p.mode === 'alighting') {

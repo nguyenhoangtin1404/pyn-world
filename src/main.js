@@ -13,6 +13,7 @@ import { CameraRig, CAMERA_MODES } from './cameras.js';
 import { AudioEngine } from './audio.js';
 import { initHud, PIXEL_LEVELS } from './hud.js';
 import { nextFrame } from './utils.js';
+import { HALT_AT } from './config.js';
 
 const state = {
   mode: 'overview',
@@ -47,9 +48,10 @@ const steps = [
   ['Đang trải đường ray', () => {
     W.track = new Track(createTrackCurve());
     W.station = W.track.frames[0];
+    W.halt = W.track.frame(Math.round(W.track.frames.length * HALT_AT));
   }],
   ['Đang nặn địa hình', () => {
-    W.terrain = createTerrain(W.track, W.station);
+    W.terrain = createTerrain(W.track, W.station, W.halt);
     scene.add(W.terrain.mesh, W.terrain.water, W.terrain.frame);
   }],
   ['Đang đào đường hầm', () => {
@@ -61,13 +63,13 @@ const steps = [
     scene.add(W.rails.group);
   }],
   ['Đang trồng cây, thả cừu', () => {
-    W.scenery = buildScenery({ track: W.track, terrain: W.terrain, bridges: W.rails.bridges, station: W.station, tunnel: W.tunnel });
+    W.scenery = buildScenery({ track: W.track, terrain: W.terrain, bridges: W.rails.bridges, station: W.station, halt: W.halt, tunnel: W.tunnel });
     scene.add(W.scenery.group);
   }],
   ['Đang lắp đầu máy', () => {
     W.train = new Train(W.track);
     W.train.tunnel = W.tunnel;
-    W.train.platformOut = W.scenery.outward;
+    W.train.setStops(W.scenery.stations.map((st) => ({ s: st.frame.s + 14, out: st.out })));
     scene.add(W.train.group);
   }],
   ['Đang thả cá, bơm khinh khí cầu', () => {
