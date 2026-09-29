@@ -134,6 +134,11 @@ class Fish {
 }
 
 // ---------------------------------------------------------------- people
+// Step length per unit of figure scale: legs are 0.92 long and swing ±0.55 rad at the hip, so a
+// foot travels ~0.95 × scale per step. Half a walk cycle (π) is one step, so the feet don't slide.
+// Adult (0.85): ~0.8 m steps, ~1.7 steps/s at walking pace. Child (0.55): ~0.5 m steps.
+const STEP_LENGTH = 0.95;
+
 // A person walking along waypoints, pausing at stops. The figure itself lives in people.js.
 class Walker {
   constructor(rng, heightAt, { kind = 'villager', speed = 1.4 } = {}) {
@@ -144,6 +149,8 @@ class Walker {
     this.pos = new THREE.Vector3();
     this.heading = 0;
     this.speed = speed * (0.85 + rng() * 0.3);
+    this.pace = this.speed; // current speed, eased so slopes don't make it jump at each waypoint
+    this.gait = 0; // walk-cycle phase, advanced by distance actually covered
     this.pause = 0;
     this.waving = false;
   }
@@ -166,16 +173,21 @@ class Walker {
     const dz = target.z - this.pos.z;
     const d = Math.hypot(dx, dz);
     this.heading = turnToward(this.heading, Math.atan2(dx, dz), Math.min(1, dt * 5));
-    let sp = this.speed;
+    let want = this.speed;
     if (slowOnSlope) {
       const rise = Math.abs(this.heightAt(target.x, target.z) - this.pos.y) / Math.max(d, 0.5);
-      sp *= clamp(1 - rise * 0.6, 0.4, 1);
+      want *= clamp(1 - rise * 0.6, 0.4, 1);
     }
-    const s = Math.min(d, sp * dt);
+    this.pace += (want - this.pace) * Math.min(1, dt * 2);
+    const s = Math.min(d, this.pace * dt);
     this.pos.x += (dx / (d || 1)) * s;
     this.pos.z += (dz / (d || 1)) * s;
     this.sync();
-    this.person.walk(t * 7 * sp + this.person.phase);
+    // The legs follow the ground covered, like real steps: slow when crawling up a slope or
+    // edging to a stop, never flailing. (It used to be time × speed, so any speed change made the
+    // phase leap by elapsed-seconds × Δspeed.) Smaller people take more steps per metre.
+    this.gait += (s * Math.PI) / (STEP_LENGTH * this.group.scale.x);
+    this.person.walk(this.gait + this.person.phase);
     return d < 0.3;
   }
 
@@ -404,7 +416,7 @@ export function createLife({ terrain, track, scenery, train }) {
     // Children tag along beside a grown-up.
     for (let i = 0; i < Math.min(ai === 0 ? 4 : 3, n); i++) {
       const parent = villagers[first + i * 3];
-      const k = new Walker(rng, walkHeight, { kind: 'child', speed: 2.4 });
+      const k = new Walker(rng, walkHeight, { kind: 'child', speed: 1.4 }); // pace set by follow()
       k.parent = parent;
       k.side = rng() < 0.5 ? -1 : 1;
       k.spot = new THREE.Vector3();
@@ -555,6 +567,16 @@ export function createLife({ terrain, track, scenery, train }) {
         }
       }
     }
+    // Should child k be walking towards `target`? Starts once it has fallen `start` behind and
+    // stops only when within `stop` — the gap between the two keeps it from flipping between the
+    // walking and standing poses every frame (which looked like a blur of limbs). It keeps pace with
+    // the parent, hurrying only when left well behind.
+    const follow = (k, target, start, stop) => {
+      const gap = Math.hypot(k.pos.x - target.x, k.pos.z - target.z);
+      k.moving = k.moving ? gap > stop : gap > start;
+      k.speed = k.parent.speed * (gap > 3 ? 1.5 : 1.05);
+      return k.moving;
+    };
     for (const k of kids) {
       const p = k.parent;
       const nav = p.area.nav;
@@ -571,7 +593,7 @@ export function createLife({ terrain, track, scenery, train }) {
       }
       if (p.mode === 'boarding' || p.mode === 'alighting') {
         k.fixedY = p.fixedY;
-        if (Math.hypot(p.pos.x - k.pos.x, p.pos.z - k.pos.z) > 0.9) k.step(p.pos, dt, t);
+        if (follow(k, p.pos, 1.1, 0.8)) k.step(p.pos, dt, t);
         else {
           k.sync();
           k.idle(t);
@@ -599,7 +621,7 @@ export function createLife({ terrain, track, scenery, train }) {
           if (Math.hypot(target.x - k.pos.x, target.z - k.pos.z) < 0.3) k.pi++;
         } else target = null;
       } else k.path = null;
-      if (target && Math.hypot(k.pos.x - target.x, k.pos.z - target.z) > 0.4) k.step(target, dt, t);
+      if (target && follow(k, target, 0.9, 0.25)) k.step(target, dt, t);
       else {
         k.heading = turnToward(k.heading, p.heading, Math.min(1, dt * 4));
         k.sync();

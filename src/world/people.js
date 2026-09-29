@@ -209,31 +209,47 @@ export class Person {
     this.elbows[1].rotation.set(-1.15, 0, 0);
   }
 
+  // Walking and standing are blended by `stride` (0 = standing, 1 = full stride), which eases over a
+  // few frames each way. Snapping straight from mid-step to standing flicked the legs through
+  // 0.55 rad in one frame, which read as a blur of limbs.
   walk(p) {
-    const s = Math.sin(p);
-    this.hips[0].rotation.x = s * 0.55;
-    this.hips[1].rotation.x = -s * 0.55;
-    this.knees[0].rotation.x = 0.1 + Math.max(0, Math.sin(p + Math.PI / 2)) * 0.8;
-    this.knees[1].rotation.x = 0.1 + Math.max(0, Math.sin(p - Math.PI / 2)) * 0.8;
-    this.shoulders[0].rotation.set(-s * 0.5, 0, 0);
-    this.shoulders[1].rotation.set(s * 0.5, 0, 0);
-    this.elbows[0].rotation.x = this.carry ? -0.6 : -0.35;
-    this.elbows[1].rotation.x = -0.35;
-    if (this.carry) this.shoulders[0].rotation.x = -0.15;
-    if (this.umbrellaOn) this.holdUmbrella();
-    this.root.position.y = Math.abs(Math.cos(p)) * 0.05;
+    this.gaitP = p;
+    this.stride = (this.stride ?? 0) + (1 - (this.stride ?? 0)) * 0.2;
+    this.pose();
     this.head.rotation.y *= 0.9;
   }
 
   idle(t) {
-    this.hips.forEach((h) => (h.rotation.x = 0));
-    this.knees.forEach((k) => (k.rotation.x = 0));
-    this.shoulders.forEach((s, i) => s.rotation.set(Math.sin(t * 1.5 + this.phase + i) * 0.05, 0, 0));
-    this.elbows.forEach((e) => (e.rotation.x = -0.15));
-    if (this.carry) this.elbows[0].rotation.x = -0.6;
-    if (this.umbrellaOn) this.holdUmbrella();
-    this.root.position.y = 0;
+    this.idleT = t;
+    this.stride = (this.stride ?? 0) * 0.8;
+    this.pose();
     this.head.rotation.y = Math.sin(t * 0.3 + this.phase) * 0.5;
+  }
+
+  pose() {
+    const w = this.stride;
+    const p = this.gaitP ?? 0;
+    const s = Math.sin(p) * w;
+    // Legs swing on a triangle wave: the planted foot then moves back at a constant speed, matching
+    // the ground going by (with a sine it slid, fast mid-step and slow at the ends). Arms keep the sine.
+    const tri = ((Math.asin(Math.sin(p)) * 2) / Math.PI) * w;
+    const sway = (i) => Math.sin((this.idleT ?? 0) * 1.5 + this.phase + i) * 0.05 * (1 - w);
+    // +x hip rotation swings a leg back. A knee bends only while its leg swings FORWARD (foot in the
+    // air); the straight leg is the one pushing back on the ground. Leg 0 swings forward when cos p
+    // < 0, leg 1 when cos p > 0 — getting these swapped makes people moonwalk.
+    this.hips[0].rotation.x = tri * 0.55;
+    this.hips[1].rotation.x = -tri * 0.55;
+    this.knees[0].rotation.x = w * (0.1 + Math.max(0, -Math.cos(p)) * 0.8);
+    this.knees[1].rotation.x = w * (0.1 + Math.max(0, Math.cos(p)) * 0.8);
+    this.shoulders[0].rotation.set(sway(0) - s * 0.5, 0, 0);
+    this.shoulders[1].rotation.set(sway(1) + s * 0.5, 0, 0);
+    this.elbows.forEach((e) => (e.rotation.x = -0.15 - 0.2 * w));
+    if (this.carry) {
+      this.elbows[0].rotation.x = -0.6;
+      this.shoulders[0].rotation.x = -0.15 * w;
+    }
+    if (this.umbrellaOn) this.holdUmbrella();
+    this.root.position.y = Math.abs(Math.cos(p)) * 0.05 * w;
   }
 
   wave(t) {
