@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 
 // Small helpers shared by the features.

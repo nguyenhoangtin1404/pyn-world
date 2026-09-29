@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 
@@ -10,13 +11,14 @@ import { WATER_Y } from '../config.js';
 //   and upright cylinders {x, z, r, y0, y1}; tree crowns and rocks come from `colliders`
 // - surfaces: extra ground to walk on — (x, z) → height, or -Infinity (platforms, house floors)
 export class Site {
-  constructor({ cfg, track, heightAt, tunnel, station }) {
+  // `yards`: points kept clear around the stops with a yard (cfg.stops[].yard).
+  constructor({ cfg, track, heightAt, tunnel, yards }) {
     this.size = cfg.size;
     this.riverX = cfg.riverX;
     this.track = track;
     this.heightAt = heightAt;
     this.tunnel = tunnel;
-    this.station = station;
+    this.yards = yards;
     this.obstacles = [];
     this.colliders = [];
     this.solids = [];
@@ -24,17 +26,17 @@ export class Site {
   }
 
   // Ground height at (x, z) if something may be put there, else null: inside the diorama, not
-  // under the tunnel hill, dry and not too high, clear of the track, the river, the station yard
+  // under the tunnel hill, dry and not too high, clear of the track, the river, the station yards
   // and every obstacle so far.
   spotOK(x, z, clearTrack = 8) {
-    const { size, tunnel, track, station } = this;
+    const { size, tunnel, track, yards } = this;
     if (Math.abs(x) > size / 2 - 15 || Math.abs(z) > size / 2 - 15) return null;
     if (tunnel?.footprint(x, z)) return null; // under the tunnel hill
     const h = this.heightAt(x, z);
     if (h < WATER_Y + 0.9 || h > 46) return null;
     if (track.distanceTo(x, z, clearTrack) < clearTrack) return null;
     if (Math.abs(x - this.riverX(z)) < 17) return null;
-    if (Math.hypot(x - station.p.x, z - station.p.z) < 30) return null;
+    for (const p of yards) if (Math.hypot(x - p.x, z - p.z) < 30) return null;
     for (const [ox, oz, r] of this.obstacles) if (Math.hypot(x - ox, z - oz) < r) return null;
     return h;
   }

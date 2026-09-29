@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { TRACK_Y } from '../config.js';
 import { sweep } from '../world/track.js';

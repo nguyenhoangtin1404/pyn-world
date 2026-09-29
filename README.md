@@ -6,6 +6,7 @@ Thung lũng low-poly có đoàn tàu hơi nước chạy vòng, dựng hoàn to�
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
+npm run check    # kiểm tra kiểu + dựng mọi world và so với golden (lần đầu: npx playwright install chromium)
 ```
 
 ## Cấu trúc
@@ -15,9 +16,12 @@ npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
 | `src/main.js` | App: renderer, camera, loading screen, vòng lặp frame, phím tắt, đổi world (phím N) |
 | `src/World.js` | Một thế giới hoàn chỉnh dựng từ 1 WorldConfig: scene riêng (cả trời, đèn, sương mù), lõi (ray, địa hình, hầm, cầu, trời, thời tiết) + các feature trong config; vòng lặp chung cho mọi system (`update` / `lateUpdate`), `dispose` |
 | `src/features/` | Những gì đặt vào một world, bật/tắt bằng `cfg.features`: `station` (ga chính), `village` (làng), `halt` (trạm dừng + khu phố), `windmill`, `sheep`, `trees` (cây/hoa/đá), `clouds`, `train`, `fish`, `boats`, `balloons`, `villagers` (dân làng/dân phố đi lại, đi tàu), `birds`, `hikers` (đường mòn + người leo núi). Dịch vụ dùng chung: `lamps.js` (đèn ban đêm), `houses.js` (nhà rỗng, cửa tự mở, khói ống khói), `platform.js` (sân ga), `waterlife.js` (gợn nước) |
+| `src/features/villagers/` | Phần của dân làng: `areas.js` (lưới dẫn đường + chỗ đến ở mỗi trạm), `riding.js` (lên/xuống tàu), `kids.js` (trẻ em đi theo bố mẹ) |
+| `src/types.d.ts` | Hợp đồng giữa App, World và feature (`WorldConfig`, `StopConfig`, `System`, `Frame`, `Feature`…), dùng qua JSDoc; `tsc` kiểm tra các file có `// @ts-check` |
+| `scripts/check.mjs` | `npm run check`: dựng mọi world trong Chromium không giao diện, so với `scripts/golden/`, tua nhanh mô phỏng, đổi world, thử tổ hợp feature |
 | `src/world/site.js` | "Cái gì ở đâu" trong một world: vật cản khi đặt đồ, collider cho người đi vòng, khối chắn tầm nhìn camera, mặt đi được (sân ga, sàn nhà) |
 | `src/world/walker.js` | Người đi theo waypoint (dáng đi theo quãng đường), dùng cho dân làng và người leo núi |
-| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE); `index.js` liệt kê chúng. Mở thẳng một world bằng `?world=<id>` |
+| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm); `index.js` liệt kê chúng. Mở thẳng một world bằng `?world=<id>` |
 | `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |
 | `src/world/water.js` | Mặt nước: sóng, dòng chảy trên sông (vệt bọt trôi xuôi) và lá trôi — tất cả chạy trong shader |

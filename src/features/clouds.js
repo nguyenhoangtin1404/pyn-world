@@ -1,7 +1,9 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Clouds drifting across the valley, greying over in rain or snow. Options: count (16).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang thổi mây',
   build(world, { rng, count = 16 }) {

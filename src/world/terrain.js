@@ -148,8 +148,8 @@ function buildPlinth(size, name) {
   return g;
 }
 
-// Flat plateaus for the village (inward from the station) and the town (inward from the halt),
-// level with the railway. `a` runs inward (away from the track), `b` along the track.
+// Flat plateau for the houses by a stop (a village, a town), inward from the track and level with
+// the railway. `a` runs inward (away from the track), `b` along the track.
 export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
   const sg = Math.sign(station.side.dot(station.p)) || 1;
   const inward = station.side.clone().multiplyScalar(-sg).setY(0).normalize();
@@ -173,13 +173,17 @@ export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
   };
 }
 
-export function createTerrain(cfg, track, station, halt) {
+// `stops`: the world's stops with their track frames (World.stops). Each stop with a `zone` gets a
+// flat plateau for its houses (terrain.zones[stop id]); each with a `yard` a flat yard around it.
+export function createTerrain(cfg, track, stops) {
   const { riverX, size } = cfg;
   const { hills, rim: [rim0, rim1], mountains: [mBase, mNoise], offset: [ox, oz] } = cfg.terrain;
   // One grid cell every ~3 units, whatever the size of the world.
   const segments = Math.round(size / 3);
-  const village = villageZone(station, cfg.station.zone);
-  const town = villageZone(halt, cfg.halt.zone);
+  const zones = {};
+  for (const st of stops) if (st.zone) zones[st.id] = villageZone(st.frame, st.zone);
+  const plateaus = Object.values(zones);
+  const yards = stops.filter((st) => st.yard).map((st) => st.frame.p);
   function heightAt(x, z) {
     const r = Math.hypot(x, z);
     let h = 2 + fbm(x + ox, z + oz) * hills;
@@ -191,12 +195,17 @@ export function createTerrain(cfg, track, station, halt) {
     // Flatten a corridor for the railway (but let the river cut through → bridges)
     const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z, 22))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
-    // Village plateau: dead flat inside, blending back into the hills over ~18 units.
-    const plateau = (1 - smoothstep(0, 18, Math.min(village.outside(x, z), town.outside(x, z)))) * (1 - river);
+    // Village plateaus: dead flat inside, blending back into the hills over ~18 units.
+    let outside = Infinity;
+    for (const zone of plateaus) outside = Math.min(outside, zone.outside(x, z));
+    const plateau = (1 - smoothstep(0, 18, outside)) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, plateau);
-    // Station yard
-    const pad = (1 - smoothstep(16, 34, Math.hypot(x - station.p.x, z - station.p.z))) * (1 - river);
-    return lerp(h, TRACK_Y - 0.4, pad);
+    // Station yards
+    for (const p of yards) {
+      const pad = (1 - smoothstep(16, 34, Math.hypot(x - p.x, z - p.z))) * (1 - river);
+      h = lerp(h, TRACK_Y - 0.4, pad);
+    }
+    return h;
   }
 
   const grid = new THREE.PlaneGeometry(size, size, segments, segments);
@@ -244,8 +253,7 @@ export function createTerrain(cfg, track, station, halt) {
     water: water.group,
     frame,
     heightAt,
-    village,
-    town,
+    zones, // stop id → villageZone(), for the stops with houses
     setSnow(amount) {
       groundMat.userData.snow.value = amount;
     },

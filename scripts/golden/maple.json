@@ -1,0 +1,32 @@
+{
+  "meshes": 359,
+  "geometry": "64509e1f",
+  "instances": "9242962f",
+  "colliders": 1656,
+  "stations": [
+    "vale",
+    "mill",
+    "peak"
+  ],
+  "people": 32,
+  "followables": [
+    38,
+    22
+  ],
+  "spots": {
+    "courting": [
+      -71.16,
+      -62.55
+    ],
+    "bridgeSheep": [
+      17.46,
+      76.2
+    ],
+    "summit": [
+      -216.76,
+      -167.33
+    ]
+  },
+  "drawCalls": 270,
+  "programs": 35
+}

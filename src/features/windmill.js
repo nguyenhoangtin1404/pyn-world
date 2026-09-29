@@ -1,9 +1,11 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { box, cyl, cone, shape, VERTEX_COLORED } from '../world/lowpoly.js';
 import { shadowed } from './common.js';
 
 // A windmill on the highest free spot near the middle of the valley; only its sails turn.
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang dựng cối xay gió',
   build(world, { rng }) {

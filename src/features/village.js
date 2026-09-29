@@ -1,16 +1,22 @@
+// @ts-check
 import { houses } from './houses.js';
 
-// Houses scattered over the flat plateau inward from the station (terrain.village, cfg.station.zone),
-// square to the world axes and turned towards the station. Their people belong to the station stop.
-// Options: count (houses, default 14).
+// Houses scattered over the flat plateau inward from a station (its zone in cfg.stops), square to
+// the world axes and turned towards the station. Their people belong to that stop.
+// Options: stop (id; by default the station built just before), count (houses, 14).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang dựng làng',
-  build(world, { rng, count = 14 }) {
+  needs: [['station', 'halt']], // its houses belong to a stop
+  build(world, { rng, stop: stopId = world.stations.at(-1)?.id, count = 14 }) {
     const { site, heightAt, terrain } = world;
-    const f0 = world.station;
+    const station = world.stationById(stopId);
+    world.need(`một ga đã dựng ("station")${stopId ? ` ở điểm dừng "${stopId}"` : ''}`, 'village', station);
+    const village = terrain.zones[station.id];
+    world.need(`một khu đất phẳng (zone) cho điểm dừng "${station.id}" trong cfg.stops`, 'village', village);
+    const f0 = station.frame;
     const { build } = houses(world);
-    const homes = world.stationById('station')?.homes ?? [];
-    const village = terrain.village;
+    const { homes } = station;
     let built = 0;
     for (let tries = 0; built < count && tries < 800; tries++) {
       const a = village.A0 + 6 + rng() * (village.A1 - village.A0 - 12);

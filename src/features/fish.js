@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WATER_Y } from '../config.js';
@@ -123,6 +124,7 @@ class Fish {
   }
 }
 
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang thả cá',
   build(world, { rng, count = 26 }) {
