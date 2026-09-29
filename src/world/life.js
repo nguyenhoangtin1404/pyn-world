@@ -134,6 +134,9 @@ class Fish {
 }
 
 // ---------------------------------------------------------------- people
+// Walk-cycle radians per metre walked for an adult (scale 0.85): one stride ≈ 0.9 m.
+const STEPS_PER_METRE = 7;
+
 // A person walking along waypoints, pausing at stops. The figure itself lives in people.js.
 class Walker {
   constructor(rng, heightAt, { kind = 'villager', speed = 1.4 } = {}) {
@@ -144,6 +147,8 @@ class Walker {
     this.pos = new THREE.Vector3();
     this.heading = 0;
     this.speed = speed * (0.85 + rng() * 0.3);
+    this.pace = this.speed; // current speed, eased so slopes don't make it jump at each waypoint
+    this.gait = 0; // walk-cycle phase, advanced by distance actually covered
     this.pause = 0;
     this.waving = false;
   }
@@ -166,16 +171,21 @@ class Walker {
     const dz = target.z - this.pos.z;
     const d = Math.hypot(dx, dz);
     this.heading = turnToward(this.heading, Math.atan2(dx, dz), Math.min(1, dt * 5));
-    let sp = this.speed;
+    let want = this.speed;
     if (slowOnSlope) {
       const rise = Math.abs(this.heightAt(target.x, target.z) - this.pos.y) / Math.max(d, 0.5);
-      sp *= clamp(1 - rise * 0.6, 0.4, 1);
+      want *= clamp(1 - rise * 0.6, 0.4, 1);
     }
-    const s = Math.min(d, sp * dt);
+    this.pace += (want - this.pace) * Math.min(1, dt * 2);
+    const s = Math.min(d, this.pace * dt);
     this.pos.x += (dx / (d || 1)) * s;
     this.pos.z += (dz / (d || 1)) * s;
     this.sync();
-    this.person.walk(t * 7 * sp + this.person.phase);
+    // The legs follow the ground covered, like real steps: slow when crawling up a slope or
+    // edging to a stop, never flailing. (It used to be time × speed, so any speed change made the
+    // phase leap by elapsed-seconds × Δspeed.) Smaller people take more steps per metre.
+    this.gait += (s * STEPS_PER_METRE * 0.85) / this.group.scale.x;
+    this.person.walk(this.gait + this.person.phase);
     return d < 0.3;
   }
 
