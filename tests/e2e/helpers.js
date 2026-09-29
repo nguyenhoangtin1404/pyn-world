@@ -48,7 +48,8 @@ export function fingerprint() {
   };
   const r = window.__pyn.renderer;
   const spots = {};
-  for (const k of ['courting', 'bridgeSheep', 'summit']) if (W.spots[k]) spots[k] = [W.spots[k].x, W.spots[k].z].map((v) => +v.toFixed(2));
+  // Spots that stay put (the steamer moves; the rowboat only bobs on its spot).
+  for (const k of ['courting', 'bridgeSheep', 'summit', 'fisherman']) if (W.spots[k]) spots[k] = [W.spots[k].x, W.spots[k].z].map((v) => +v.toFixed(2));
   return {
     meshes,
     geometry: hash([...geos].map((g) => `${g.attributes.position.count}:${sum(g.attributes.position.array).toFixed(2)}`)),
