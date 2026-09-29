@@ -133,7 +133,34 @@ function buildPlinth() {
   return g;
 }
 
+// The village sits on a flat plateau inward from the station, at the same height as the station
+// yard and the railway corridor. `a` runs inward (away from the track), `b` along the track.
+export function villageZone(station) {
+  const sg = Math.sign(station.side.dot(station.p)) || 1;
+  const inward = station.side.clone().multiplyScalar(-sg).setY(0).normalize();
+  const along = station.t.clone().setY(0).normalize();
+  const A0 = 30, A1 = 95, HALF_B = 66;
+  const local = (x, z) => {
+    const dx = x - station.p.x, dz = z - station.p.z;
+    return { a: dx * inward.x + dz * inward.z, b: dx * along.x + dz * along.z };
+  };
+  return {
+    inward,
+    along,
+    A0,
+    A1,
+    HALF_B,
+    local,
+    // Distance outside the plateau's rectangle (≤ 0 inside).
+    outside(x, z) {
+      const { a, b } = local(x, z);
+      return Math.max(A0 - a, a - A1, Math.abs(b) - HALF_B);
+    },
+  };
+}
+
 export function createTerrain(track, station) {
+  const village = villageZone(station);
   function heightAt(x, z) {
     const r = Math.hypot(x, z);
     let h = 2 + fbm(x, z) * 22;
@@ -145,8 +172,11 @@ export function createTerrain(track, station) {
     // Flatten a corridor for the railway (but let the river cut through → bridges)
     const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
+    // Village plateau: dead flat inside, blending back into the hills over ~18 units.
+    const plateau = (1 - smoothstep(0, 18, village.outside(x, z))) * (1 - river);
+    h = lerp(h, TRACK_Y - 0.4, plateau);
     // Station yard
-    const pad = (1 - smoothstep(16, 34, Math.hypot(x - station.x, z - station.z))) * (1 - river);
+    const pad = (1 - smoothstep(16, 34, Math.hypot(x - station.p.x, z - station.p.z))) * (1 - river);
     return lerp(h, TRACK_Y - 0.4, pad);
   }
 
@@ -211,6 +241,7 @@ export function createTerrain(track, station) {
     water,
     frame,
     heightAt,
+    village,
     setSnow(amount) {
       const arr = colorAttr.array;
       for (let i = 0; i < count; i++) {

@@ -288,7 +288,7 @@ export function createLife({ terrain, track, scenery, train }) {
   // Villagers walking between houses and the station platform, routed around obstacles.
   const walkHeight = scenery.walkHeight;
   const rawStops = [
-    ...scenery.homes.map((p) => ({ p, face: null })),
+    ...scenery.homes.map((p) => ({ p, face: null, indoor: true })),
     ...scenery.platformSpots.map((p) => {
       // Stand facing the track while waiting for the train.
       let best = null, bd = Infinity;
@@ -338,8 +338,9 @@ export function createLife({ terrain, track, scenery, train }) {
       for (let tries = 0; tries < 4; tries++) {
         const stop = pickStop(w.stop);
         // Don't all stand on the exact same spot: pick a free place a little around the stop.
-        const a = rng() * Math.PI * 2, r = 0.6 + rng() * 1.6;
-        let goal = nav.nearestFree(stop.p.x + Math.cos(a) * r, stop.p.z + Math.sin(a) * r, 2);
+        // Indoors the spread stays small, so the goal doesn't end up outside behind a wall.
+        const a = rng() * Math.PI * 2, r = stop.indoor ? rng() * 0.8 : 0.6 + rng() * 1.6;
+        let goal = nav.nearestFree(stop.p.x + Math.cos(a) * r, stop.p.z + Math.sin(a) * r, stop.indoor ? 1 : 2);
         if (!goal || nav.regionAt(goal.x, goal.z) !== nav.regionAt(stop.p.x, stop.p.z)) goal = stop.p;
         const path = nav.findPath(w.pos, goal);
         if (path && path.length) {
@@ -484,7 +485,7 @@ export function createLife({ terrain, track, scenery, train }) {
       onTrainArrived();
     }
     for (const w of villagers) {
-      w.person.setUmbrella(rainy);
+      w.person.setUmbrella(rainy && !scenery.isIndoors(w.pos.x, w.pos.z));
       if (trainStep(w, dt, t)) continue;
       if (w.pause > 0) {
         w.pause -= dt;
@@ -502,13 +503,13 @@ export function createLife({ terrain, track, scenery, train }) {
         w.pi++;
         if (w.pi >= w.path.length) {
           w.path = null;
-          w.pause = w.stop.face != null ? 6 + rng() * 10 : 2 + rng() * 6;
+          w.pause = w.stop.face != null ? 6 + rng() * 10 : 4 + rng() * 8; // a while on the platform or at home
         }
       }
     }
     for (const k of kids) {
       const p = k.parent;
-      k.person.setUmbrella(rainy);
+      k.person.setUmbrella(rainy && !scenery.isIndoors(k.pos.x, k.pos.z));
       // On the train with the parent: hidden while riding, stepping through the door right behind them.
       if (p.mode === 'riding' || p.mode === 'waitAlight') {
         k.group.visible = false;
