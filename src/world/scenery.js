@@ -5,6 +5,7 @@ import { mulberry32 } from '../utils.js';
 import { fbm, riverX } from './terrain.js';
 import { sweep } from './track.js';
 import { lam, box, ball, cyl, cone, prism, shape, Instancer, StaticBatch, VERTEX_COLORED } from './lowpoly.js';
+import { Smoke } from './particles.js';
 
 function shadowed(obj) {
   obj.traverse((o) => {
@@ -145,7 +146,7 @@ class Sheep {
   }
 }
 
-export function buildScenery({ track, terrain, bridges, station, tunnel }) {
+export function buildScenery({ track, terrain, bridges, station, halt, tunnel }) {
   const rng = mulberry32(SEED);
   const heightAt = terrain.heightAt;
   const group = new THREE.Group();
@@ -177,47 +178,76 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     return h;
   }
 
-  // ---------- Station ----------
-  // The platform runs from the track edge right up to the building, with a ramp at each end so
-  // people can walk up. PLAT_* are frame offsets from the station frame.
+  // ---------- Platforms ----------
+  // A platform runs along the track on one side (sgn = ±1 along frame.side) of frame k0, with a
+  // ramp at each end so people can walk up. Offsets are in track frames (~1 unit each).
   const M = track.frames.length;
   const PLAT_HALF = 18;
   const RAMP = 6;
-  const PLAT_IN = 2.2, PLAT_OUT = 7.95;
+  const PLAT_IN = 2.2;
   const PLAT_TOP = 1.0; // relative to TRACK_Y
   const GROUND = -0.4;
   const platMat = lam('#d8c7a6', { side: THREE.DoubleSide });
-  const a0 = PLAT_IN * sg, a1 = PLAT_OUT * sg;
-  const slabAt = (top) => [[a0, -0.6], [a1, -0.6], [a1, top], [a0, top]];
-  group.add(shadowed(new THREE.Mesh(sweep(track.frames, M - PLAT_HALF, PLAT_HALF * 2 + 1, slabAt(PLAT_TOP), TRACK_Y), platMat)));
-  group.add(new THREE.Mesh(sweep(track.frames, M - PLAT_HALF, PLAT_HALF * 2 + 1, [[a0, 1.0], [2.7 * sg, 1.0], [2.7 * sg, 1.04], [a0, 1.04]], TRACK_Y), lam('#f2c14e', { side: THREE.DoubleSide })));
-  const rampTop = (k) => PLAT_TOP + (GROUND - PLAT_TOP) * (k / RAMP);
-  group.add(shadowed(new THREE.Mesh(sweep(track.frames, PLAT_HALF, RAMP + 1, (i) => slabAt(rampTop(i)), TRACK_Y), platMat)));
-  group.add(shadowed(new THREE.Mesh(sweep(track.frames, M - PLAT_HALF - RAMP, RAMP + 1, (i) => slabAt(rampTop(RAMP - i)), TRACK_Y), platMat)));
+  const edgeMat = lam('#f2c14e', { side: THREE.DoubleSide });
+  const platforms = [];
+  function buildPlatform(k0, sgn, pout) {
+    const a0 = PLAT_IN * sgn, a1 = pout * sgn;
+    const slabAt = (top) => [[a0, -0.6], [a1, -0.6], [a1, top], [a0, top]];
+    const start = (k) => (((k0 + k) % M) + M) % M;
+    group.add(shadowed(new THREE.Mesh(sweep(track.frames, start(-PLAT_HALF), PLAT_HALF * 2 + 1, slabAt(PLAT_TOP), TRACK_Y), platMat)));
+    group.add(new THREE.Mesh(sweep(track.frames, start(-PLAT_HALF), PLAT_HALF * 2 + 1, [[a0, 1.0], [2.7 * sgn, 1.0], [2.7 * sgn, 1.04], [a0, 1.04]], TRACK_Y), edgeMat));
+    const rampTop = (k) => PLAT_TOP + (GROUND - PLAT_TOP) * (k / RAMP);
+    group.add(shadowed(new THREE.Mesh(sweep(track.frames, start(PLAT_HALF), RAMP + 1, (i) => slabAt(rampTop(i)), TRACK_Y), platMat)));
+    group.add(shadowed(new THREE.Mesh(sweep(track.frames, start(-PLAT_HALF - RAMP), RAMP + 1, (i) => slabAt(rampTop(RAMP - i)), TRACK_Y), platMat)));
 
-  // Walkable height of the platform/ramps at (x, z), or -Infinity when off the platform.
-  const stationFrames = [];
-  for (let k = -PLAT_HALF - RAMP; k <= PLAT_HALF + RAMP; k++) stationFrames.push({ k, f: track.frame(k) });
-  function platformHeight(x, z) {
-    if (Math.hypot(x - f0.p.x, z - f0.p.z) > PLAT_HALF + RAMP + PLAT_OUT + 2) return -Infinity;
-    let best = null, bd = Infinity;
-    for (const sf of stationFrames) {
-      const d = (sf.f.p.x - x) ** 2 + (sf.f.p.z - z) ** 2;
-      if (d < bd) {
-        bd = d;
-        best = sf;
+    const fc = track.frame(k0);
+    const frames = [];
+    for (let k = -PLAT_HALF - RAMP; k <= PLAT_HALF + RAMP; k++) frames.push({ k, f: track.frame(k0 + k) });
+    const reach = PLAT_HALF + RAMP + pout + 2;
+    // Walkable height of the platform/ramps at (x, z), or -Infinity when off the platform.
+    function height(x, z) {
+      if (Math.abs(x - fc.p.x) > reach || Math.abs(z - fc.p.z) > reach) return -Infinity;
+      let best = null, bd = Infinity;
+      for (const sf of frames) {
+        const d = (sf.f.p.x - x) ** 2 + (sf.f.p.z - z) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = sf;
+        }
       }
+      const f = best.f;
+      const s = ((x - f.p.x) * f.side.x + (z - f.p.z) * f.side.z) * sgn;
+      if (s < PLAT_IN || s > pout) return -Infinity;
+      // Continuous position along the platform (frames are ~1 unit apart) so the ramp is smooth.
+      const along = best.k + ((x - f.p.x) * f.t.x + (z - f.p.z) * f.t.z) * (M / track.length);
+      const ak = Math.abs(along);
+      if (ak <= PLAT_HALF) return TRACK_Y + PLAT_TOP;
+      if (ak <= PLAT_HALF + RAMP) return TRACK_Y + rampTop(ak - PLAT_HALF);
+      return -Infinity;
     }
-    const f = best.f;
-    const s = ((x - f.p.x) * f.side.x + (z - f.p.z) * f.side.z) * sg;
-    if (s < PLAT_IN || s > PLAT_OUT) return -Infinity;
-    // Continuous position along the platform (frames are ~1 unit apart) so the ramp is smooth.
-    const along = best.k + ((x - f.p.x) * f.t.x + (z - f.p.z) * f.t.z) * (M / track.length);
-    const ak = Math.abs(along);
-    if (ak <= PLAT_HALF) return TRACK_Y + PLAT_TOP;
-    if (ak <= PLAT_HALF + RAMP) return TRACK_Y + rampTop(ak - PLAT_HALF);
-    return -Infinity;
+    const pl = {
+      frame: fc,
+      out: fc.side.clone().multiplyScalar(sgn), // horizontal direction from the track to the platform
+      height,
+      // Random spot on the platform floor (u along, v across, both 0..1).
+      point: (u, v) => {
+        const f = track.frame(k0 + Math.round(-15 + u * 30));
+        return f.p.clone().addScaledVector(f.side, (2.9 + v * (pout - 3.35)) * sgn).setY(TRACK_Y + PLAT_TOP);
+      },
+      // Places where people wait for the train (between benches and posts).
+      spots: (ks, off) => ks.map((k) => {
+        const f = track.frame(k0 + k);
+        return f.p.clone().addScaledVector(f.side, off * sgn).setY(TRACK_Y + PLAT_TOP);
+      }),
+    };
+    platforms.push(pl);
+    return pl;
   }
+  const platformHeight = (x, z) => Math.max(...platforms.map((pl) => pl.height(x, z)));
+
+  // ---------- Station ----------
+  const PLAT_OUT = 7.95;
+  const mainPlat = buildPlatform(0, sg, PLAT_OUT);
 
   // Static footprints people must walk around: circles {x, z, r} and boxes {x, z, w, d, rot}.
   const colliders = [];
@@ -272,10 +302,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   group.add(st);
 
   // Random spots on the platform floor / canopy roof (u along, v across, both 0..1) — for pigeons.
-  const platformPoint = (u, v) => {
-    const f = track.frame(Math.round(-15 + u * 30));
-    return f.p.clone().addScaledVector(f.side, (2.9 + v * 4.6) * sg).setY(TRACK_Y + PLAT_TOP);
-  };
+  const platformPoint = mainPlat.point;
   const canopyPoint = (u, v) => {
     const w = stWorld(ox * (2.4 + v * 3.6), -10 + u * 20);
     return new THREE.Vector3(w.x, TRACK_Y + 4.6 + 0.125, w.z);
@@ -293,6 +320,13 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   const FLOOR = 0.12; // floor top above the ground outside
   const DOOR_W = 1.8, DOOR_H = 2.3;
   const houseList = []; // {x, z, y, w, d, cos, sin} — for floor height and "indoors"
+  // Door leaves swing, so they aren't baked: every leaf in the valley is one instance of the same
+  // InstancedMesh, following an anchor on its hinge (rotation.y = how far open).
+  const DOOR_COLORS = ['#6b4a33', '#4f6d8f', '#7a3b35', '#3f6b4a', '#8a6038'];
+  const doorLeaves = new Instancer(box(DOOR_W / 2 - 0.04, DOOR_H - 0.04, 0.08, '#ffffff', [DOOR_W / 4, (DOOR_H - 0.04) / 2, 0]), VERTEX_COLORED, 96);
+  group.add(doorLeaves.mesh);
+  const doors = []; // {x, y, z, open, leaves: [left, right]}
+  const chimneys = []; // world positions of chimney tops, for the evening smoke
   const houseLocal = (hs, x, z) => {
     const dx = x - hs.x, dz = z - hs.z;
     return { lx: dx * hs.cos - dz * hs.sin, lz: dx * hs.sin + dz * hs.cos };
@@ -307,7 +341,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   };
 
   // Adds a house to the batch at (x, h, z) facing +z rotated by `rot`; front (door) is local +z.
-  function makeHouse(x, h, z, rot, w, d, floors) {
+  function makeHouse(x, h, z, rot, w, d, floors, { shop = false } = {}) {
     const wall = walls[Math.floor(rng() * walls.length)];
     const roofC = roofs[Math.floor(rng() * roofs.length)];
     const top = FLOOR + floors * STOREY; // top of the walls
@@ -328,10 +362,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
       box(side, hgt, T, wall, [-(DOOR_W + side) / 2, mid, d / 2 - T / 2]),
       box(side, hgt, T, wall, [(DOOR_W + side) / 2, mid, d / 2 - T / 2]),
       box(DOOR_W, top - FLOOR - DOOR_H, T, wall, [0, (top + FLOOR + DOOR_H) / 2, d / 2 - T / 2]),
-      // Door frame and the two leaves, swung open inward against the frame.
-      box(DOOR_W + 0.3, 0.16, T + 0.08, WOOD_DARK, [0, FLOOR + DOOR_H + 0.08, d / 2 - T / 2]),
-      box(0.08, DOOR_H, 0.8, WOOD_DARK, [-DOOR_W / 2 + 0.04, FLOOR + DOOR_H / 2, d / 2 - T - 0.4]),
-      box(0.08, DOOR_H, 0.8, WOOD_DARK, [DOOR_W / 2 - 0.04, FLOOR + DOOR_H / 2, d / 2 - T - 0.4]),
+      box(DOOR_W + 0.3, 0.16, T + 0.08, WOOD_DARK, [0, FLOOR + DOOR_H + 0.08, d / 2 - T / 2]), // lintel
       box(DOOR_W + 0.6, 0.06, 1.0, STONE, [0, 0.03, d / 2 + 0.5]), // doorstep
     ]);
     block(0, -d / 2 + T / 2, w, T);
@@ -339,8 +370,27 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     block(w / 2 - T / 2, 0, T, d);
     block(-(DOOR_W + side) / 2, d / 2 - T / 2, side, T);
     block((DOOR_W + side) / 2, d / 2 - T / 2, side, T);
-    block(-DOOR_W / 2 + 0.04, d / 2 - T - 0.4, 0.08, 0.8);
-    block(DOOR_W / 2 - 0.04, d / 2 - T - 0.4, 0.08, 0.8);
+    // Where the leaves end up when open (they swing inward), so nobody walks into them.
+    // (Thin on purpose: with the nav padding the doorway must stay over one grid cell wide.)
+    block(-DOOR_W / 2 + 0.04, d / 2 - T - 0.45, 0.08, 0.9);
+    block(DOOR_W / 2 - 0.04, d / 2 - T - 0.45, 0.08, 0.9);
+
+    // Double door: hinges on the jambs; the right leaf is the left one turned round.
+    const hinge = new THREE.Group();
+    hinge.position.set(x, h, z);
+    hinge.rotation.y = rot;
+    group.add(hinge);
+    const doorColor = DOOR_COLORS[Math.floor(rng() * DOOR_COLORS.length)];
+    const leaves = [-1, 1].map((sd) => {
+      const leaf = new THREE.Object3D();
+      leaf.position.set((sd * DOOR_W) / 2, FLOOR + 0.02, d / 2 - T / 2);
+      leaf.rotation.y = sd < 0 ? 0 : Math.PI;
+      hinge.add(leaf);
+      doorLeaves.add(leaf, doorColor);
+      return leaf;
+    });
+    const dc = world(0, d / 2);
+    doors.push({ x: dc.x, y: h + FLOOR, z: dc.z, open: 0, leaves });
 
     // Windows go right through the wall, so they show (and glow at night) inside and out.
     for (let k = 0; k < floors; k++) {
@@ -400,8 +450,17 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
       prism(w + 0.8, 2.0, d + 0.6, roofC, [0, top, 0]),
       box(0.6, 1.6, 0.6, '#8a7a6a', [w * 0.25, top + 1.2, -d * 0.15]),
     ]);
-    // Lamp over the door.
-    batch.add(shape(new THREE.SphereGeometry(0.16, 6, 4), '#fff4d6', [0, FLOOR + DOOR_H + 0.45, d / 2 + 0.2]), lampMat);
+    if (shop) {
+      // Shopfront: a striped awning over the door and the windows beside it.
+      const awn = [];
+      for (let i = 0; i < 6; i++) awn.push(box(w / 6, 0.08, 1.3, i % 2 ? '#f4ead2' : roofC, [-w / 2 + (i + 0.5) * (w / 6), FLOOR + DOOR_H + 0.55, d / 2 + 0.6], { rx: 0.35 }));
+      batch.add(awn);
+    } else {
+      // Lamp over the door.
+      batch.add(shape(new THREE.SphereGeometry(0.16, 6, 4), '#fff4d6', [0, FLOOR + DOOR_H + 0.45, d / 2 + 0.2]), lampMat);
+    }
+    const ch = world(w * 0.25, -d * 0.15);
+    chimneys.push({ p: new THREE.Vector3(ch.x, h + top + 2.1, ch.z), acc: rng(), rate: 0.9 + rng() * 0.8 });
 
     houseList.push({ x, z, y: h + FLOOR, w, d, cos, sin, r: Math.hypot(w, d) / 2 });
     // Where villagers stand when they're "home": inside, a step in from the door.
@@ -428,6 +487,124 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     obstacles.push([x, z, 11]);
     houses++;
   }
+  // ---------- Halt and town ----------
+  // A second stop on the far side of the loop: a short platform with a shelter, and a town street
+  // leading inward from it, lined with houses and shops (same houses as the village).
+  const hf = halt;
+  const sgH = -(Math.sign(hf.side.dot(hf.p)) || 1); // the town side: towards the middle of the loop
+  const haltPlat = buildPlatform(Math.round((hf.s / track.length) * M), sgH, 6.5);
+  const hRot = Math.atan2(hf.t.x, hf.t.z);
+  const oxH = -sgH; // platform side along the halt's local x
+  const hWorld = (lx, lz) => ({
+    x: hf.p.x + lx * Math.cos(hRot) + lz * Math.sin(hRot),
+    z: hf.p.z - lx * Math.sin(hRot) + lz * Math.cos(hRot),
+  });
+  {
+    const floorH = TRACK_Y + PLAT_TOP;
+    batch.at(hf.p.x, 0, hf.p.z, hRot);
+    batch.add([
+      box(0.14, 2.5, 8.4, '#e8d6b0', [oxH * 6.35, floorH + 1.25, 0]), // back wall
+      box(2.6, 0.18, 9, '#4f6d8f', [oxH * 5.3, floorH + 2.6, 0], { rz: oxH * 0.12 }), // roof, sloping to the back
+      box(0.5, 0.45, 3.2, WOOD, [oxH * 5.95, floorH + 0.225, 0]), // bench
+      box(0.08, 0.5, 3.2, WOOD, [oxH * 6.2, floorH + 0.7, 0]),
+    ]);
+    colliders.push({ ...hWorld(oxH * 6.1, 0), w: 0.9, d: 8.4, rot: hRot });
+    for (const z of [-4, 4]) {
+      batch.add(cyl(0.1, 0.1, 2.6, '#efe3c6', [oxH * 4.3, floorH + 1.3, z], {}, 6));
+      batch.add(shape(new THREE.SphereGeometry(0.22, 8, 6), '#fff4d6', [oxH * 4.3, floorH + 2.35, z]), lampMat);
+      colliders.push({ ...hWorld(oxH * 4.3, z), r: 0.2 });
+    }
+    const hs = new THREE.Group();
+    hs.position.set(hf.p.x, 0, hf.p.z);
+    hs.rotation.y = hRot;
+    const hsign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshLambertMaterial({ map: labelTexture('PYN TOWN') }));
+    hsign.position.set(oxH * 4.2, floorH + 3.3, 0);
+    hsign.rotation.y = -oxH * (Math.PI / 2);
+    const signPosts = new THREE.Mesh(mergeGeometries([-1.4, 1.4].map((z) => cyl(0.05, 0.05, 0.8, '#3a302b', [oxH * 4.25, floorH + 2.9, z], {}, 5))), VERTEX_COLORED);
+    hs.add(hsign, signPosts);
+    group.add(shadowed(hs));
+  }
+
+  // The street runs inward from the halt, square to the world axes like the village houses.
+  const town = terrain.town;
+  const U = Math.abs(town.inward.x) > Math.abs(town.inward.z) ? new THREE.Vector3(Math.sign(town.inward.x), 0, 0) : new THREE.Vector3(0, 0, Math.sign(town.inward.z));
+  const V = new THREE.Vector3(-U.z, 0, U.x);
+  const P0 = hf.p.clone().addScaledVector(town.inward, 13).setY(0);
+  const STREET = 58;
+  const groundH = heightAt(P0.x, P0.z);
+  const cobble = '#b9ab94';
+  // Path from the platform to the street, and the street itself.
+  batch.at(hf.p.x + town.inward.x * 9.5, groundH, hf.p.z + town.inward.z * 9.5, Math.atan2(town.inward.x, town.inward.z));
+  batch.add(box(3.2, 0.04, 7.5, cobble, [0, 0.02, 0]));
+  batch.at(P0.x + U.x * (STREET / 2 - 3), groundH, P0.z + U.z * (STREET / 2 - 3), Math.atan2(U.x, U.z));
+  batch.add(box(4.6, 0.04, STREET, cobble, [0, 0.02, 0]));
+  const townHomes = [];
+  for (let i = 0; i < 5; i++) {
+    for (const side of [-1, 1]) {
+      const c = P0.clone().addScaledVector(U, 5 + i * 11).addScaledVector(V, side * 9.2);
+      const h = spotOK(c.x, c.z, 9);
+      if (h === null) continue;
+      const hw = 5.8 + rng() * 1.2, hd = 5.4 + rng() * 1.0;
+      const floors = rng() < 0.75 ? 2 : 1;
+      const rot = Math.atan2(-side * V.x, -side * V.z); // front door faces the street
+      townHomes.push(makeHouse(c.x, h, c.z, rot, hw, hd, floors, { shop: i < 2 }));
+    }
+    // Street lamps between the houses.
+    for (const side of [-1, 1]) {
+      const l = P0.clone().addScaledVector(U, -0.5 + i * 11).addScaledVector(V, side * 3.0);
+      batch.at(l.x, groundH, l.z, 0);
+      batch.add(cyl(0.07, 0.1, 3.2, '#3a302b', [0, 1.6, 0], {}, 6));
+      batch.add(shape(new THREE.SphereGeometry(0.2, 8, 6), '#fff4d6', [0, 3.3, 0]), lampMat);
+      colliders.push({ x: l.x, z: l.z, r: 0.2 });
+    }
+  }
+  // Keep trees and rocks off the street and the halt.
+  for (let k = 0; k <= STREET; k += 8) {
+    const c = P0.clone().addScaledVector(U, k);
+    obstacles.push([c.x, c.z, 9]);
+  }
+  obstacles.push([hf.p.x, hf.p.z, 26]);
+
+  const stations = [
+    { frame: f0, out, homes, platformSpots: mainPlat.spots([-12, -3, 3, 12], 4.4), point: mainPlat.point },
+    { frame: hf, out: haltPlat.out, homes: townHomes, platformSpots: haltPlat.spots([-13, -8, 8, 13], 3.6), point: haltPlat.point },
+  ];
+
+  // Doors swing open while someone is next to them; chimneys smoke in the evening.
+  let peopleNear = () => [];
+  let evening = 0;
+  const chimneySmoke = new Smoke({ n: 200, color: '#e2ddd5', rise: 1.1, drift: 0.5, grow: 1.7, fade: 0.7 });
+  group.add(chimneySmoke.group);
+  updaters.push((dt) => {
+    if (dt === 0) return;
+    const people = peopleNear();
+    for (const dr of doors) {
+      let near = false;
+      for (const p of people) {
+        if (Math.abs(p.x - dr.x) < 2.4 && Math.abs(p.z - dr.z) < 2.4 && Math.abs(p.y - dr.y) < 2 && (p.x - dr.x) ** 2 + (p.z - dr.z) ** 2 < 5.3) {
+          near = true;
+          break;
+        }
+      }
+      const target = near ? 1 : 0;
+      if (dr.open === target) continue;
+      dr.open = target > dr.open ? Math.min(1, dr.open + dt * 2.8) : Math.max(0, dr.open - dt * 1.4);
+      const a = dr.open * 1.45; // swing inward, not quite flat against the wall
+      dr.leaves[0].rotation.y = a;
+      dr.leaves[1].rotation.y = Math.PI - a;
+    }
+    if (evening > 0.05) {
+      for (const c of chimneys) {
+        c.acc += dt * c.rate * evening;
+        while (c.acc > 1) {
+          c.acc--;
+          chimneySmoke.emit(c.p, 0.45);
+        }
+      }
+    }
+    chimneySmoke.update(dt);
+  });
+
   // Ground people stand on: terrain, the platform and its ramps, or a house floor.
   const walkHeight = (x, z) => Math.max(heightAt(x, z), platformHeight(x, z), insideHouse(x, z)?.y ?? -Infinity);
 
@@ -635,14 +812,19 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     spots: { courting, bridgeSheep: bridgeSheepPos || courting },
     homes,
     // Places on the platform where people wait for the train (between benches and posts).
-    platformSpots: [-12, -3, 3, 12].map((k) => {
-      const f = track.frame(k);
-      return f.p.clone().addScaledVector(f.side, 4.4 * sg).setY(TRACK_Y + PLAT_TOP);
-    }),
+    platformSpots: stations[0].platformSpots,
+    // Each stop the train calls at, with the houses around it: the village by the station and the
+    // town by the halt. Villagers get off at one and go about their day there.
+    stations,
     obstacles,
     colliders,
     walkHeight,
     isIndoors: (x, z) => !!insideHouse(x, z),
+    doors, // {x, y, z, open 0..1}
+    // Who the doors react to: a function returning current positions (life.js sets it).
+    setPeople(fn) {
+      peopleNear = fn;
+    },
     platformPoint,
     canopyPoint,
     outward: out, // horizontal direction from the track towards the platform
@@ -651,6 +833,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
       for (const u of updaters) u(dt, time);
     },
     setLights(l) {
+      evening = Math.min(1, l * 2);
       windowMat.emissiveIntensity = l * 1.3;
       lampMat.emissiveIntensity = l * 2;
       for (const L of lamps) L.intensity = l * 18;

@@ -133,13 +133,12 @@ function buildPlinth() {
   return g;
 }
 
-// The village sits on a flat plateau inward from the station, at the same height as the station
-// yard and the railway corridor. `a` runs inward (away from the track), `b` along the track.
-export function villageZone(station) {
+// Flat plateaus for the village (inward from the station) and the town (inward from the halt),
+// level with the railway. `a` runs inward (away from the track), `b` along the track.
+export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
   const sg = Math.sign(station.side.dot(station.p)) || 1;
   const inward = station.side.clone().multiplyScalar(-sg).setY(0).normalize();
   const along = station.t.clone().setY(0).normalize();
-  const A0 = 30, A1 = 95, HALF_B = 66;
   const local = (x, z) => {
     const dx = x - station.p.x, dz = z - station.p.z;
     return { a: dx * inward.x + dz * inward.z, b: dx * along.x + dz * along.z };
@@ -159,8 +158,9 @@ export function villageZone(station) {
   };
 }
 
-export function createTerrain(track, station) {
+export function createTerrain(track, station, halt) {
   const village = villageZone(station);
+  const town = villageZone(halt, { A0: 2, A1: 64, HALF_B: 34 });
   function heightAt(x, z) {
     const r = Math.hypot(x, z);
     let h = 2 + fbm(x, z) * 22;
@@ -173,7 +173,7 @@ export function createTerrain(track, station) {
     const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
     // Village plateau: dead flat inside, blending back into the hills over ~18 units.
-    const plateau = (1 - smoothstep(0, 18, village.outside(x, z))) * (1 - river);
+    const plateau = (1 - smoothstep(0, 18, Math.min(village.outside(x, z), town.outside(x, z)))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, plateau);
     // Station yard
     const pad = (1 - smoothstep(16, 34, Math.hypot(x - station.p.x, z - station.p.z))) * (1 - river);
@@ -242,6 +242,7 @@ export function createTerrain(track, station) {
     frame,
     heightAt,
     village,
+    town,
     setSnow(amount) {
       const arr = colorAttr.array;
       for (let i = 0; i < count; i++) {

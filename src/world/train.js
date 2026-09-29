@@ -57,7 +57,9 @@ export class Train {
     this.events = { chuff() {}, clack() {}, whistle() {} };
     this.stopTime = 0;
     this.closeTime = 0;
-    this.stopId = 0; // increments on every arrival at the station
+    this.stopId = 0; // increments on every arrival at a stop
+    this.stops = [{ s: stationS, out: null }]; // see setStops()
+    this.stopIndex = 0; // which stop the train is at / last left
     this.doorOpen = 0; // 0 = shut, 1 = fully open
     this.canDepart = () => true; // the station can hold the train while people board
     this.tunnel = null; // { contains(s) } — no smoke puffs inside the tunnel
@@ -205,6 +207,13 @@ export class Train {
     this.headlight.intensity = l * 60;
   }
 
+  // Every place the train calls at: s = where the locomotive halts, out = direction from the track
+  // to that platform (which side's doors open).
+  setStops(stops) {
+    this.stops = stops;
+    this.platformOut = stops[0].out;
+  }
+
   get stopped() {
     return this.state !== 'run';
   }
@@ -221,16 +230,27 @@ export class Train {
   update(dt, speedMul) {
     const cruise = this.cruise * speedMul;
     if (this.state === 'run') {
-      const ahead = this.track.wrap(this.stationS - this.s);
+      // The next stop ahead (skipping the one just left, which is right behind us).
+      let ahead = Infinity, next = 0;
+      this.stops.forEach((st, i) => {
+        const d = this.track.wrap(st.s - this.s);
+        if (d < ahead) {
+          ahead = d;
+          next = i;
+        }
+      });
       let target = cruise;
       if (ahead < 70) target = Math.min(cruise, Math.sqrt(2 * this.decel * Math.max(ahead - 0.3, 0)) + 0.4);
       this.v = approach(this.v, target, (target > this.v ? this.accel : this.decel * 1.6) * dt);
-      if (ahead < 0.6 && cruise > 0) {
+      // Also stop if this frame's step would carry us past the stop (long frames, fast time).
+      if (cruise > 0 && (ahead < 0.6 || (ahead < 6 && this.v * dt >= ahead))) {
         this.state = 'stop';
         this.v = 0;
         this.stopTime = 0;
         this.stopId++;
-        this.s = this.stationS;
+        this.stopIndex = next;
+        this.platformOut = this.stops[next].out;
+        this.s = this.stops[next].s;
       }
     } else if (this.state === 'stop') {
       // Doors open after a moment; leave once everyone is aboard (or after a maximum wait).
@@ -244,7 +264,7 @@ export class Train {
       this.closeTime += dt;
       if (this.closeTime > 1.6) {
         this.state = 'run';
-        this.s = this.stationS + 0.01;
+        this.s = this.stops[this.stopIndex].s + 0.01;
         this.events.whistle();
       }
     }
