@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, ball, cyl, cone, segment } from './lowpoly.js';
+import { box, ball, cyl, cone, segment, skinFigure } from './lowpoly.js';
 
 // Low-poly people with faces, hair, clothes and jointed limbs (hip → knee, shoulder → elbow).
 // Every rigid body segment is merged into ONE vertex-coloured mesh, so a detailed person still costs
@@ -47,7 +47,7 @@ export class Person {
     const shorts = !dress && !elder && (child || chance(0.15));
 
     this.group = new THREE.Group();
-    this.root = new THREE.Group(); // bobs while walking
+    this.root = new THREE.Bone(); // bobs while walking
     this.group.add(this.root);
     this.phase = rng() * 10;
 
@@ -78,7 +78,7 @@ export class Person {
     this.root.add(segment(torso, mat));
 
     // ---- head (pivots at the neck)
-    this.head = new THREE.Group();
+    this.head = new THREE.Bone();
     this.head.position.y = 1.72;
     const head = [
       ball(0.24, skin, [0, 0.17, 0], { sy: 1.06, sz: 0.95 }),
@@ -122,10 +122,10 @@ export class Person {
     const sleeve = top;
     this.carry = !hiker && !child && chance(0.3) ? pick(['basket', 'bag']) : null;
     for (const side of [-1, 1]) {
-      const shoulder = new THREE.Group();
+      const shoulder = new THREE.Bone();
       shoulder.position.set(side * 0.37, 1.53, 0);
       shoulder.add(segment([box(0.15, 0.34, 0.17, sleeve, [0, -0.16, 0])], mat));
-      const elbow = new THREE.Group();
+      const elbow = new THREE.Bone();
       elbow.position.y = -0.33;
       const fore = [
         box(0.13, 0.28, 0.15, longSleeves ? sleeve : skin, [0, -0.14, 0]),
@@ -150,10 +150,10 @@ export class Person {
     const thighColor = dress ? skin : pants;
     const shinColor = dress || shorts ? skin : pants;
     for (const side of [-1, 1]) {
-      const hip = new THREE.Group();
+      const hip = new THREE.Bone();
       hip.position.set(side * 0.13, 0.92, 0);
       hip.add(segment([box(0.21, 0.46, 0.23, thighColor, [0, -0.23, 0]), shorts && box(0.23, 0.2, 0.25, pants, [0, -0.1, 0])], mat));
-      const knee = new THREE.Group();
+      const knee = new THREE.Bone();
       knee.position.y = -0.46;
       knee.add(
         segment(
@@ -172,7 +172,7 @@ export class Person {
     }
 
     // ---- umbrella (only shown in the rain)
-    this.umbrella = new THREE.Group();
+    this.umbrella = new THREE.Bone();
     this.umbrella.position.set(0.3, 1.2, 0.3);
     const canopy = pick(UMBRELLAS);
     this.umbrella.add(
@@ -186,15 +186,21 @@ export class Person {
         mat,
       ),
     );
-    this.umbrella.visible = false;
     this.root.add(this.umbrella);
+
+    // Bake every segment into one skinned mesh (one draw call per person); the bones stay posable.
+    this.mesh = skinFigure(this.group, this.root, mat);
+    // A bone can't be hidden, so the folded-away umbrella is scaled to nothing instead.
+    this.umbrellaOn = false;
+    this.umbrella.scale.setScalar(0);
 
     this.group.scale.setScalar(child ? 0.55 : 0.85);
   }
 
   setUmbrella(on) {
-    if (this.carry || on === this.umbrella.visible) return;
-    this.umbrella.visible = on;
+    if (this.carry || on === this.umbrellaOn) return;
+    this.umbrellaOn = on;
+    this.umbrella.scale.setScalar(on ? 1 : 0);
   }
 
   // Arms when holding the umbrella: right hand up in front of the chest.
@@ -214,7 +220,7 @@ export class Person {
     this.elbows[0].rotation.x = this.carry ? -0.6 : -0.35;
     this.elbows[1].rotation.x = -0.35;
     if (this.carry) this.shoulders[0].rotation.x = -0.15;
-    if (this.umbrella.visible) this.holdUmbrella();
+    if (this.umbrellaOn) this.holdUmbrella();
     this.root.position.y = Math.abs(Math.cos(p)) * 0.05;
     this.head.rotation.y *= 0.9;
   }
@@ -225,7 +231,7 @@ export class Person {
     this.shoulders.forEach((s, i) => s.rotation.set(Math.sin(t * 1.5 + this.phase + i) * 0.05, 0, 0));
     this.elbows.forEach((e) => (e.rotation.x = -0.15));
     if (this.carry) this.elbows[0].rotation.x = -0.6;
-    if (this.umbrella.visible) this.holdUmbrella();
+    if (this.umbrellaOn) this.holdUmbrella();
     this.root.position.y = 0;
     this.head.rotation.y = Math.sin(t * 0.3 + this.phase) * 0.5;
   }

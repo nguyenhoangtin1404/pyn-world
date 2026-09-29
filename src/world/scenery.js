@@ -4,13 +4,7 @@ import { TRACK_Y, WATER_Y, SEED } from '../config.js';
 import { mulberry32 } from '../utils.js';
 import { fbm, riverX } from './terrain.js';
 import { sweep } from './track.js';
-
-const lam = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra });
-
-function at(obj, x, y, z) {
-  obj.position.set(x, y, z);
-  return obj;
-}
+import { lam, box, ball, cyl, cone, prism, shape, Instancer, StaticBatch, VERTEX_COLORED } from './lowpoly.js';
 
 function shadowed(obj) {
   obj.traverse((o) => {
@@ -20,17 +14,6 @@ function shadowed(obj) {
     }
   });
   return obj;
-}
-
-function prismRoof(w, h, d, mat) {
-  const shape = new THREE.Shape();
-  shape.moveTo(-w / 2, 0);
-  shape.lineTo(w / 2, 0);
-  shape.lineTo(0, h);
-  shape.closePath();
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false });
-  geo.translate(0, 0, -d / 2);
-  return new THREE.Mesh(geo, mat);
 }
 
 function labelTexture(text) {
@@ -70,11 +53,24 @@ function heartTexture() {
   return tex;
 }
 
-const SHEEP_WOOL = lam('#f4f1ea');
-const SHEEP_DARK = lam('#3a302b');
+const SHEEP_WOOL = '#f4f1ea';
+const SHEEP_DARK = '#3a302b';
+// The whole flock is drawn with three InstancedMeshes (body, head, leg). Each Sheep only animates
+// empty anchors (its group, head pivot and legs); the flock copies their matrices when drawing.
+function createFlock(capacity) {
+  const part = (geo) => new Instancer(geo, VERTEX_COLORED, capacity * (geo === leg ? 4 : 1));
+  const leg = box(0.16, 0.6, 0.16, SHEEP_DARK, [0, -0.3, 0]);
+  const flock = {
+    body: part(ball(0.8, SHEEP_WOOL, [0, 1.05, 0], { sx: 0.95, sy: 0.85, sz: 1.25 })),
+    head: part(mergeGeometries([box(0.42, 0.46, 0.58, SHEEP_DARK, [0, 0, 0.3]), ball(0.26, SHEEP_WOOL, [0, 0.26, 0.15], {}, 0), box(0.8, 0.1, 0.16, SHEEP_DARK, [0, 0.12, 0.12])])),
+    leg: part(leg),
+  };
+  flock.meshes = [flock.body.mesh, flock.head.mesh, flock.leg.mesh];
+  return flock;
+}
 
 class Sheep {
-  constructor(home, rng, heightAt, { fixed = false, heading = 0 } = {}) {
+  constructor(home, rng, heightAt, flock, { fixed = false, heading = 0 } = {}) {
     this.heightAt = heightAt;
     this.rng = rng;
     this.home = home.clone();
@@ -86,28 +82,21 @@ class Sheep {
     this.target = new THREE.Vector3();
     this.phase = rng() * 10;
 
+    // Anchors only — the flock draws them (see createFlock).
     const g = (this.group = new THREE.Group());
-    const body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 1), SHEEP_WOOL);
-    body.scale.set(0.95, 0.85, 1.25);
-    body.position.y = 1.05;
-    this.headPivot = new THREE.Group();
+    flock.body.add(g);
+    this.headPivot = new THREE.Object3D();
     this.headPivot.position.set(0, 1.3, 0.85);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.46, 0.58), SHEEP_DARK);
-    head.position.set(0, 0, 0.3);
-    const tuft = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 0), SHEEP_WOOL);
-    tuft.position.set(0, 0.26, 0.15);
-    const ears = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.16), SHEEP_DARK);
-    ears.position.set(0, 0.12, 0.12);
-    this.headPivot.add(head, tuft, ears);
+    flock.head.add(this.headPivot);
     this.legs = [];
     for (const [x, z] of [[-0.35, 0.5], [0.35, 0.5], [-0.35, -0.5], [0.35, -0.5]]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.6, 0.16).translate(0, -0.3, 0), SHEEP_DARK);
+      const leg = new THREE.Object3D();
       leg.position.set(x, 0.62, z);
+      flock.leg.add(leg);
       this.legs.push(leg);
       g.add(leg);
     }
-    g.add(body, this.headPivot);
-    shadowed(g);
+    g.add(this.headPivot);
     this.sync();
   }
 
@@ -164,9 +153,12 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   const obstacles = []; // [x, z, radius]
   const homes = []; // house door positions, used by the villagers
 
-  const windowMat = lam('#4a5563', { emissive: '#ffcf70', emissiveIntensity: 0 });
-  const lampMat = lam('#fff4d6', { emissive: '#ffd58a', emissiveIntensity: 0 });
+  // Own materials (not the shared cache): they light up at night.
+  const windowMat = new THREE.MeshLambertMaterial({ color: '#4a5563', emissive: '#ffcf70', emissiveIntensity: 0, flatShading: true });
+  const lampMat = new THREE.MeshLambertMaterial({ color: '#fff4d6', emissive: '#ffd58a', emissiveIntensity: 0, flatShading: true });
   const lamps = [];
+  // Station, houses and the windmill tower are baked into one mesh per material.
+  const batch = new StaticBatch();
 
   const f0 = station;
   const sg = Math.sign(f0.side.dot(f0.p)) || 1; // which side of the track faces outward
@@ -242,39 +234,36 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   });
   // The building stands on the platform; its walls reach down to the ground behind it.
   const floor = TRACK_Y + PLAT_TOP;
-  st.add(at(new THREE.Mesh(new THREE.BoxGeometry(6, 5.8, 13), lam('#f1e0bf')), ox * 11, floor + 1.5, 0));
+  batch.at(f0.p.x, 0, f0.p.z, stRot);
+  batch.add([
+    box(6, 5.8, 13, '#f1e0bf', [ox * 11, floor + 1.5, 0]),
+    prism(7.4, 2.4, 14, '#c8453a', [ox * 11, floor + 4.4, 0]),
+    box(0.12, 2.4, 1.6, '#6b4a33', [ox * 7.95, floor + 1.2, 0]),
+  ]);
   colliders.push({ ...stWorld(ox * 11, 0), w: 6, d: 13, rot: stRot });
-  const roof = prismRoof(7.4, 2.4, 14, lam('#c8453a'));
-  roof.rotation.y = 0;
-  roof.position.set(ox * 11, floor + 4.4, 0);
-  st.add(roof);
-  st.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 1.6), lam('#6b4a33')), ox * 7.95, floor + 1.2, 0));
-  for (const z of [-4.5, -2.2, 2.2, 4.5]) {
-    st.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 1.3), windowMat), ox * 7.95, floor + 2.3, z));
-  }
+  for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), windowMat);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture('PYN WORLD') }));
   sign.position.set(ox * 7.9, floor + 3.8, 0);
   sign.rotation.y = -ox * (Math.PI / 2);
   st.add(sign);
   // Canopy over the platform
-  st.add(at(new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.25, 22), lam('#c8453a')), ox * 4.3, TRACK_Y + 4.6, 0));
+  batch.add(box(4.6, 0.25, 22, '#c8453a', [ox * 4.3, TRACK_Y + 4.6, 0]));
   for (const z of [-9, -3, 3, 9]) {
-    st.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.6, 6), lam('#efe3c6')), ox * 5.8, TRACK_Y + 2.8, z));
+    batch.add(cyl(0.12, 0.12, 3.6, '#efe3c6', [ox * 5.8, TRACK_Y + 2.8, z], {}, 6));
     colliders.push({ ...stWorld(ox * 5.8, z), r: 0.2 });
   }
   for (const z of [-6, 6]) {
     // Benches against the station wall, out of the way of people walking along the platform.
-    st.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 2.2), lam('#7a5236')), ox * 7.5, TRACK_Y + 1.25, z));
-    st.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 2.2), lam('#7a5236')), ox * 7.82, TRACK_Y + 1.7, z));
+    batch.add([box(0.6, 0.5, 2.2, '#7a5236', [ox * 7.5, TRACK_Y + 1.25, z]), box(0.1, 0.5, 2.2, '#7a5236', [ox * 7.82, TRACK_Y + 1.7, z])]);
     colliders.push({ ...stWorld(ox * 7.5, z), w: 0.7, d: 2.2, rot: stRot });
   }
   for (const z of [-15, 0, 15]) {
     const y = z === 0 ? TRACK_Y + 4.2 : TRACK_Y + 4.4;
     if (z !== 0) {
-      st.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 3.4, 6), lam('#3a302b')), ox * 3.2, TRACK_Y + 2.7, z));
+      batch.add(cyl(0.1, 0.14, 3.4, '#3a302b', [ox * 3.2, TRACK_Y + 2.7, z], {}, 6));
       colliders.push({ ...stWorld(ox * 3.2, z), r: 0.2 });
     }
-    st.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), lampMat), ox * 3.2, y, z));
+    batch.add(shape(new THREE.SphereGeometry(0.28, 8, 6), '#fff4d6', [ox * 3.2, y, z]), lampMat);
     const light = new THREE.PointLight('#ffd28a', 0, 30, 1.2);
     light.position.set(ox * 3.2, y - 0.4, z);
     st.add(light);
@@ -296,20 +285,19 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   // ---------- Village ----------
   const walls = ['#f3e6c8', '#e8c9a0', '#f0d8d0', '#d9e4ec', '#efe9d6'];
   const roofs = ['#c8453a', '#8e3b35', '#4f6d8f', '#6b4e3a', '#b0603a'];
+  // Adds a house to the batch (the caller has set batch.at() to its spot).
   function makeHouse(w, d) {
-    const h = new THREE.Group();
-    h.add(at(new THREE.Mesh(new THREE.BoxGeometry(w, 3.2, d), lam(walls[Math.floor(rng() * walls.length)])), 0, 1.6, 0));
-    const r = prismRoof(w + 0.8, 2.0, d + 0.6, lam(roofs[Math.floor(rng() * roofs.length)]));
-    r.position.y = 3.2;
-    h.add(r);
-    h.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.6, 0.6), lam('#8a7a6a')), w * 0.25, 4.4, d * 0.15));
-    h.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, 0.08), lam('#6b4a33')), 0, 0.8, d / 2 + 0.03));
+    const wall = walls[Math.floor(rng() * walls.length)];
+    const roofC = roofs[Math.floor(rng() * roofs.length)];
+    batch.add([
+      box(w, 3.2, d, wall, [0, 1.6, 0]),
+      prism(w + 0.8, 2.0, d + 0.6, roofC, [0, 3.2, 0]),
+      box(0.6, 1.6, 0.6, '#8a7a6a', [w * 0.25, 4.4, d * 0.15]), // chimney
+      box(0.9, 1.6, 0.08, '#6b4a33', [0, 0.8, d / 2 + 0.03]), // door
+    ]);
     for (const zs of [1, -1]) {
-      for (const xs of [-1, 1]) {
-        h.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.08), windowMat), xs * w * 0.28, 2.0, zs * (d / 2 + 0.03)));
-      }
+      for (const xs of [-1, 1]) batch.add(box(0.9, 0.9, 0.08, '#4a5563', [xs * w * 0.28, 2.0, zs * (d / 2 + 0.03)]), windowMat);
     }
-    return shadowed(h);
   }
   let houses = 0;
   for (let tries = 0; houses < 14 && tries < 800; tries++) {
@@ -321,11 +309,10 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     if (h === null) continue;
     if (Math.abs(heightAt(x + 3, z) - heightAt(x - 3, z)) > 1.6 || Math.abs(heightAt(x, z + 3) - heightAt(x, z - 3)) > 1.6) continue;
     const hw = 4 + rng() * 2, hd = 4 + rng() * 1.5;
-    const house = makeHouse(hw, hd);
-    house.position.set(x, h - 0.3, z);
-    house.rotation.y = Math.atan2(f0.p.x - x, f0.p.z - z);
-    group.add(house);
-    colliders.push({ x, z, w: hw + 0.8, d: hd + 0.6, rot: house.rotation.y }); // + roof overhang
+    const rot = Math.atan2(f0.p.x - x, f0.p.z - z);
+    batch.at(x, h - 0.3, z, rot);
+    makeHouse(hw, hd);
+    colliders.push({ x, z, w: hw + 0.8, d: hd + 0.6, rot }); // + roof overhang
     obstacles.push([x, z, 8]);
     homes.push(new THREE.Vector3(x, h, z).addScaledVector(new THREE.Vector3(f0.p.x - x, 0, f0.p.z - z).normalize(), 4));
     houses++;
@@ -341,29 +328,33 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     if (h !== null && (!best || h > best.h)) best = { x, z, h };
   }
   if (best) {
-    const mill = new THREE.Group();
-    mill.add(at(new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.3, 10, 8), lam('#f1e3c3')), 0, 5, 0));
-    mill.add(at(new THREE.Mesh(new THREE.ConeGeometry(2.0, 2.6, 8), lam('#c8453a')), 0, 11.3, 0));
-    mill.add(at(new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 0.1), lam('#6b4a33')), 0, 0.9, 2.05));
-    const hub = new THREE.Group();
+    const rot = Math.atan2(-best.x, -best.z) + 0.6;
+    batch.at(best.x, best.h - 0.5, best.z, rot);
+    batch.add([
+      cyl(1.4, 2.3, 10, '#f1e3c3', [0, 5, 0], {}, 8),
+      cone(2.0, 2.6, '#c8453a', [0, 11.3, 0], {}, 8),
+      box(1.0, 1.8, 0.1, '#6b4a33', [0, 0.9, 2.05]),
+    ]);
+    // Only the sails turn: they stay a separate mesh.
+    const blades = [0, 1, 2, 3].map((k) => shape(new THREE.BoxGeometry(1.1, 6.5, 0.1).translate(0.3, 3.4, 0), '#efe3c6', [0, 0, 0], { rz: (k * Math.PI) / 2 }));
+    const hub = new THREE.Mesh(mergeGeometries([...blades, cyl(0.35, 0.35, 0.6, '#3a302b', [0, 0, 0], { rx: Math.PI / 2 }, 8)]), VERTEX_COLORED);
     hub.position.set(0, 9.6, 2.0);
-    for (let k = 0; k < 4; k++) {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(1.1, 6.5, 0.1).translate(0.3, 3.4, 0), lam('#efe3c6'));
-      blade.rotation.z = (k * Math.PI) / 2;
-      hub.add(blade);
-    }
-    hub.add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.6, 8).rotateX(Math.PI / 2), lam('#3a302b')));
-    mill.add(hub);
+    const mill = new THREE.Group();
     mill.position.set(best.x, best.h - 0.5, best.z);
-    mill.rotation.y = Math.atan2(-best.x, -best.z) + 0.6;
+    mill.rotation.y = rot;
+    mill.add(hub);
     group.add(shadowed(mill));
     obstacles.push([best.x, best.z, 7]);
     colliders.push({ x: best.x, z: best.z, r: 2.4 });
     updaters.push((dt) => (hub.rotation.z -= dt * 0.7));
   }
 
+  group.add(batch.build());
+
   // ---------- Sheep ----------
   const sheep = [];
+  const flock = createFlock(24);
+  group.add(...flock.meshes);
   function meadow(clear = 14) {
     for (let i = 0; i < 400; i++) {
       const a = rng() * Math.PI * 2;
@@ -380,15 +371,15 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     obstacles.push([home.x, home.z, 11]);
     for (let k = 0; k < 5; k++) {
       const p = home.clone().add(new THREE.Vector3((rng() - 0.5) * 8, 0, (rng() - 0.5) * 8));
-      sheep.push(new Sheep(p, rng, heightAt));
+      sheep.push(new Sheep(p, rng, heightAt, flock));
     }
   }
 
   // Easter egg 1: two sheep in love.
   const courting = meadow(16) || new THREE.Vector3(0, 0, 0);
   obstacles.push([courting.x, courting.z, 8]);
-  const aSheep = new Sheep(courting.clone().add(new THREE.Vector3(-0.95, 0, 0)), rng, heightAt, { fixed: true, heading: Math.PI / 2 });
-  const bSheep = new Sheep(courting.clone().add(new THREE.Vector3(0.95, 0, 0)), rng, heightAt, { fixed: true, heading: -Math.PI / 2 });
+  const aSheep = new Sheep(courting.clone().add(new THREE.Vector3(-0.95, 0, 0)), rng, heightAt, flock, { fixed: true, heading: Math.PI / 2 });
+  const bSheep = new Sheep(courting.clone().add(new THREE.Vector3(0.95, 0, 0)), rng, heightAt, flock, { fixed: true, heading: -Math.PI / 2 });
   sheep.push(aSheep, bSheep);
   const heart = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTexture(), transparent: true }));
   heart.scale.setScalar(1.1);
@@ -417,7 +408,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     }
     if (bridgeSheepPos) {
       const heading = Math.atan2(b.center.x - bridgeSheepPos.x, b.center.z - bridgeSheepPos.z);
-      sheep.push(new Sheep(bridgeSheepPos, rng, heightAt, { fixed: true, heading }));
+      sheep.push(new Sheep(bridgeSheepPos, rng, heightAt, flock, { fixed: true, heading }));
     }
   }
   sheep.forEach((s) => group.add(s.group));
@@ -499,19 +490,19 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   }
 
   // ---------- Clouds ----------
-  const cloudMat = lam('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.12 });
-  const cloudGeo = new THREE.IcosahedronGeometry(1, 1);
+  // Own material: clouds grey over when it rains. Each cloud is one mesh of merged puffs.
+  const cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.12, flatShading: true });
   const clouds = [];
   for (let i = 0; i < 16; i++) {
-    const cg = new THREE.Group();
     const n = 3 + Math.floor(rng() * 3);
+    const puffs = [];
     for (let k = 0; k < n; k++) {
-      const puff = new THREE.Mesh(cloudGeo, cloudMat);
-      puff.position.set((k - n / 2) * 4.5 + rng() * 2, rng() * 2, rng() * 4);
-      puff.scale.setScalar(3.5 + rng() * 3);
-      puff.castShadow = true;
-      cg.add(puff);
+      const x = (k - n / 2) * 4.5 + rng() * 2, y = rng() * 2, z = rng() * 4;
+      const s = 3.5 + rng() * 3;
+      puffs.push(new THREE.IcosahedronGeometry(1, 1).scale(s, s, s).translate(x, y, z));
     }
+    const cg = new THREE.Mesh(mergeGeometries(puffs), cloudMat);
+    cg.castShadow = true;
     cg.position.set((rng() - 0.5) * 600, 75 + rng() * 30, (rng() - 0.5) * 600);
     group.add(cg);
     clouds.push(cg);

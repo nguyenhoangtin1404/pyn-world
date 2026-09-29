@@ -23,7 +23,8 @@ npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
 | `src/world/boats.js` | Tàu hơi nước bánh guồng (khói, vệt sóng, thuyền trưởng) và thuyền câu có người thả cần: phao nhấp nháy → cá cắn → kéo cá lên → bỏ vào xô → quăng cần lại |
 | `src/world/nav.js` | Lưới dẫn đường + A*: người đi vòng quanh nhà, cây, đá, cột; không leo mép sân ga (chỉ lên qua dốc) |
 | `src/world/birds.js` | Bồ câu trên sân ga (mổ, lắc đầu, giật mình bay đi khi có người/tàu tới, đậu lên mái) và các đàn chim bay trên trời |
-| `src/world/lowpoly.js` | Helper dựng hình low-poly tô màu theo đỉnh, gộp nhiều chi tiết thành 1 mesh |
+| `src/world/lowpoly.js` | Bộ dựng hình dùng chung: khối tô màu theo đỉnh, cache material (`lam`), `StaticBatch` gộp vật tĩnh, `Instancer` vẽ cả đàn vật giống nhau bằng 1 InstancedMesh/bộ phận, `skinFigure` biến nhân vật có khớp thành 1 SkinnedMesh. Quy tắc dùng: xem CLAUDE.md |
+| `src/world/particles.js` | `ParticlePool` (1 InstancedMesh, opacity riêng từng hạt) và các lớp dùng lại nó: `Smoke` (tàu hỏa, tàu thủy), `Ripples` (gợn nước) |
 | `src/world/life.js` | Khinh khí cầu, cá bơi + gợn sóng (cả khi mưa), dân làng đi lại, người leo núi theo đường mòn lên đỉnh |
 | `src/world/sky.js` | Bầu trời shader, đồng hồ 24h pha trộn liên tục giữa 4 buổi (ngày đêm tự động), mặt trời + bóng đổ, sao |
 | `src/world/weather.js` | Mưa (LineSegments), tuyết (Points), tuyết phủ mặt đất |

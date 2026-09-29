@@ -267,8 +267,19 @@ const clock = new THREE.Clock();
 let simTime = 0;
 let lastSnow = 0;
 
+// Dev only: open with ?stats to see draw calls (incl. the shadow pass), triangles and frame times —
+// check these before and after any rendering change (see CLAUDE.md).
+const stats = import.meta.env.DEV && new URLSearchParams(location.search).has('stats') ? { el: document.createElement('pre'), n: 0, cpu: 0, t0: performance.now() } : null;
+if (stats) {
+  stats.el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;margin:0;padding:6px 8px;font:12px/1.4 monospace;color:#fff;background:#0009;border-radius:6px;pointer-events:none';
+  document.body.appendChild(stats.el);
+  renderer.info.autoReset = false;
+}
+
 function frame() {
   requestAnimationFrame(frame);
+  const frameStart = performance.now();
+  if (stats) renderer.info.reset();
   const raw = Math.min(clock.getDelta(), 0.1);
   const dt = state.paused ? 0 : raw * state.timeScale;
   simTime += dt;
@@ -310,6 +321,18 @@ function frame() {
   });
 
   W.post.render(scene, camera);
+
+  if (stats) {
+    stats.n++;
+    stats.cpu += performance.now() - frameStart;
+    const now = performance.now();
+    if (now - stats.t0 > 500) {
+      const { calls, triangles } = renderer.info.render;
+      const ms = (now - stats.t0) / stats.n;
+      stats.el.textContent = `${(1000 / ms).toFixed(0)} fps · ${ms.toFixed(1)} ms/frame · CPU ${(stats.cpu / stats.n).toFixed(1)} ms\n${calls} draw calls · ${(triangles / 1000).toFixed(0)}k tris · ${renderer.info.programs.length} shaders`;
+      Object.assign(stats, { n: 0, cpu: 0, t0: now });
+    }
+  }
 }
 
 async function boot() {

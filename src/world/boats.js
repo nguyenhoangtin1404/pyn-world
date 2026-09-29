@@ -3,6 +3,7 @@ import { WATER_Y } from '../config.js';
 import { riverX } from './terrain.js';
 import { Person } from './people.js';
 import { box, ball, cyl, torus, slab, segment } from './lowpoly.js';
+import { Smoke } from './particles.js';
 
 // A paddle steamer cruising the river, and a rowboat with a fisherman on the lake.
 // Both boats face local +z; y = 0 is the waterline.
@@ -30,43 +31,6 @@ function railing(points, scale, zMin, zMax, y0, h) {
     parts.push(box(0.07, 0.07, len, WHITE, [(ax + bx) / 2, y0 + h, (az + bz) / 2], { ry: Math.atan2(bx - ax, bz - az) }));
   }
   return parts;
-}
-
-class Puffs {
-  constructor(parent, n = 18) {
-    this.items = [];
-    this.next = 0;
-    const geo = new THREE.IcosahedronGeometry(1, 0);
-    for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: '#e9e6e0', transparent: true, opacity: 0, depthWrite: false, flatShading: true }));
-      m.visible = false;
-      parent.add(m);
-      this.items.push({ m, life: 0 });
-    }
-  }
-
-  emit(pos) {
-    const it = this.items[this.next++ % this.items.length];
-    it.life = 0;
-    it.m.position.copy(pos);
-    it.m.visible = true;
-  }
-
-  update(dt) {
-    for (const it of this.items) {
-      if (!it.m.visible) continue;
-      it.life += dt;
-      const k = it.life / 3;
-      if (k >= 1) {
-        it.m.visible = false;
-        continue;
-      }
-      it.m.position.y += dt * 1.6;
-      it.m.position.x += dt * 0.6;
-      it.m.scale.setScalar(0.25 + k * 1.4);
-      it.m.material.opacity = 0.7 * (1 - k);
-    }
-  }
 }
 
 // ------------------------------------------------------------------ paddle steamer
@@ -238,7 +202,9 @@ function buildRowboat(rng) {
 export function createBoats({ heightAt, ripples, waterSpots, rng }) {
   const group = new THREE.Group();
   const updaters = [];
-  const puffs = new Puffs(group);
+  // Funnel smoke: the same pool as the locomotive's, just softer and slower.
+  const puffs = new Smoke({ n: 18, color: '#e9e6e0', rise: 1.6, drift: 0.6, grow: 1.4, fade: 0.7 });
+  group.add(puffs.group);
   const v = new THREE.Vector3();
 
   // ---- Steamer on the river
@@ -277,7 +243,7 @@ export function createBoats({ heightAt, ripples, waterSpots, rng }) {
     smoke -= dt;
     if (smoke < 0) {
       smoke = 0.45;
-      puffs.emit(steamer.localToWorld(v.copy(funnelTop)));
+      puffs.emit(steamer.localToWorld(v.copy(funnelTop)), 0);
     }
   });
 
