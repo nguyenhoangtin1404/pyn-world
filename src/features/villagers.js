@@ -1,6 +1,7 @@
 // @ts-check
 import * as THREE from 'three';
-import { Walker, turnToward } from '../world/walker.js';
+import { turnToward } from '../utils.js';
+import { Walker } from '../world/walker.js';
 import { buildAreas, planner } from './villagers/areas.js';
 import { createRiding } from './villagers/riding.js';
 import { stepChild } from './villagers/kids.js';

@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import { clamp } from '../utils.js';
+import { clamp, turnToward } from '../utils.js';
 import { Person } from './people.js';
-
-export const turnToward = (heading, want, k) => heading + Math.atan2(Math.sin(want - heading), Math.cos(want - heading)) * k;
 
 // Step length per unit of figure scale: legs are 0.92 long and swing ±0.55 rad at the hip, so a
 // foot travels ~0.95 × scale per step. Half a walk cycle (π) is one step, so the feet don't slide.
