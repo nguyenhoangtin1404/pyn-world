@@ -1,3 +1,4 @@
+// @ts-check
 import { defineWorld } from './define.js';
 
 // The original valley: a wobbly loop round a river, the station and village on the +x side, a
@@ -11,6 +12,7 @@ export default defineWorld({
   // Closed loop through these (x, z) points (CatmullRom, centripetal). The station is at the first
   // point's end of the curve (u = 0).
   track() {
+    /** @type {[number, number][]} */
     const pts = [];
     const N = 18;
     for (let i = 0; i < N; i++) {

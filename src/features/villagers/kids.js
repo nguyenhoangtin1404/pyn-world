@@ -1,3 +1,4 @@
+// @ts-check
 import { turnToward } from '../../world/walker.js';
 
 // Should child k be walking towards `target`? Starts once it has fallen `start` behind and

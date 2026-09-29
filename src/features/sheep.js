@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TRACK_Y, WATER_Y } from '../config.js';
@@ -117,6 +118,7 @@ function heartTexture() {
   return tex;
 }
 
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang thả cừu',
   build(world, { rng, flocks = 3, perFlock = 5 }) {

@@ -5,21 +5,50 @@ Thung lũng low-poly dựng hoàn toàn bằng code với Three.js. Xem README.m
 ```bash
 npm run dev      # http://localhost:5173  — thêm ?stats để xem draw call / ms mỗi frame
 npm run build
+npm run check    # kiểu dữ liệu + dựng mọi world và so với golden — chạy trước mỗi commit
 ```
+
+## Kiểm tra (`npm run check`)
+
+Lần đầu trên máy mới: `npx playwright install chromium`. Script (`scripts/check.mjs`, ~1 phút) chạy
+`tsc` rồi mở từng world trong Chromium không giao diện (GPU phần mềm — cùng kết quả trên mọi máy):
+
+1. **So với golden** (`scripts/golden/<id>.json`): checksum mọi đỉnh, vị trí từng cây/đá/hoa, số
+   collider, spot, trạm, số người, draw call, shader. Lệch 1 cái cây cũng báo.
+2. **Tua nhanh 300 s**: người lên/xuống tàu, cửa mở, bật ô khi mưa, người leo núi đi, tàu dừng ≥ 2 lần.
+3. **Đổi world 2 vòng**: số geometry/texture/shader trên GPU phải như lần đầu (không rò).
+4. **Tổ hợp feature**: world tối giản dựng được; thiếu feature thì lỗi phải nói rõ thiếu gì.
+
+Cố ý đổi một world (thêm feature, sửa config…): `npm run check -- --update` ghi lại golden, xem diff
+của `scripts/golden/*.json` có đúng ý không rồi commit cùng thay đổi. **Không** `--update` để cho qua
+một lần chạy đỏ mà mình không hiểu vì sao — nhất là golden của PYN.
+
+**Kiểu dữ liệu**: hợp đồng giữa App, World và feature nằm trong `src/types.d.ts` (`WorldConfig`,
+`StopConfig`, `System`, `Frame`, `Feature`, `Station`…); các file có `// @ts-check` được `tsc` kiểm tra
+(lõi, config, feature). Bắt được: gõ sai trường của `f`/config, thiếu trường bắt buộc, sai kiểu. **Không**
+bắt được: gõ sai tên hook trả về từ `build()` (`lateUpadte` sẽ lặng lẽ không chạy) — soát bằng mắt.
+File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dòng đầu.
 
 ## Nhiều world
 
 `main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
 tại một thời điểm; phím N / `?world=<id>` đổi world. Mỗi world dựng từ một **WorldConfig** trong
-`src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, tên + vị trí ga/trạm, hầm, **danh sách
-feature**).
+`src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, **các điểm dừng**, hầm nếu có, **danh
+sách feature**).
 
 - **World = lõi + feature.** Lõi (ray, địa hình, hầm, cầu, trời, thời tiết) luôn có. Còn lại là feature
   trong `src/features/` (ga, làng, trạm + phố, cối xay, cừu, cây, mây, tàu, cá, thuyền, khinh khí cầu,
   dân làng, chim, người leo núi), bật/tắt và chỉnh bằng `cfg.features`: `'sheep'` hoặc
-  `{ id: 'sheep', flocks: 5 }`. Feature mới: viết `{ label, build(world, { rng, ...options }) }`, thêm
-  vào `features/index.js`. Feature dựng theo thứ tự trong config; feature sau dùng được thứ feature trước
-  để lại (`world.stations`, `world.train`, `world.people`…) — thiếu thì gọi `world.need(...)` để báo lỗi rõ.
+  `{ id: 'sheep', flocks: 5 }`. Feature mới: viết `{ label, needs?, build(world, { rng, ...options }) }`
+  (kiểu `Feature`), thêm vào `features/index.js`. Feature dựng theo thứ tự trong config; feature sau dùng
+  được thứ feature trước để lại (`world.stations`, `world.train`, `world.people`…). Khai báo phụ thuộc
+  bằng `needs: ['train']` (hoặc `[['station', 'halt']]` = một trong hai) — `World` kiểm tra cả danh
+  sách **trước khi dựng**. Thứ cần từ config (một điểm dừng, một zone) thì `world.need(...)` lúc dựng.
+- **Điểm dừng**: `cfg.stops: [{ id, at, name, zone?, yard? }]`, bao nhiêu cũng được. Địa hình san phẳng
+  khu nhà cho điểm có `zone`, sân ga cho điểm có `yard`. Dựng gì ở đó là việc của feature: `station` /
+  `halt` nhận `{ stop: id }` (mặc định: điểm dừng đầu tiên chưa dựng), `halt` chỉ có khu phố khi điểm
+  dừng có `zone`, `village` mặc định thuộc ga vừa dựng trước nó. Tàu dừng theo thứ tự `world.stations`.
+  Hầm: bỏ `cfg.tunnel` là không có hầm.
 - **Mọi thứ chuyển động là một system**: `{ group?, update?(f), lateUpdate?(f), finish?(), dispose?() }`.
   `update` chạy trước khi camera đi theo, `lateUpdate` sau camera + bầu trời (có `f.lights`,
   `f.overcast`, `f.snow`). `f` là 1 object dùng lại mỗi frame (`World.frame`) — đừng giữ tham chiếu
@@ -44,7 +73,8 @@ feature**).
   dịch lại).
 - `CameraRig` tạo 1 lần (nó nghe sự kiện bàn phím/chuột), gắn vào world bằng `rig.attach(world.view)`.
 - Đã đo (2026-09-29): PYN sau khi tách (cả WorldConfig lẫn feature) giữ nguyên từng đỉnh (checksum
-  geometry), vị trí từng cây/đá/hoa (checksum instance), 1684 collider, 546 draw call, 36 shader; đổi
+  geometry), vị trí từng cây/đá/hoa (checksum instance), 1684 collider, 273 draw call mỗi frame (con số
+  546 ghi trước đây là đếm gộp 2 frame), 36 shader; đổi
   PYN ↔ MAPLE nhiều vòng, số geometry/texture/shader trên GPU không tăng, heap JS gần như phẳng
   (~0,2 MB mỗi lần đổi).
 

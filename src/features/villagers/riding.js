@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 
 // Getting on and off the train. People waiting on the platform board when the doors open and get off

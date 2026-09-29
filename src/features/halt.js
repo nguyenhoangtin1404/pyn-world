@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TRACK_Y } from '../config.js';
@@ -11,6 +12,7 @@ import { buildPlatform, frameIndex, PLAT_TOP } from './platform.js';
 // short platform with a shelter — and, if the stop has a zone in cfg.stops, a town street leading
 // inward from it, lined with houses and shops. Registers itself in world.stations; the town's
 // people belong to it.
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang dựng trạm và khu phố',
   build(world, { rng, stop: stopId }) {

@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { fbm } from '../world/terrain.js';
@@ -6,6 +7,7 @@ import { lam } from '../world/lowpoly.js';
 // Trees (pines higher up), flowers and rocks: one InstancedMesh per kind of part. Trees and rocks
 // are colliders people walk around, and can be cleared away later (site.clearAround, hiking trails).
 // Options: count (trees, 1300), flowers (900), rocks (160).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang trồng cây',
   build(world, { rng, count = 1300, flowers: flowerCount = 900, rocks: rockCount = 160 }) {

@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { TRACK_Y } from '../config.js';
 import { box, cyl, prism, shape } from '../world/lowpoly.js';
@@ -9,6 +10,7 @@ import { buildPlatform, frameIndex, PLAT_TOP } from './platform.js';
 // yet): platform on the outer side of the loop, the station building behind it, a canopy with lamps
 // and benches. Registers itself in world.stations (villagers wait on its platform, pigeons peck on
 // it).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang xây nhà ga',
   build(world, { stop: stopId }) {

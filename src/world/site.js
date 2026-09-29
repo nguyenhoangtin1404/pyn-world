@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 

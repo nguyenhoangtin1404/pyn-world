@@ -1,8 +1,10 @@
+// @ts-check
 import { houses } from './houses.js';
 
 // Houses scattered over the flat plateau inward from a station (its zone in cfg.stops), square to
 // the world axes and turned towards the station. Their people belong to that stop.
 // Options: stop (id; by default the station built just before), count (houses, 14).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang dựng làng',
   needs: [['station', 'halt']], // its houses belong to a stop

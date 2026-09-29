@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { lam } from '../world/lowpoly.js';
 
@@ -52,6 +53,7 @@ function buildBalloon(colors) {
   return { group: g, flame, envMat };
 }
 
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang bơm khinh khí cầu',
   build(world, { rng, count = 4 }) {

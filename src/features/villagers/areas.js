@@ -1,3 +1,4 @@
+// @ts-check
 import { NavGrid } from '../../world/nav.js';
 
 // One area per station (world.stations) that has somewhere to go: a nav grid around its homes and

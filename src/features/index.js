@@ -1,3 +1,4 @@
+// @ts-check
 import station from './station.js';
 import village from './village.js';
 import halt from './halt.js';

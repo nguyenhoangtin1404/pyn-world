@@ -55,7 +55,7 @@ const HINTS = [
   'Kéo chuột để xoay quanh thung lũng, lăn chuột để zoom.',
   'Bấm 1–7 để đổi góc máy quay — 6 đi theo một người, 7 đi theo một con chim.',
   'Ngày đêm tự trôi; bấm C để dừng/chạy đồng hồ, T để nhảy giờ.',
-  'Tàu dừng ở ga PYN WORLD để khách lên xuống.',
+  'Tàu dừng ở từng ga để khách lên xuống.',
   'Bấm F để tìm đôi cừu đang yêu nhau.',
   'Bấm K để bay lên đỉnh núi, nơi dân leo núi vẫy tay chào.',
   'Bấm N để sang thế giới khác.',

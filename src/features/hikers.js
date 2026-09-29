@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 import { lam } from '../world/lowpoly.js';
@@ -6,6 +7,7 @@ import { Walker } from '../world/walker.js';
 // Zig-zag trails from the valley floor up to the highest summits (trees on the way are cleared), a
 // flag on top, and hikers walking up and down — waving at the top (spot "summit", key K). Comes
 // after "trees". Options: trails (2), perTrail (3 hikers).
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang mở đường mòn',
   build(world, { rng, trails: trailCount = 2, perTrail = 3 }) {
@@ -84,7 +86,7 @@ export default {
       const hikers = [];
       trails.forEach((pts) => {
         for (let i = 0; i < perTrail; i++) {
-          const w = new Walker(rng, heightAt, { kind: 'hiker', speed: 1.5 });
+          const w = /** @type {Walker & { trail: THREE.Vector3[], idx: number, dir: number }} */ (new Walker(rng, heightAt, { kind: 'hiker', speed: 1.5 }));
           w.trail = pts;
           w.idx = Math.floor(rng() * (pts.length - 1));
           w.dir = rng() < 0.6 ? 1 : -1;

@@ -1,7 +1,9 @@
+// @ts-check
 import { Train } from '../world/train.js';
 
 // The train (required: the cameras ride it). It calls at every stop in world.stations, in order, so
 // it comes after the features that add stops.
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang lắp đầu máy',
   build(world) {

@@ -1,3 +1,4 @@
+// @ts-check
 import { defineWorld } from './define.js';
 
 // A second valley, built by the same code from a different recipe: a longer, pinched loop, the river
@@ -9,6 +10,7 @@ export default defineWorld({
   size: 600,
 
   track() {
+    /** @type {[number, number][]} */
     const pts = [];
     const N = 16;
     for (let i = 0; i < N; i++) {

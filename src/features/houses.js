@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { box, ball, cyl, prism, shape, Instancer, VERTEX_COLORED } from '../world/lowpoly.js';
 import { Smoke } from '../world/particles.js';

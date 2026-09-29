@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { Walker, turnToward } from '../world/walker.js';
 import { buildAreas, planner } from './villagers/areas.js';
@@ -10,6 +11,16 @@ import { stepChild } from './villagers/kids.js';
 // grown-up (villagers/kids.js). Umbrellas go up when it rains, except indoors.
 // Options: perStop (grown-ups at each stop; the last number counts for the stops after it: [12, 10]),
 // kids (children, same way: [4, 3]).
+
+/**
+ * A Walker living around a stop, with its plans (areas.js) and its train journey (riding.js).
+ * @typedef {Walker & { area: any, stop: any, path: THREE.Vector3[] | null, pi: number, plan: (w: Villager) => void,
+ *   mode?: string | null, door?: any, car?: THREE.Object3D, fixedY?: number | null }} Villager
+ * A child following a grown-up (kids.js).
+ * @typedef {Walker & { parent: Villager, side: number, spot: THREE.Vector3, path?: THREE.Vector3[] | null, pi?: number,
+ *   moving?: boolean, replan?: number, fixedY?: number | null }} Child
+ */
+/** @type {import('../types').Feature} */
 export default {
   label: 'Đang đón dân làng',
   needs: ['train'],
@@ -21,13 +32,15 @@ export default {
     const { pickStop, plan } = planner(rng);
     const countAt = (list, i) => list[Math.min(i, list.length - 1)];
 
+    /** @type {Villager[]} */
     const villagers = [];
+    /** @type {Child[]} */
     const kids = [];
     areas.forEach((area, ai) => {
       const n = countAt(perStop, ai);
       const first = villagers.length;
       for (let i = 0; i < n; i++) {
-        const w = new Walker(rng, site.walkHeight);
+        const w = /** @type {Villager} */ (new Walker(rng, site.walkHeight));
         w.area = area;
         w.stop = pickStop(area, null);
         w.place(w.stop.p);
@@ -38,7 +51,7 @@ export default {
       }
       for (let i = 0; i < Math.min(countAt(kidsPerStop, ai), n); i++) {
         const parent = villagers[first + i * 3];
-        const k = new Walker(rng, site.walkHeight, { kind: 'child', speed: 1.4 }); // pace set by stepChild()
+        const k = /** @type {Child} */ (new Walker(rng, site.walkHeight, { kind: 'child', speed: 1.4 })); // pace set by stepChild()
         k.parent = parent;
         k.side = rng() < 0.5 ? -1 : 1;
         k.spot = new THREE.Vector3();
