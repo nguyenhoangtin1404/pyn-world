@@ -1,0 +1,28 @@
+# Area labels by changed files (actions/labeler, see workflows/labeler.yml).
+'area: world':
+  - changed-files:
+      - any-glob-to-any-file: ['src/World.js', 'src/world/**', 'src/worlds/**', 'src/config.js']
+'area: features':
+  - changed-files:
+      - any-glob-to-any-file: ['src/features/**']
+'area: render':
+  - changed-files:
+      - any-glob-to-any-file: ['src/render/**', 'src/world/lowpoly.js', 'src/world/particles.js', 'src/world/sky.js', 'src/world/water.js', 'src/world/weather.js']
+'area: ui':
+  - changed-files:
+      - any-glob-to-any-file: ['src/main.js', 'src/hud.js', 'src/cameras.js', 'src/audio.js', 'src/style.css', 'index.html']
+'world output changed':
+  - changed-files:
+      - any-glob-to-any-file: ['tests/e2e/golden/**']
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**', 'playwright.config.js', 'vitest.config.js']
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', '.githooks/**', 'eslint.config.js', 'commitlint.config.js', 'tsconfig.json']
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md']
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ['package.json', 'package-lock.json']

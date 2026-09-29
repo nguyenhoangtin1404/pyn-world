@@ -14,8 +14,8 @@ const SHEEP_DARK = '#3a302b';
 // The whole flock is drawn with three InstancedMeshes (body, head, leg). Each Sheep only animates
 // empty anchors (its group, head pivot and legs); the flock copies their matrices when drawing.
 function createFlock(capacity) {
-  const part = (geo) => new Instancer(geo, VERTEX_COLORED, capacity * (geo === leg ? 4 : 1));
   const leg = box(0.16, 0.6, 0.16, SHEEP_DARK, [0, -0.3, 0]);
+  const part = (geo) => new Instancer(geo, VERTEX_COLORED, capacity * (geo === leg ? 4 : 1));
   const flock = {
     body: part(ball(0.8, SHEEP_WOOL, [0, 1.05, 0], { sx: 0.95, sy: 0.85, sz: 1.25 })),
     head: part(mergeGeometries([box(0.42, 0.46, 0.58, SHEEP_DARK, [0, 0, 0.3]), ball(0.26, SHEEP_WOOL, [0, 0.26, 0.15], {}, 0), box(0.8, 0.1, 0.16, SHEEP_DARK, [0, 0.12, 0.12])])),

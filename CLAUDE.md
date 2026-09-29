@@ -5,23 +5,46 @@ Thung lũng low-poly dựng hoàn toàn bằng code với Three.js. Xem README.m
 ```bash
 npm run dev      # http://localhost:5173  — thêm ?stats để xem draw call / ms mỗi frame
 npm run build
-npm run check    # kiểu dữ liệu + dựng mọi world và so với golden — chạy trước mỗi commit
+npm run check    # lint + kiểu + unit test + e2e — chạy trước khi push (CI chạy y như vậy)
 ```
 
-## Kiểm tra (`npm run check`)
+## Kiểm tra và CI
 
-Lần đầu trên máy mới: `npx playwright install chromium`. Script (`scripts/check.mjs`, ~1 phút) chạy
-`tsc` rồi mở từng world trong Chromium không giao diện (GPU phần mềm — cùng kết quả trên mọi máy):
+Lần đầu trên máy mới: `npm install` (cài luôn hook commit-msg) và `npx playwright install chromium`.
 
-1. **So với golden** (`scripts/golden/<id>.json`): checksum mọi đỉnh, vị trí từng cây/đá/hoa, số
-   collider, spot, trạm, số người, draw call, shader. Lệch 1 cái cây cũng báo.
+| Lệnh | Làm gì | Thời gian |
+|---|---|---|
+| `npm run lint` | ESLint (`eslint.config.js`): bắt lỗi, không soát định dạng | vài giây |
+| `npm run typecheck` | `tsc` trên các file `// @ts-check` | vài giây |
+| `npm test` | Unit test Vitest (`tests/unit/`): tiện ích, config world, `needs`, `Track.distanceTo`, `Site`, `NavGrid` | ~1 s |
+| `npm run e2e` | Playwright Test (`tests/e2e/`): dựng mọi world trong Chromium không giao diện (GPU phần mềm — cùng kết quả mọi máy) | ~45 s |
+
+E2E gồm:
+1. **So với golden** (`tests/e2e/golden/<id>.json`): checksum mọi đỉnh, vị trí từng cây/đá/hoa, số
+   collider, spot, trạm, số người, draw call, shader. Lệch 1 cái cây cũng báo, kèm diff.
 2. **Tua nhanh 300 s**: người lên/xuống tàu, cửa mở, bật ô khi mưa, người leo núi đi, tàu dừng ≥ 2 lần.
 3. **Đổi world 2 vòng**: số geometry/texture/shader trên GPU phải như lần đầu (không rò).
-4. **Tổ hợp feature**: world tối giản dựng được; thiếu feature thì lỗi phải nói rõ thiếu gì.
+4. **Tổ hợp feature**: world tối giản dựng được; thiếu thứ gì thì lỗi phải nói rõ.
 
-Cố ý đổi một world (thêm feature, sửa config…): `npm run check -- --update` ghi lại golden, xem diff
-của `scripts/golden/*.json` có đúng ý không rồi commit cùng thay đổi. **Không** `--update` để cho qua
-một lần chạy đỏ mà mình không hiểu vì sao — nhất là golden của PYN.
+Cố ý đổi một world (thêm feature, sửa config…): `npm run e2e -- --update-snapshots` ghi lại golden,
+xem diff của `tests/e2e/golden/*.json` có đúng ý không rồi commit cùng thay đổi (PR sẽ có nhãn
+`world output changed`). **Không** cập nhật golden để cho qua một lần chạy đỏ mà mình không hiểu vì
+sao — nhất là golden của PYN. Không có retry: test đỏ là lỗi thật, không phải "flaky".
+
+**Commit và tiêu đề PR** theo Conventional Commits (`commitlint.config.js`): `feat(world): …`,
+`fix(people): …`, `perf: …`, `refactor: …`, `test: …`, `docs: …`, `ci: …`, `chore: …`; thêm `!` nếu phá
+tương thích (`refactor!: …`). Hook `.githooks/commit-msg` chặn message sai ngay khi commit; CI soát lại
+từng commit và tiêu đề PR (PR được squash-merge theo tiêu đề).
+
+**GitHub Actions** (`.github/workflows/`):
+- `ci.yml` — mỗi PR và mỗi push lên `main`: Lint & types, Unit tests, Build (artifact `dist`), E2E
+  (artifact `playwright-report` có trace khi đỏ). Sau khi tất cả xanh trên `main`: **deploy GitHub
+  Pages** — tắt cho tới khi bật Settings → Pages → Source "GitHub Actions" và đặt biến repo
+  `PAGES_ENABLED=true`.
+- `pr.yml` — tiêu đề PR và mọi commit theo Conventional Commits.
+- `labeler.yml` — nhãn tự động: khu vực theo file đổi (`.github/labeler.yml`), `type: …` theo tiêu đề,
+  `size: XS…XL` theo số dòng đổi, `breaking change` khi có `!`. Chạy bằng `pull_request_target` nên
+  gắn được nhãn cho PR từ fork; **không** checkout hay chạy code của PR trong workflow đó (đừng thêm).
 
 **Kiểu dữ liệu**: hợp đồng giữa App, World và feature nằm trong `src/types.d.ts` (`WorldConfig`,
 `StopConfig`, `System`, `Frame`, `Feature`, `Station`…); các file có `// @ts-check` được `tsc` kiểm tra

@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 
+const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0); // instance matrix of a cleared tree
+
 // What stands where in a world, shared by every feature while the world is built and queried by
 // people and cameras afterwards:
 // - obstacles: circles [x, z, r] that keep scenery apart (a house, a meadow, the street…)
@@ -128,5 +130,3 @@ export class Site {
     touched.forEach((m) => (m.instanceMatrix.needsUpdate = true));
   }
 }
-
-const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
