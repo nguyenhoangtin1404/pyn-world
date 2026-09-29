@@ -11,10 +11,29 @@ npm run build
 
 `main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
 tại một thời điểm; phím N / `?world=<id>` đổi world. Mỗi world dựng từ một **WorldConfig** trong
-`src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, tên + vị trí ga/trạm, hầm).
+`src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, tên + vị trí ga/trạm, hầm, **danh sách
+feature**).
 
-- **Thứ khác nhau giữa các world thì đọc từ `cfg`, không import hằng số hay hàm cố định.** Builder nhận
-  `cfg` (`createTerrain(cfg, …)`, `buildScenery({ cfg, … })`, `createLife({ cfg, … })`); sông là
+- **World = lõi + feature.** Lõi (ray, địa hình, hầm, cầu, trời, thời tiết) luôn có. Còn lại là feature
+  trong `src/features/` (ga, làng, trạm + phố, cối xay, cừu, cây, mây, tàu, cá, thuyền, khinh khí cầu,
+  dân làng, chim, người leo núi), bật/tắt và chỉnh bằng `cfg.features`: `'sheep'` hoặc
+  `{ id: 'sheep', flocks: 5 }`. Feature mới: viết `{ label, build(world, { rng, ...options }) }`, thêm
+  vào `features/index.js`. Feature dựng theo thứ tự trong config; feature sau dùng được thứ feature trước
+  để lại (`world.stations`, `world.train`, `world.people`…) — thiếu thì gọi `world.need(...)` để báo lỗi rõ.
+- **Mọi thứ chuyển động là một system**: `{ group?, update?(f), lateUpdate?(f), finish?(), dispose?() }`.
+  `update` chạy trước khi camera đi theo, `lateUpdate` sau camera + bầu trời (có `f.lights`,
+  `f.overcast`, `f.snow`). `f` là 1 object dùng lại mỗi frame (`World.frame`) — đừng giữ tham chiếu
+  sang frame sau. Không thêm lời gọi riêng vào vòng lặp trong `main.js`.
+- **Dùng chung trong 1 world thì đăng ký, đừng truyền tay**: `world.site` (vật cản `obstacles`,
+  `colliders` cho người, `solids` cho tầm nhìn camera, `surfaces` để đi lên — `site.spotOK`,
+  `site.walkHeight`, `site.occludes`), `world.batch` (khối tĩnh, gộp ở bước cuối), và các service tạo
+  lần đầu khi cần: `lamps(world)` (cửa sổ/đèn sáng ban đêm), `houses(world)` (nhà rỗng + cửa + khói),
+  `waterLife(world, rng)` (chỗ nước sâu + gợn sóng).
+- **Ngẫu nhiên theo feature**: mỗi feature một luồng `rng` riêng (seed world + id), thêm/bớt feature
+  không xáo trộn feature khác. `stream: n` cho các feature dùng chung một luồng — PYN dùng 2 luồng như
+  bản gốc (0 cho phong cảnh, 7 cho sự sống) để giữ nguyên từng cái cây; **đổi thứ tự hay thêm feature
+  vào giữa các feature cùng `stream` sẽ làm PYN khác đi**.
+- **Thứ khác nhau giữa các world thì đọc từ `cfg`/`world`, không import hằng số hay hàm cố định.** Sông là
   `cfg.riverX` (JS) và `cfg.riverGLSL` (shader nước), cả hai sinh từ `cfg.river` trong `defineWorld()`.
   `config.js` chỉ còn hằng số chung cho mọi world (`TRACK_Y`, `WATER_Y`, `GAUGE`…).
 - **Mỗi world một `THREE.Scene`.** Không đặt 2 world cạnh nhau trong 1 scene bằng cách dịch group:
@@ -24,8 +43,10 @@ tại một thời điểm; phím N / `?world=<id>` đổi world. Mỗi world d�
   module) mà quên `keep()` thì đổi world sẽ dispose mất đồ của world sau (vẫn chạy, nhưng upload/biên
   dịch lại).
 - `CameraRig` tạo 1 lần (nó nghe sự kiện bàn phím/chuột), gắn vào world bằng `rig.attach(world.view)`.
-- Đã đo (2026-09-29): PYN sau khi tách giữ nguyên từng đỉnh (checksum geometry), 546 draw call, 36
-  shader như trước; đổi PYN ↔ MAPLE 3 vòng, số geometry/texture/shader trên GPU không tăng.
+- Đã đo (2026-09-29): PYN sau khi tách (cả WorldConfig lẫn feature) giữ nguyên từng đỉnh (checksum
+  geometry), vị trí từng cây/đá/hoa (checksum instance), 1684 collider, 546 draw call, 36 shader; đổi
+  PYN ↔ MAPLE nhiều vòng, số geometry/texture/shader trên GPU không tăng, heap JS gần như phẳng
+  (~0,2 MB mỗi lần đổi).
 
 ## Quy tắc render (ĐỪNG phá)
 
@@ -37,7 +58,7 @@ công cụ theo loại vật:
 |---|---|---|
 | Đứng yên (nhà, ga, cối xay, hàng rào…) | `StaticBatch`: `batch.at(x,y,z,ry)` rồi `batch.add(parts, mat)`, cuối cùng `group.add(batch.build())` | `new THREE.Mesh` cho từng khối |
 | Nhiều bản **giống hệt nhau** có cử động (cừu, cá, cánh cửa nhà…) | `Instancer`: mỗi con chỉ giữ `Object3D` rỗng làm anchor, cả đàn 1 InstancedMesh cho mỗi bộ phận | SkinnedMesh (xem bên dưới) |
-| Nhiều bản giống nhau đứng yên (cây, đá, hoa) | `InstancedMesh` như trong `scenery.js` | |
+| Nhiều bản giống nhau đứng yên (cây, đá, hoa) | `InstancedMesh` như trong `features/trees.js` | |
 | Nhân vật có khớp, **mỗi con một khác**, ≥ ~8 bộ phận (người, toa tàu) | `skinFigure()`: khớp là `THREE.Bone`, cả con thành 1 SkinnedMesh | Để từng bộ phận là mesh riêng |
 | Hạt sống ngắn (khói, gợn nước, bụi, lá rơi…) | `ParticlePool` / `Smoke` / `Ripples` | Mỗi hạt 1 mesh + 1 material |
 | Bộ phận gộp sẵn của 1 vật động (1 cái cần câu…) | `segment(parts)` | |
@@ -73,15 +94,15 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
   và tự đổi thành `PCFShadowMap` ở frame đầu — từng làm mọi shader biên dịch 2 lần; dùng thẳng
   `PCFShadowMap`.
 - **Kiểm tra tầm nhìn camera không raycast vào mesh gộp** (~28 nghìn tam giác + từng cây instanced,
-  ~3 ms/tia). Dùng `scenery.occludes(a, b)`: hộp cho nhà/ga, trụ cho cối xay/tán cây. Thêm công trình
-  lớn thì thêm `solidBox(...)` cho nó.
+  ~3 ms/tia). Dùng `site.occludes(a, b)` (`world/site.js`): hộp cho nhà/ga, trụ cho cối xay/tán cây.
+  Thêm công trình lớn thì thêm `site.solidBox(...)` cho nó.
 - `ParticlePool` bỏ qua upload khi không còn hạt nào; đừng sửa `items` từ bên ngoài mà không qua
   `spawn()`.
 - **Không thêm `PointLight`/`SpotLight` cho đèn trang trí.** Mỗi đèn được tính cho mọi pixel của
   mọi vật có chiếu sáng, kể cả ban ngày khi cường độ = 0. Đèn ga/phố/cửa nhà = bóng đèn `lampMat` +
-  quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) trong `scenery.js`. Chỉ còn đèn pha tàu là
+  quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) của `lamps(world)` (`features/lamps.js`). Chỉ còn đèn pha tàu là
   đèn thật.
-- **Dáng đi của người tính theo quãng đường, không theo thời gian** (`Walker.step` trong `life.js`:
+- **Dáng đi của người tính theo quãng đường, không theo thời gian** (`Walker.step` trong `world/walker.js`:
   `gait += s·π / (STEP_LENGTH·scale)`, nửa chu kỳ = 1 bước). Đừng đổi lại thành `t × tốc độ` (tay
   chân vung loạn khi đổi tốc độ). Trong `Person.pose()` đầu gối chỉ gập khi chân đang **vung về
   trước**; đổi chiều là người đi moonwalk. Đo: chân trụ trượt 4,16 → 0,04 m mỗi mét đi.

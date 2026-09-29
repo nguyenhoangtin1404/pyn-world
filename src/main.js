@@ -156,6 +156,15 @@ const actions = {
   },
 };
 
+// Keys that fly the camera to a spot in the world (world.spots).
+const SPOT_KEYS = {
+  KeyF: { id: 'courting', toast: 'Bay tới đôi cừu đang yêu 💕' },
+  KeyG: { id: 'bridgeSheep', toast: 'Bay tới chú cừu ngắm sông' },
+  KeyK: { id: 'summit', toast: 'Bay lên đỉnh núi ⛰' },
+  KeyJ: { id: 'fisherman', toast: 'Bay tới ông câu cá 🎣' },
+  KeyL: { id: 'steamer', toast: 'Bay tới tàu hơi nước ⛴' },
+};
+
 function onKey(e) {
   if (e.target.closest?.('input, select, textarea')) return;
   if (e.repeat) return;
@@ -173,42 +182,23 @@ function onKey(e) {
     hud.toast(rig.followLabel ? `Đang theo: ${rig.followLabel}` : `Camera: ${m.label}`);
     return;
   }
+  const spot = SPOT_KEYS[e.code];
+  if (spot) {
+    // Features put these spots in the world; a world without sheep has no sheep to fly to.
+    const p = world.spots[spot.id];
+    if (!p) return hud.toast('Thế giới này không có chỗ đó');
+    rig.flyToSpot(p);
+    state.mode = 'overview';
+    hud.sync();
+    hud.toast(spot.toast);
+    return;
+  }
   switch (e.code) {
     case 'KeyB':
       rig.nextBridge();
       state.mode = 'bridge';
       hud.sync();
       hud.toast(`Cầu số ${rig.bridgeIndex + 1}`);
-      break;
-    case 'KeyF':
-      rig.flyToSpot(world.spots.courting);
-      state.mode = 'overview';
-      hud.sync();
-      hud.toast('Bay tới đôi cừu đang yêu 💕');
-      break;
-    case 'KeyG':
-      rig.flyToSpot(world.spots.bridgeSheep);
-      state.mode = 'overview';
-      hud.sync();
-      hud.toast('Bay tới chú cừu ngắm sông');
-      break;
-    case 'KeyK':
-      rig.flyToSpot(world.spots.summit);
-      state.mode = 'overview';
-      hud.sync();
-      hud.toast('Bay lên đỉnh núi ⛰');
-      break;
-    case 'KeyJ':
-      rig.flyToSpot(world.spots.fisherman);
-      state.mode = 'overview';
-      hud.sync();
-      hud.toast('Bay tới ông câu cá 🎣');
-      break;
-    case 'KeyL':
-      rig.flyToSpot(world.spots.steamer);
-      state.mode = 'overview';
-      hud.sync();
-      hud.toast('Bay tới tàu hơi nước ⛴');
       break;
     case 'KeyP': {
       const i = PIXEL_LEVELS.findIndex((l) => l.v === state.pixel);
@@ -287,7 +277,7 @@ function frame() {
 
   world.update({ dt, raw, speed: state.speed, camera });
   rig.update(raw);
-  world.updateLighting({ raw, camera, focus: rig.focus });
+  world.lateUpdate({ raw, camera, focus: rig.focus });
 
   audio.update(raw, {
     trainDistance: camera.position.distanceTo(world.train.locoPos),

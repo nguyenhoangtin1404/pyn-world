@@ -36,4 +36,14 @@ export default defineWorld({
   station: { at: 0, name: 'PYN WORLD', zone: { A0: 30, A1: 95, HALF_B: 66 } },
   halt: { at: 0.385, name: 'PYN TOWN', zone: { A0: 2, A1: 64, HALF_B: 34 } },
   tunnel: { at: 0.5 }, // the hill with the tunnel, right opposite the station
+
+  // What lives in the world (src/features/), built in this order; an entry is an id or
+  // { id, ...options }. `stream`: features with the same number share one random stream, in this
+  // order — the valley was first generated that way (scenery from seed, life from seed + 7), so
+  // they keep it exactly as it was. Leave it out in a new world: each feature then gets its own.
+  features: [
+    ...['station', 'village', 'halt', 'windmill', 'sheep', 'trees', 'clouds'].map((id) => ({ id, stream: 0 })),
+    'train',
+    ...['fish', 'boats', 'balloons', 'villagers', 'birds', 'hikers'].map((id) => ({ id, stream: 7 })),
+  ],
 });

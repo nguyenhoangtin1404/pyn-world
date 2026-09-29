@@ -31,4 +31,21 @@ export default defineWorld({
   station: { at: 0, name: 'MAPLE VALE', zone: { A0: 30, A1: 90, HALF_B: 60 } },
   halt: { at: 0.4, name: 'MAPLE MILL', zone: { A0: 2, A1: 60, HALF_B: 34 } },
   tunnel: { at: 0.56 },
+
+  // No windmill here; a smaller village, more balloons and more sheep.
+  features: [
+    'station',
+    { id: 'village', count: 10 },
+    'halt',
+    { id: 'sheep', flocks: 5 },
+    'trees',
+    'clouds',
+    'train',
+    'fish',
+    'boats',
+    { id: 'balloons', count: 7 },
+    'villagers',
+    'birds',
+    'hikers',
+  ],
 });

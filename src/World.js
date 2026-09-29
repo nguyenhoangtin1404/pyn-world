@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { Track, createTrackCurve, buildTrackMeshes } from './world/track.js';
 import { createTerrain } from './world/terrain.js';
-import { buildScenery } from './world/scenery.js';
-import { Train } from './world/train.js';
-import { createLife } from './world/life.js';
 import { createTunnel } from './world/tunnel.js';
 import { Sky } from './world/sky.js';
 import { Weather } from './world/weather.js';
-import { isShared } from './world/lowpoly.js';
+import { Site } from './world/site.js';
+import { StaticBatch, isShared } from './world/lowpoly.js';
+import { mulberry32 } from './utils.js';
+import { FEATURES } from './features/index.js';
 
 // One complete world built from a WorldConfig (src/worlds/): its own scene — sky, lights and fog
 // included — and everything that lives in it. The app (main.js) owns the renderer, the camera, the
@@ -15,18 +15,74 @@ import { isShared } from './world/lowpoly.js';
 //
 // Each world needs its own scene: Instancer and ParticlePool draw in world coordinates, so two
 // worlds can't share one scene side by side by moving their groups.
+//
+// A world is the core (track, terrain, tunnel, bridges, sky, weather) plus the features its config
+// lists (src/features/). Everything that moves is a *system*:
+//   { group?, update?(f), lateUpdate?(f), finish?(), dispose?() }
+// - group: added to the scene
+// - update(f): every frame, before the camera moves — f = { dt, raw, t, speed, camera, rain, lights }
+// - lateUpdate(f): after the camera and the sky — f also has { focus, lights, overcast, snow }
+// - finish(): once, when every feature has been built (lamps.js builds its glow then)
+// - dispose(): anything World.dispose() can't find in the scene
+// `dt` is simulated time (0 while paused), `raw` real time, `t` the world's simulated clock.
 export class World {
   constructor(cfg) {
     this.cfg = cfg;
+    this.size = cfg.size;
     this.scene = new THREE.Scene();
     this.time = 0; // simulated seconds (stops while paused)
-    this.lastSnow = 0;
+    this.systems = [];
+    this.frame = { dt: 0, raw: 0, t: 0, speed: 1, camera: null, focus: null, rain: 0, lights: 0, overcast: 0, snow: 0 };
+    // Filled in by the features while they are built:
+    this.batch = new StaticBatch(); // static parts, baked into one mesh per material at the end
+    this.stations = []; // stops the train calls at: { id, frame, out, homes, platformSpots, point, … }
+    this.people = []; // Walkers living in the world (doors open for them, pigeons flee from them)
+    this.spots = {}; // places the camera can fly to (keys F, G, K, J, L)
+    this.followables = { people: [], birds: [] }; // { label, anchor() → Object3D }, keys 6 and 7
+    this.services = new Map(); // shared helpers created by the first feature that needs them
+    this.streams = new Map(); // random streams, see rngFor()
+  }
+
+  add(system) {
+    if (system.group) this.scene.add(system.group);
+    this.systems.push(system);
+    return system;
+  }
+
+  // One shared helper per world (lamps, houses…), created on first use.
+  service(name, create) {
+    if (!this.services.has(name)) this.services.set(name, create());
+    return this.services.get(name);
+  }
+
+  // For features that build on another one: fails the build with a clear message if it's missing.
+  need(what, feature, have) {
+    if (!have) throw new Error(`Feature "${feature}" cần ${what} (thêm nó vào trước trong cfg.features)`);
+  }
+
+  stationById(id) {
+    return this.stations.find((st) => st.id === id);
+  }
+
+  // Each feature draws from its own random stream (seeded from the world's seed and its id), so
+  // adding or removing one doesn't reshuffle the others. Features given the same `stream` number in
+  // the config share one stream instead, in config order (that is how PYN keeps its original look).
+  rngFor({ id, stream }) {
+    if (stream === undefined) {
+      let h = 0;
+      for (const c of id) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
+      return mulberry32(this.cfg.seed ^ h);
+    }
+    if (!this.streams.has(stream)) this.streams.set(stream, mulberry32(this.cfg.seed + stream));
+    return this.streams.get(stream);
   }
 
   // The build, as [label, step] pairs run one after the other so the loading screen can paint
   // between them.
   steps() {
     const { cfg, scene } = this;
+    const features = cfg.features.map((entry) => (typeof entry === 'string' ? { id: entry } : entry));
+    for (const { id } of features) if (!FEATURES[id]) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
     return [
       ['Đang trải đường ray', () => {
         this.track = new Track(createTrackCurve(cfg));
@@ -34,36 +90,42 @@ export class World {
         this.halt = this.track.frame(Math.round(this.track.frames.length * cfg.halt.at));
       }],
       ['Đang nặn địa hình', () => {
-        this.terrain = createTerrain(cfg, this.track, this.station, this.halt);
-        scene.add(this.terrain.mesh, this.terrain.water, this.terrain.frame);
+        const terrain = (this.terrain = createTerrain(cfg, this.track, this.station, this.halt));
+        this.heightAt = terrain.heightAt;
+        this.add({
+          group: new THREE.Group().add(terrain.mesh, terrain.water, terrain.frame),
+          update: (f) => terrain.update(f.t),
+          lateUpdate: (f) => terrain.setSnow(f.snow),
+        });
       }],
       ['Đang đào đường hầm', () => {
-        this.tunnel = createTunnel(this.track, this.terrain.heightAt, cfg.tunnel);
-        scene.add(this.tunnel.group);
+        const tunnel = (this.tunnel = createTunnel(this.track, this.heightAt, cfg.tunnel));
+        this.add({ group: tunnel.group, lateUpdate: (f) => tunnel.setSnow(f.snow) });
       }],
       ['Đang dựng cầu và tà vẹt', () => {
-        this.rails = buildTrackMeshes(this.track, this.terrain.heightAt, cfg.riverX);
-        scene.add(this.rails.group);
+        const rails = buildTrackMeshes(this.track, this.heightAt, cfg.riverX);
+        this.bridges = rails.bridges;
+        this.add({ group: rails.group });
+        this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, station: this.station });
       }],
-      ['Đang trồng cây, thả cừu', () => {
-        const { track, terrain, station, halt, tunnel } = this;
-        this.scenery = buildScenery({ cfg, track, terrain, bridges: this.rails.bridges, station, halt, tunnel });
-        scene.add(this.scenery.group);
-      }],
-      ['Đang lắp đầu máy', () => {
-        this.train = new Train(this.track);
-        this.train.tunnel = this.tunnel;
-        this.train.setStops(this.scenery.stations.map((st) => ({ s: st.frame.s + 14, out: st.out })));
-        scene.add(this.train.group);
-      }],
-      ['Đang thả cá, bơm khinh khí cầu', () => {
-        const { terrain, track, scenery, train } = this;
-        this.life = createLife({ cfg, terrain, track, scenery, train });
-        scene.add(this.life.group);
-      }],
+      ...features.map((entry) => {
+        const { id, stream, ...options } = entry;
+        const feature = FEATURES[id];
+        return [feature.label, () => {
+          const system = feature.build(this, { ...options, rng: this.rngFor(entry) });
+          if (system) this.add(system);
+        }];
+      }),
       ['Đang pha màu bầu trời', () => {
         this.sky = new Sky(scene);
-        this.weather = new Weather(scene);
+        const weather = (this.weather = new Weather(scene));
+        // Last: everything else reads last frame's rain, as it was when the frame started.
+        this.add({ update: (f) => weather.update(f.dt, f.raw, f.camera) });
+      }],
+      ['Đang hoàn thiện', () => {
+        if (!this.train) throw new Error('WorldConfig cần feature "train" (máy quay đi theo tàu)');
+        for (const s of this.systems) s.finish?.();
+        scene.add(this.batch.build());
       }],
     ];
   }
@@ -73,47 +135,29 @@ export class World {
     const { terrain, tunnel } = this;
     return {
       train: this.train,
-      bridges: this.rails.bridges,
+      bridges: this.bridges,
       // Keep the camera above the ground and out of the tunnel hill.
       heightAt: (x, z) => Math.max(terrain.heightAt(x, z), tunnel.surfaceAt(x, z)),
-      followables: this.life.followables,
-      occludes: this.scenery.occludes,
-      size: this.cfg.size,
+      followables: this.followables,
+      occludes: this.site.occludes,
+      size: this.size,
     };
   }
 
-  // Places the camera can fly to (keys F, G, K, J, L).
-  get spots() {
-    return { ...this.scenery.spots, ...this.life.spots };
-  }
-
-  // Everything that moves on its own. `dt` is simulated time (0 while paused), `raw` real time.
+  // Everything that moves on its own, before the camera follows it.
   update({ dt, raw, speed, camera }) {
     this.time += dt;
-    const t = this.time;
-    const { train, scenery, life, terrain, weather, tunnel } = this;
-    train.update(dt, speed);
-    scenery.update(dt, t);
-    life.update(dt, t, { rain: weather.rain });
-    terrain.update(t);
-    weather.update(dt, raw, camera);
-    const snow = weather.snowCover;
-    if (Math.abs(snow - this.lastSnow) > 0.01 || (snow === 0 && this.lastSnow !== 0)) {
-      this.lastSnow = snow;
-      terrain.setSnow(snow);
-      tunnel.setSnow(snow);
-    }
+    const f = Object.assign(this.frame, { dt, raw, speed, camera, t: this.time, rain: this.weather.rain });
+    for (const s of this.systems) s.update?.(f);
   }
 
-  // After the camera has moved: the sun's shadow area follows what the camera looks at, and the
-  // lamps and windows follow the sky.
-  updateLighting({ raw, camera, focus }) {
+  // After the camera has moved: the sun's shadow area follows what the camera looks at; lamps,
+  // windows, clouds and snow cover follow the sky and the weather.
+  lateUpdate({ raw, camera, focus }) {
     const { sky, weather } = this;
     sky.update(raw, camera, focus, weather);
-    this.train.setLights(sky.lights);
-    this.scenery.setLights(sky.lights);
-    this.life.setLights(sky.lights);
-    this.scenery.setOvercast(weather.overcast);
+    const f = Object.assign(this.frame, { raw, camera, focus, lights: sky.lights, overcast: weather.overcast, snow: weather.snowCover });
+    for (const s of this.systems) s.lateUpdate?.(f);
   }
 
   // Compile every shader while the loading screen is up — including those of things hidden at
@@ -139,6 +183,7 @@ export class World {
   // Free the GPU side of this world: its geometries, materials, textures, bone textures, instance
   // buffers and the sun's shadow map. Resources cached for every world (lowpoly.js keep()) stay.
   dispose() {
+    for (const s of this.systems) s.dispose?.();
     const geometries = new Set();
     const materials = new Set();
     const textures = new Set();
