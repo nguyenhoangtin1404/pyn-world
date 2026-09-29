@@ -112,7 +112,7 @@ export function skinFigure(owner, rootBone, mat, key = null) {
     for (const m of b.children.filter((c) => c.isMesh && c.material === mat)) {
       b.remove(m);
       if (shared) continue;
-      let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
       g.deleteAttribute('uv'); // flat-coloured: uvs unused, and every part must have the same attributes
       g.applyMatrix4(m4.multiplyMatrices(toOwner, m.matrixWorld));
       const n = g.attributes.position.count;

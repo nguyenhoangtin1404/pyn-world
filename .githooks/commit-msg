@@ -1,0 +1,4 @@
+#!/bin/sh
+# Conventional Commits (commitlint.config.js). Installed by `npm install` (git config core.hooksPath).
+# Skip once with `git commit --no-verify`.
+exec npx --no -- commitlint --edit "$1"
