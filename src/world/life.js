@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WORLD_SIZE, WATER_Y, SEED } from '../config.js';
 import { clamp, mulberry32 } from '../utils.js';
 import { riverX } from './terrain.js';
@@ -7,60 +6,32 @@ import { Person } from './people.js';
 import { createBoats } from './boats.js';
 import { NavGrid } from './nav.js';
 import { createBirds } from './birds.js';
+import { lam, Instancer } from './lowpoly.js';
+import { Ripples } from './particles.js';
 
 // Everything that moves around the valley on its own: hot-air balloons, fish (with ripples),
 // villagers and hikers.
 
-const lam = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra });
 const turnToward = (heading, want, k) => heading + Math.atan2(Math.sin(want - heading), Math.cos(want - heading)) * k;
-
-// ---------------------------------------------------------------- ripples
-class Ripples {
-  constructor(n = 64) {
-    this.group = new THREE.Group();
-    this.items = [];
-    this.next = 0;
-    // Two concentric rings per ripple read much better than one.
-    const geo = mergeGeometries([new THREE.RingGeometry(0.74, 1, 36), new THREE.RingGeometry(0.44, 0.58, 36)]).rotateX(-Math.PI / 2);
-    for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#f4fbff', transparent: true, opacity: 0, depthWrite: false }));
-      m.renderOrder = 2;
-      m.visible = false;
-      this.group.add(m);
-      this.items.push({ m, life: 0, max: 1, size: 1, strength: 1 });
-    }
-  }
-
-  spawn(x, z, size = 1, strength = 1) {
-    const it = this.items[this.next++ % this.items.length];
-    it.life = 0;
-    it.max = 1.4 + size * 0.5;
-    it.size = size;
-    it.strength = strength;
-    it.m.position.set(x, WATER_Y + 0.28, z);
-    it.m.visible = true;
-  }
-
-  update(dt) {
-    for (const it of this.items) {
-      if (!it.m.visible) continue;
-      it.life += dt;
-      const k = it.life / it.max;
-      if (k >= 1) {
-        it.m.visible = false;
-        continue;
-      }
-      it.m.scale.setScalar(0.4 + k * it.size * 4);
-      it.m.material.opacity = 0.95 * it.strength * (1 - k);
-    }
-  }
-}
 
 // ---------------------------------------------------------------- fish
 const FISH_COLORS = ['#ff8a3d', '#f2b632', '#c9d3db', '#e0603f', '#8fb8d8'];
 
+// All fish are drawn by two InstancedMeshes (body, tail) with a colour per fish. They glow a
+// little in their own colour so they read through the water: the emissive is tinted per instance.
+function createSchool(capacity) {
+  const mat = new THREE.MeshLambertMaterial({ flatShading: true, emissive: '#ffffff', emissiveIntensity: 0.35 });
+  mat.onBeforeCompile = (s) => {
+    s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif');
+  };
+  const body = new THREE.IcosahedronGeometry(0.35, 0).scale(0.55, 0.7, 1.5);
+  const fin = new THREE.ConeGeometry(0.28, 0.45, 4).rotateX(-Math.PI / 2).translate(0, 0, -0.2).scale(0.3, 1, 1);
+  const opt = { castShadow: false };
+  return { body: new Instancer(body, mat, capacity, opt), tail: new Instancer(fin, mat, capacity, opt) };
+}
+
 class Fish {
-  constructor(spot, rng, heightAt, ripples) {
+  constructor(spot, rng, heightAt, ripples, school) {
     this.rng = rng;
     this.heightAt = heightAt;
     this.ripples = ripples;
@@ -74,17 +45,14 @@ class Fish {
     this.vy = 0;
     this.jumping = false;
 
+    // Anchors only — the school draws them (see createSchool).
     const g = (this.group = new THREE.Group());
     const color = FISH_COLORS[Math.floor(rng() * FISH_COLORS.length)];
-    const mat = lam(color, { emissive: color, emissiveIntensity: 0.35 });
-    const body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35, 0), mat);
-    body.scale.set(0.55, 0.7, 1.5);
-    this.tail = new THREE.Group();
+    this.tail = new THREE.Object3D();
     this.tail.position.z = -0.45;
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.45, 4).rotateX(-Math.PI / 2).translate(0, 0, -0.2), mat);
-    fin.scale.set(0.3, 1, 1);
-    this.tail.add(fin);
-    g.add(body, this.tail);
+    g.add(this.tail);
+    school.body.add(g, color);
+    school.tail.add(this.tail, color);
     g.scale.setScalar(1.4 + rng() * 0.6);
   }
 
@@ -215,7 +183,8 @@ function buildBalloon(colors) {
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
-  const envMat = lam('#ffffff', { vertexColors: true, emissive: '#ff9a3c', emissiveIntensity: 0 });
+  // Own material: each balloon glows only while its own burner fires.
+  const envMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: '#ff9a3c', emissiveIntensity: 0 });
   const envelope = new THREE.Mesh(geo, envMat);
   envelope.castShadow = true;
 
@@ -255,8 +224,10 @@ export function createLife({ terrain, track, scenery, train }) {
     if (heightAt(x, z) < WATER_Y - 1.2) waterSpots.push({ x, z });
   }
   const fish = [];
+  const school = createSchool(26);
+  group.add(school.body.mesh, school.tail.mesh);
   for (let i = 0; i < 26 && waterSpots.length; i++) {
-    const f = new Fish(waterSpots[Math.floor(rng() * waterSpots.length)], rng, heightAt, ripples);
+    const f = new Fish(waterSpots[Math.floor(rng() * waterSpots.length)], rng, heightAt, ripples, school);
     fish.push(f);
     group.add(f.group);
   }
