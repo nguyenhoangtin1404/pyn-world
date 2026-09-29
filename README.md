@@ -42,4 +42,4 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/render/post.js` | Pixel art (render target độ phân giải thấp + NearestFilter) và viền mực (Laplacian của depth) |
 | `src/cameras.js` | 5 chế độ camera, bay WASD, fly-to |
 | `src/audio.js` | Âm thanh tổng hợp bằng Web Audio: tiếng xình xịch, ray, còi, mưa, chim |
-| `src/hud.js` | Bảng điều khiển |
+| `src/hud.js` | Bảng điều khiển, nút chọn world (góc trên trái) |

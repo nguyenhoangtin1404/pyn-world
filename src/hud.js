@@ -24,7 +24,15 @@ function chip(html, onClick) {
   return b;
 }
 
-export function initHud(state, actions) {
+// `worlds`: the WorldConfigs the app can show (one chip each, top left).
+export function initHud(state, actions, worlds) {
+  const worldBtns = worlds.map((w) => {
+    const b = chip(w.name, () => actions.setWorld(w.id));
+    b.title = `${w.name} (phím N: thế giới kế tiếp)`;
+    $('world-picker').append(b);
+    return [w.id, b];
+  });
+
   const camBtns = CAMERA_MODES.map((m) => {
     const b = chip(`<kbd>${m.key}</kbd>${m.label}`, () => actions.setMode(m.id));
     $('camera-modes').append(b);
@@ -93,6 +101,13 @@ export function initHud(state, actions) {
   });
 
   function sync() {
+    for (const [id, b] of worldBtns) {
+      const on = id === state.world && !state.switchingTo;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+      b.classList.toggle('pending', id === state.switchingTo);
+      b.disabled = !!state.switchingTo; // one world at a time
+    }
     camBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.mode));
     timeBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.timeOfDay));
     autoBtn.classList.toggle('active', state.autoDay);

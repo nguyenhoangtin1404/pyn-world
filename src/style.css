@@ -121,6 +121,36 @@ button:focus-visible {
   transition: opacity 0.25s;
 }
 
+#hud-top .top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* One chip per world; the one on screen is active, the one being built pulses. */
+#world-picker .chip.pending {
+  border-color: var(--accent);
+  animation: pending 0.9s ease-in-out infinite alternate;
+}
+
+#world-picker .chip:disabled {
+  cursor: progress;
+}
+
+@keyframes pending {
+  to {
+    background: var(--accent-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #world-picker .chip.pending {
+    animation: none;
+    background: var(--accent-soft);
+  }
+}
+
 #help {
   margin-top: 10px;
   padding: 12px 16px;
