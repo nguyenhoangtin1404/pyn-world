@@ -11,6 +11,9 @@ export function approach(value, target, maxStep) {
   return Math.max(target, value - maxStep);
 }
 
+// Turn `heading` a fraction k of the way towards `want` (radians), the short way round.
+export const turnToward = (heading, want, k) => heading + Math.atan2(Math.sin(want - heading), Math.cos(want - heading)) * k;
+
 export const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 // Deterministic PRNG so the valley looks the same on every load.

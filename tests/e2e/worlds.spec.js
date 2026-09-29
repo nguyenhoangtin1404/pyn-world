@@ -13,7 +13,7 @@ for (const { id } of WORLDS) {
       expect(page.errors).toEqual([]);
     });
 
-    test('comes alive: train, people, doors, rain, hikers', async ({ page }) => {
+    test('comes alive: train, people, doors, rain, hikers, vehicles', async ({ page }) => {
       await openWorld(page, id);
       const life = await page.evaluate(simulate);
       expect(life.trainStops, 'the train keeps calling at stops').toBeGreaterThanOrEqual(2);
@@ -24,6 +24,17 @@ for (const { id } of WORLDS) {
         if (life.houses) expect(life.doorOpenMax, 'house doors swing open').toBeGreaterThan(1.4);
       }
       if (life.hikers > 0) expect(life.hikersMoved, 'hikers climb').toBeGreaterThan(0);
+      // (A vehicle may be waiting for someone crossing, but not all of them for 300 s.)
+      if (life.vehicles > 0) expect(life.vehiclesMoved, 'vehicles drive and fly').toBeGreaterThan(life.vehicles / 2);
+      if (life.road) {
+        const r = life.road;
+        expect(r.overlaps, 'no two vehicles ever overlap').toBe(0);
+        expect(r.longestStop, 'nothing waits for ever (no gridlock)').toBeLessThan(60);
+        if (r.gates) expect(r.gateClosings, 'level-crossing barriers come down for the train').toBeGreaterThan(0);
+        if (r.gates) expect(r.carsAtGate, '…and cars wait at them').toBeGreaterThan(0);
+        if (r.signals) expect(r.carsAtRed, 'cars stop at red lights').toBeGreaterThan(0);
+        if (r.branches) expect(r.carsOnBranch, 'cars take the branch off the roundabout').toBeGreaterThan(0);
+      }
       expect(page.errors).toEqual([]);
     });
   });

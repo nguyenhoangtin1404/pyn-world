@@ -57,8 +57,14 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
-    /** @type {{ people: Followable[], birds: Followable[] }} keys 6 and 7 */
-    this.followables = { people: [], birds: [] };
+    /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[] }} keys 6, 7 and 8 */
+    this.followables = { people: [], birds: [], vehicles: [] };
+    /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
+     *   signals: import('./world/roads/signals.js').SignalCycle[], gates: import('./world/roads/signals.js').CrossingGate[],
+     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[] }[] }[]} roads (features/road.js) */
+    this.roads = [];
+    /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
+    this.vehicles = [];
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
     /** @type {Map<number, () => number>} random streams, see rngFor() */
@@ -95,7 +101,7 @@ export class World {
    * @param {unknown} have
    */
   need(what, feature, have) {
-    if (!have) throw new Error(`Feature "${feature}" cần ${what} (thêm nó vào trước trong cfg.features)`);
+    if (!have) throw new Error(`Feature "${feature}" cần ${what}`);
   }
 
   // A stop from cfg.stops (with its track frame): the one named, or by default the first one no

@@ -1,5 +1,5 @@
 // @ts-check
-import { turnToward } from '../../world/walker.js';
+import { turnToward } from '../../utils.js';
 
 // Should child k be walking towards `target`? Starts once it has fallen `start` behind and
 // stops only when within `stop` — the gap between the two keeps it from flipping between the
