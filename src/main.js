@@ -14,6 +14,7 @@ import { WORLDS, worldById } from './worlds/index.js';
 
 const state = {
   world: worldById(new URLSearchParams(location.search).get('world')).id,
+  switchingTo: null, // id of the world being built, while switching
   mode: 'overview',
   timeOfDay: 'day',
   hour: 9, // 0..24, drives the sky
@@ -97,6 +98,9 @@ function resize() {
 
 let hud;
 const actions = {
+  setWorld(id) {
+    switchWorld(id);
+  },
   setMode(id) {
     state.mode = id;
     rig.setMode(id);
@@ -376,25 +380,26 @@ function show(next) {
   world.train.events.whistle = () => audio.whistle();
 }
 
-let switching = false;
 async function switchWorld(id) {
-  if (switching || id === state.world) return;
-  switching = true;
+  if (state.switchingTo || id === state.world) return;
   const cfg = worldById(id);
+  state.switchingTo = cfg.id; // the world picker shows it pending and waits
+  hud.sync();
   loader.show(cfg.name);
   // Free the old world first: two worlds in memory at once is a lot for a phone.
   world?.dispose();
   world = null;
+  state.world = null; // gone: if the build fails, any world (even this one) can be tried again
   try {
     show(await buildWorld(cfg));
     state.world = cfg.id;
-    hud.sync();
     loader.hide();
     hud.toast(`Thế giới: ${cfg.name}`);
   } catch (err) {
     loader.error(err);
   } finally {
-    switching = false;
+    state.switchingTo = null;
+    hud.sync();
   }
 }
 
@@ -412,7 +417,7 @@ async function boot() {
   }
   show(first);
 
-  hud = initHud(state, actions);
+  hud = initHud(state, actions, WORLDS);
   addEventListener('keydown', onKey);
   addEventListener('resize', resize);
   addEventListener('pointerdown', () => audio.init(), { once: true });

@@ -55,7 +55,8 @@ File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dò
 ## Nhiều world
 
 `main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
-tại một thời điểm; phím N / `?world=<id>` đổi world. Mỗi world dựng từ một **WorldConfig** trong
+tại một thời điểm; nút chọn world (góc trên trái, một nút mỗi world trong `WORLDS`), phím N hay
+`?world=<id>` đổi world. Mỗi world dựng từ một **WorldConfig** trong
 `src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, **các điểm dừng**, hầm nếu có, **danh
 sách feature**).
 
