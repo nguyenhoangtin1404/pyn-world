@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 import { WORLD_SIZE, TERRAIN_SEGMENTS, TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
 import { clamp, lerp, smoothstep, hash2 } from '../utils.js';
+import { createWater } from './water.js';
 
 const perlin = new ImprovedNoise();
 
@@ -183,12 +184,12 @@ export function createTerrain(track, station, halt) {
     const r = Math.hypot(x, z);
     let h = 2 + fbm(x, z) * 22;
     // Mountains around the rim of the valley
-    h += smoothstep(165, 280, r) * (38 + fbm(x, z, 4, 0.012, 9.1) * 50);
+    if (r > 165) h += smoothstep(165, 280, r) * (38 + fbm(x, z, 4, 0.012, 9.1) * 50); // (weight 0 further in)
     // River channel
     const river = 1 - smoothstep(5, 16, Math.abs(x - riverX(z)));
     h = lerp(h, RIVER_BED, river);
     // Flatten a corridor for the railway (but let the river cut through → bridges)
-    const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z))) * (1 - river);
+    const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z, 22))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
     // Village plateau: dead flat inside, blending back into the hills over ~18 units.
     const plateau = (1 - smoothstep(0, 18, Math.min(village.outside(x, z), town.outside(x, z)))) * (1 - river);
@@ -232,30 +233,15 @@ export function createTerrain(track, station, halt) {
   const mesh = new THREE.Mesh(geo, groundMat);
   mesh.receiveShadow = true;
 
-  // Water: one faceted sheet with small animated waves.
-  const wgeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 100, 100);
-  wgeo.rotateX(-Math.PI / 2);
-  const water = new THREE.Mesh(
-    wgeo,
-    new THREE.MeshPhongMaterial({
-      color: '#4fa3cf',
-      specular: '#d8f1ff',
-      shininess: 70,
-      transparent: true,
-      opacity: 0.74,
-      flatShading: true,
-    }),
-  );
-  water.position.y = WATER_Y;
-  water.receiveShadow = true;
-  const wp = wgeo.attributes.position;
+  // Water: one faceted sheet, animated in its shader (see water.js).
+  const water = createWater();
 
   const frame = new THREE.Group();
   frame.add(buildSkirt(heightAt), buildPlinth());
 
   return {
     mesh,
-    water,
+    water: water.group,
     frame,
     heightAt,
     village,
@@ -264,11 +250,7 @@ export function createTerrain(track, station, halt) {
       groundMat.userData.snow.value = amount;
     },
     update(time) {
-      for (let i = 0; i < wp.count; i++) {
-        const x = wp.getX(i), z = wp.getZ(i);
-        wp.setY(i, Math.sin(x * 0.09 + time * 1.2) * 0.12 + Math.cos(z * 0.07 + time * 0.9) * 0.12);
-      }
-      wp.needsUpdate = true;
+      water.update(time);
     },
   };
 }

@@ -57,6 +57,12 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
   lớn thì thêm `solidBox(...)` cho nó.
 - `ParticlePool` bỏ qua upload khi không còn hạt nào; đừng sửa `items` từ bên ngoài mà không qua
   `spawn()`.
+- **Không thêm `PointLight`/`SpotLight` cho đèn trang trí.** Mỗi đèn được tính cho mọi pixel của
+  mọi vật có chiếu sáng, kể cả ban ngày khi cường độ = 0. Đèn ga/phố/cửa nhà = bóng đèn `lampMat` +
+  quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) trong `scenery.js`. Chỉ còn đèn pha tàu là
+  đèn thật.
+- **Thứ chuyển động đều theo thời gian thì tính trong shader** (uniform `uTime`): sóng nước, dòng
+  chảy, lá trôi (`water.js`), mưa, tuyết rơi (`weather.js`). CPU chỉ gán 1 số mỗi frame.
 
 ## Đo trước khi tối ưu
 
@@ -74,12 +80,18 @@ trên máy dev (GPU rời) gần như không đổi — lợi ích chủ yếu �
 mỗi bước → 0,02 ms; shader biên dịch lúc tải 51 → 33 (hết biên dịch 2 lần), lần đầu mưa/tuyết
 không còn biên dịch shader; `scenery.update` 0,071 → 0,04 ms/frame (khói ống khói ban ngày).
 
+Đo 2026-09-29 (sau khi bỏ PointLight, chim instanced, nước/mưa/tuyết trong shader): draw call góc
+toàn cảnh 385 → 268, góc làng 194 → 170, góc làng ban đêm 186 → 113; CPU sóng nước 0,27 → 0 ms,
+tuyết rơi 0,15 → 0 ms. Pixel ratio tối đa 1,5 và tự hạ (bước 0,25, tới 1) khi FPS < 40 trong 2 s.
+
+Thời gian tải (2026-09-29, trung vị 5 lần, dev server): 2,10 → 1,85 s; dựng địa hình 269 → 163 ms,
+cây/nhà 168 → 114 ms, người + lưới dẫn đường 336 → 274 ms. `track.distanceTo` tra lưới ô 12 đơn vị
+thay vì quét 380 điểm, và nhận `max` để dừng sớm (kết quả < max vẫn chính xác) — truyền `max` khi
+chỉ cần so với một ngưỡng.
+
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
-- Sóng nước (`terrain.update`, ~0,25 ms), mưa/tuyết rơi (`weather.js`) đang tính trên CPU mỗi
-  frame → chuyển sang vertex shader với uniform `uTime` (phủ tuyết đã chuyển: `snowCovered()` trong
-  `terrain.js`).
-- 3 PointLight ở ga + đèn pha tàu luôn nằm trong shader mọi vật (kể cả ban ngày, cường độ 0).
-- Pixel ratio tối đa 2 + MSAA: nặng trên màn retina/di động → giới hạn 1,5 hoặc tự hạ khi FPS thấp.
-- Bóng đổ: shadow map 2048 phủ 340×340 đơn vị, lượt vẽ bóng chiếm ~0,8 ms → thu hẹp frustum theo
-  khoảng cách camera, tắt `castShadow` cho vật nhỏ ở xa.
+- Thời gian tải: phần lớn còn lại là biên dịch shader (~0,5 s trên GPU phần mềm) và dựng người
+  (`Person`/`skinFigure`, ~130 ms). `heightAt` giờ chủ yếu là noise (`fbm`).
+- Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng. Còn
+  có thể tắt `castShadow` cho vật nhỏ ở xa.

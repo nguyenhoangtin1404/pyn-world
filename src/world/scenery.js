@@ -37,6 +37,22 @@ function labelTexture(text) {
   return tex;
 }
 
+// Soft round light: bright centre fading to nothing (lamp halos and pools of light).
+function glowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function heartTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -157,7 +173,10 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
   // Own materials (not the shared cache): they light up at night.
   const windowMat = new THREE.MeshLambertMaterial({ color: '#4a5563', emissive: '#ffcf70', emissiveIntensity: 0, flatShading: true });
   const lampMat = new THREE.MeshLambertMaterial({ color: '#fff4d6', emissive: '#ffd58a', emissiveIntensity: 0, flatShading: true });
-  const lamps = [];
+  // Lamps don't use real lights (every light is evaluated for every lit pixel, day and night):
+  // a glowing bulb (lampMat), a soft halo, and for the bigger lamps a pool of light on the ground.
+  const halos = []; // [x, y, z]
+  const pools = []; // [x, y, z, radius]
   // Station, houses and the windmill tower are baked into one mesh per material.
   const batch = new StaticBatch();
 
@@ -171,7 +190,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     if (tunnel?.footprint(x, z)) return null; // under the tunnel hill
     const h = heightAt(x, z);
     if (h < WATER_Y + 0.9 || h > 46) return null;
-    if (track.distanceTo(x, z) < clearTrack) return null;
+    if (track.distanceTo(x, z, clearTrack) < clearTrack) return null;
     if (Math.abs(x - riverX(z)) < 17) return null;
     if (Math.hypot(x - f0.p.x, z - f0.p.z) < 30) return null;
     for (const [ox, oz, r] of obstacles) if (Math.hypot(x - ox, z - oz) < r) return null;
@@ -302,10 +321,9 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       colliders.push({ ...stWorld(ox * 3.2, z), r: 0.2 });
     }
     batch.add(shape(new THREE.SphereGeometry(0.28, 8, 6), '#fff4d6', [ox * 3.2, y, z]), lampMat);
-    const light = new THREE.PointLight('#ffd28a', 0, 30, 1.2);
-    light.position.set(ox * 3.2, y - 0.4, z);
-    st.add(light);
-    lamps.push(light);
+    const lw = stWorld(ox * 3.2, z);
+    halos.push([lw.x, y, lw.z]);
+    pools.push([lw.x, TRACK_Y + PLAT_TOP, lw.z, 6.5]);
   }
   shadowed(st);
   group.add(st);
@@ -467,6 +485,10 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     } else {
       // Lamp over the door.
       batch.add(shape(new THREE.SphereGeometry(0.16, 6, 4), '#fff4d6', [0, FLOOR + DOOR_H + 0.45, d / 2 + 0.2]), lampMat);
+      const lw = world(0, d / 2 + 0.2);
+      halos.push([lw.x, h + FLOOR + DOOR_H + 0.45, lw.z]);
+      const gw = world(0, d / 2 + 1.2);
+      pools.push([gw.x, h, gw.z, 2.6]);
     }
     const ch = world(w * 0.25, -d * 0.15);
     chimneys.push({ p: new THREE.Vector3(ch.x, h + top + 2.1, ch.z), acc: rng(), rate: 0.9 + rng() * 0.8 });
@@ -529,6 +551,9 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       batch.add(cyl(0.1, 0.1, 2.6, '#efe3c6', [oxH * 4.3, floorH + 1.3, z], {}, 6));
       batch.add(shape(new THREE.SphereGeometry(0.22, 8, 6), '#fff4d6', [oxH * 4.3, floorH + 2.35, z]), lampMat);
       colliders.push({ ...hWorld(oxH * 4.3, z), r: 0.2 });
+      const lw = hWorld(oxH * 4.3, z);
+      halos.push([lw.x, floorH + 2.35, lw.z]);
+      pools.push([lw.x, floorH, lw.z, 4.5]);
     }
     const hs = new THREE.Group();
     hs.position.set(hf.p.x, 0, hf.p.z);
@@ -572,6 +597,8 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       batch.add(cyl(0.07, 0.1, 3.2, '#3a302b', [0, 1.6, 0], {}, 6));
       batch.add(shape(new THREE.SphereGeometry(0.2, 8, 6), '#fff4d6', [0, 3.3, 0]), lampMat);
       colliders.push({ x: l.x, z: l.z, r: 0.2 });
+      halos.push([l.x, groundH + 3.3, l.z]);
+      pools.push([l.x, groundH, l.z, 5]);
     }
   }
   // Keep trees and rocks off the street and the halt.
@@ -637,6 +664,20 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     }
     chimneySmoke.update(dt);
   });
+
+  // ---------- Lamp glow ----------
+  // Own materials: their opacity follows the night. Two draw calls for every lamp in the valley,
+  // skipped altogether in daylight.
+  const glowTex = glowTexture();
+  const haloGeo = new THREE.BufferGeometry();
+  haloGeo.setAttribute('position', new THREE.Float32BufferAttribute(halos.flat(), 3));
+  const haloMat = new THREE.PointsMaterial({ color: '#ffd58a', map: glowTex, size: 2.6, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+  const haloPts = new THREE.Points(haloGeo, haloMat);
+  const poolMat = new THREE.MeshBasicMaterial({ color: '#ffcf80', map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const poolMesh = new THREE.Mesh(mergeGeometries(pools.map(([x, y, z, r]) => new THREE.PlaneGeometry(r * 2, r * 2).rotateX(-Math.PI / 2).translate(x, y + 0.04, z))), poolMat);
+  poolMesh.renderOrder = 1;
+  haloPts.renderOrder = 2;
+  group.add(haloPts, poolMesh);
 
   // Does the segment a→b pass through a building, tower, tree crown or rock? Plain geometry
   // instead of raycasting the merged meshes (~28k triangles, plus every tree instance): the ray
@@ -877,7 +918,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       puffs.push(new THREE.IcosahedronGeometry(1, 1).scale(s, s, s).translate(x, y, z));
     }
     const cg = new THREE.Mesh(mergeGeometries(puffs), cloudMat);
-    cg.castShadow = true;
+    cg.castShadow = false; // 16 extra shadow-pass draws for shadows too soft to notice at that height
     cg.position.set((rng() - 0.5) * 600, 75 + rng() * 30, (rng() - 0.5) * 600);
     group.add(cg);
     clouds.push(cg);
@@ -922,7 +963,9 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       evening = Math.min(1, l * 2);
       windowMat.emissiveIntensity = l * 1.3;
       lampMat.emissiveIntensity = l * 2;
-      for (const L of lamps) L.intensity = l * 18;
+      haloMat.opacity = Math.min(1, l * 1.2);
+      poolMat.opacity = Math.min(0.55, l * 0.7);
+      haloPts.visible = poolMesh.visible = l > 0.02;
     },
     setOvercast(o) {
       cloudMat.color.copy(white).lerp(grey, o);
