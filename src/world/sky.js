@@ -198,7 +198,10 @@ export class Sky {
     // Keep the shadow frustum centred on what the camera is looking at (snapped to reduce shimmer),
     // and only as big as the view needs: close up, a smaller area gives sharper shadows and fewer
     // objects to draw in the shadow pass. Resized in steps so it doesn't change every frame.
-    const half = Math.min(170, Math.max(50, Math.ceil((camera.position.distanceTo(focus) * 1.1) / 20) * 20));
+    // In the passenger and driver seats the focus is the camera itself, but the view goes far out of
+    // the windows: keep a wide area there.
+    const dist = camera.position.distanceTo(focus);
+    const half = dist < 0.5 ? 140 : Math.min(170, Math.max(50, Math.ceil((dist * 1.1) / 20) * 20));
     const sc = this.sun.shadow.camera;
     if (sc.right !== half) {
       sc.left = sc.bottom = -half;
