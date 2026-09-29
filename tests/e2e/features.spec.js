@@ -13,6 +13,8 @@ const cases = {
   'road, traffic and planes': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 } }, 'traffic', 'train', 'aircraft'] },
   'road over the railway': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22 } }, 'train'], error: /Đường .* đè lên đường ray/ },
   'traffic without a road': { features: ['station', 'traffic', 'train'], error: /"traffic".*"road"/ },
+  'ring road with traffic lights, no roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 }, lights: ['a1', { side: 'b0', at: 0.3 }] }, 'traffic', 'train'] },
+  'branch without a roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, branch: 40 }, 'train'], error: /"road" cần một vòng xoay/ },
 };
 
 test('small worlds build and run; missing pieces are reported', async ({ page }) => {

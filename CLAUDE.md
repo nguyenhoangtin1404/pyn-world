@@ -119,11 +119,30 @@ features: [
 
 - `road`: đường vòng (chữ nhật bo góc) trong `zone` của một điểm dừng, cách mép `margin` (mặc định 6),
   `inset: { a0, a1, b }` để lùi riêng phía ray / phía xa / hai đầu. **Đường không được cắt nước hay đè
-  lên ray** — feature báo lỗi kèm tọa độ (a, b) trong zone; chỉnh `inset` theo đó. Đường nằm trên mặt
-  đất *như được vẽ* (`terrain.meshHeightAt`, nội suy đúng lưới tam giác), không phải `heightAt` (lệch tới
-  1,35 đơn vị trên dốc → cỏ trồi lên mặt đường).
-- `traffic`: xe chạy một chiều trên đường, giữ khoảng cách (`vehicles/traffic.js`, logic thuần có test),
-  dừng khi có người đi bộ phía trước. Camera phím **8** đi theo xe.
+  lên ray** (trừ chỗ chắn tàu) — feature báo lỗi kèm tọa độ (a, b) trong zone; chỉnh `inset` theo đó.
+  Đường nằm trên mặt đất *như được vẽ* (`terrain.meshHeightAt`, nội suy đúng lưới tam giác), không phải
+  `heightAt` (lệch tới 1,35 đơn vị trên dốc → cỏ trồi lên mặt đường). Thêm tùy chọn:
+  - `roundabout: 'b1'` (hoặc `{ side, at, radius }`): vòng xoay trên cạnh đó của đường vòng; xe chạy
+    ngược chiều kim đồng hồ nhìn từ trên (giữ bên phải), xe vào **nhường** xe đang chạy trong vòng xoay.
+  - `branch: 46` (hoặc `{ length, lane, turn }`): đường hai chiều từ vòng xoay thẳng ra ngoài zone tới một
+    vòng quay đầu. Chỗ nó cắt đường ray **tự thành chắn tàu**: mặt đường nâng ngang đỉnh ray, mỗi làn
+    một cột có đèn đỏ nháy luân phiên + thanh chắn nửa đường; tàu còn < 9 s hoặc < 25 đơn vị (hoặc thân
+    tàu còn trên đường) thì đèn nháy, 2,5 s sau thanh chắn hạ; xe chờ tới khi thanh chắn lên hẳn.
+  - `lights: ['a0']` (hoặc `{ side, at }`): vạch sang đường + đèn giao thông hai bên (xanh 14 s / vàng 3 s
+    / đỏ 9 s); đèn vàng chỉ dừng xe còn kịp phanh.
+  - Vạch kẻ: viền trắng hai mép, vạch giữa đứt (liền gần chắn tàu), vạch dừng, vạch nhường ở lối vào
+    vòng xoay, vạch sang đường. Tất cả (cả mặt nhựa, đảo giữa vòng xoay) là tam giác tô màu theo đỉnh
+    (`world/roads/paint.js`) gộp vào `world.batch` → không tốn draw call riêng; bóng đèn sáng và thanh
+    chắn là 2 Instancer (`world/roads/props.js`), bật/tắt đèn bằng `anchor.visible`.
+  - Bố cục (`world/roads/network.js`, thuần, có test) cho ra các **tuyến** (route): mỗi tuyến là một
+    `LoopPath` một làn, kèm các điểm dừng `{ s, blocked(car, d, cars) }` (đèn đỏ, chắn tàu, nhường vòng
+    xoay). Logic đèn/chắn tàu ở `world/roads/signals.js` (thuần, có test).
+- `traffic`: xe chia đều cho các tuyến của đường (vòng quanh / ra nhánh qua chắn tàu rồi quay lại),
+  giữ khoảng cách với **bất kỳ phần nào** của xe phía trước trên làn mình — kể cả xe tuyến khác đi chung
+  đoạn đường (xe tải dài đang vòng xoay có đuôi chắn lối ra) — dừng khi có người đi bộ phía trước và ở
+  các điểm dừng (`vehicles/traffic.js`, logic thuần có test). Camera phím **8** đi theo xe.
+  E2E tua 300 s kiểm tra: không hai xe nào chồng lên nhau (hình chữ nhật thân xe), không xe nào đứng
+  ≥ 60 s (kẹt), thanh chắn hạ, xe chờ ở chắn tàu và đèn đỏ, xe đi ra nhánh.
 - `aircraft`: máy bay bay vòng trên cao (110 m trở lên, trên khinh khí cầu), nghiêng cánh khi rẽ, đèn
   đầu cánh không phụ thuộc ánh sáng. Camera phím 7.
 - **Thêm loại xe mới**: một mục trong `KINDS` (`vehicles/kinds.js`): `body()` (phần sơn dùng `PAINT` →
@@ -131,7 +150,8 @@ features: [
   `speed`, `length`, `colors`; bay thì `flies: true` (+ `prop`, `lights`). Không cần sửa chỗ nào khác.
 - Vẽ: mỗi loại xe 2 InstancedMesh (thân + bánh), máy bay 3, bất kể bao nhiêu chiếc; người lái là
   `Person` (SkinnedMesh) — chỉ xe 2 bánh có. Đo (2026-09-29, MAPLE): +34 draw call (tính cả bóng) cho
-  9 xe + 2 máy bay, CPU mỗi bước mô phỏng 0,29–0,34 → 0,33–0,34 ms (trong vùng nhiễu).
+  9 xe + 2 máy bay, CPU mỗi bước mô phỏng 0,29–0,34 → 0,33–0,34 ms (trong vùng nhiễu). Thêm vòng
+  xoay + chắn tàu + đèn: 304 → 306 draw call; `traffic.update` 0,10 ms, đèn/chắn tàu 0,004 ms mỗi bước.
 
 ## Quy tắc render (ĐỪNG phá)
 

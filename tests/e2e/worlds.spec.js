@@ -26,6 +26,15 @@ for (const { id } of WORLDS) {
       if (life.hikers > 0) expect(life.hikersMoved, 'hikers climb').toBeGreaterThan(0);
       // (A vehicle may be waiting for someone crossing, but not all of them for 300 s.)
       if (life.vehicles > 0) expect(life.vehiclesMoved, 'vehicles drive and fly').toBeGreaterThan(life.vehicles / 2);
+      if (life.road) {
+        const r = life.road;
+        expect(r.overlaps, 'no two vehicles ever overlap').toBe(0);
+        expect(r.longestStop, 'nothing waits for ever (no gridlock)').toBeLessThan(60);
+        if (r.gates) expect(r.gateClosings, 'level-crossing barriers come down for the train').toBeGreaterThan(0);
+        if (r.gates) expect(r.carsAtGate, '…and cars wait at them').toBeGreaterThan(0);
+        if (r.signals) expect(r.carsAtRed, 'cars stop at red lights').toBeGreaterThan(0);
+        if (r.branches) expect(r.carsOnBranch, 'cars take the branch off the roundabout').toBeGreaterThan(0);
+      }
       expect(page.errors).toEqual([]);
     });
   });

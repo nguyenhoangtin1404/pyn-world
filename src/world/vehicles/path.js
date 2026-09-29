@@ -70,6 +70,113 @@ export class LoopPath {
     const d = this.headingAt(s + span, span) - this.headingAt(s - span, span);
     return Math.atan2(Math.sin(d), Math.cos(d)) / (2 * span);
   }
+
+  /**
+   * The given point nearest (x, z): its distance along the path and how far it is. Exact enough for
+   * a dense path; a scan of every point, so for building things, not every frame.
+   * @param {number} x
+   * @param {number} z
+   */
+  nearest(x, z) {
+    let best = Infinity, s = 0;
+    this.points.forEach(([px, pz], i) => {
+      const d = Math.hypot(px - x, pz - z);
+      if (d < best) [best, s] = [d, this.at[i]];
+    });
+    return { s, d: best };
+  }
+}
+
+/**
+ * A path that ends: like LoopPath but s is clamped to 0..length, and the heading at either end is
+ * that of the first or last stretch. For drawing roads that stop somewhere (a branch, the ring
+ * road cut open by a roundabout).
+ */
+export class OpenPath {
+  /** @param {[number, number][]} points at least 2 */
+  constructor(points) {
+    if (points.length < 2) throw new Error('OpenPath needs at least 2 points');
+    this.points = points;
+    /** @type {number[]} */
+    this.at = [0];
+    for (let i = 1; i < points.length; i++) this.at.push(this.at[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
+    this.length = this.at[points.length - 1];
+  }
+
+  /**
+   * @param {number} s
+   * @returns {[number, number]}
+   */
+  pointAt(s) {
+    s = Math.min(this.length, Math.max(0, s));
+    let lo = 0, hi = this.points.length - 2;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.at[mid] <= s) lo = mid;
+      else hi = mid - 1;
+    }
+    const len = this.at[lo + 1] - this.at[lo];
+    const k = len > 0 ? (s - this.at[lo]) / len : 0;
+    const [ax, az] = this.points[lo], [bx, bz] = this.points[lo + 1];
+    return [ax + (bx - ax) * k, az + (bz - az) * k];
+  }
+
+  /**
+   * @param {number} s
+   * @param {number} [span]
+   */
+  headingAt(s, span = 1) {
+    const a = Math.max(0, Math.min(this.length - 2 * span, s - span));
+    const [ax, az] = this.pointAt(a), [bx, bz] = this.pointAt(a + 2 * span);
+    return Math.atan2(bx - ax, bz - az);
+  }
+}
+
+/**
+ * A closed polyline made smooth for driving: resampled every `step` units, then each point
+ * averaged with its neighbours `window` units either way (twice). A corner becomes a bend a few
+ * units round; long straights and wide curves barely move.
+ * @param {[number, number][]} points closed, not repeating the first at the end
+ * @param {{ step?: number, window?: number }} [o]
+ * @returns {[number, number][]}
+ */
+export function smoothLoop(points, { step = 0.5, window = 3 } = {}) {
+  const path = new LoopPath(points);
+  const n = Math.max(3, Math.round(path.length / step));
+  let pts = Array.from({ length: n }, (_, i) => path.pointAt((i / n) * path.length));
+  const w = Math.max(1, Math.round(window / (path.length / n)));
+  for (let pass = 0; pass < 2; pass++) {
+    pts = pts.map((_, i) => {
+      let x = 0, z = 0;
+      for (let k = -w; k <= w; k++) {
+        const [px, pz] = pts[(i + k + n) % n];
+        x += px;
+        z += pz;
+      }
+      return /** @type {[number, number]} */ ([x / (2 * w + 1), z / (2 * w + 1)]);
+    });
+  }
+  return pts;
+}
+
+/**
+ * Points on a circle round `c` from angle `from` to `to`, going the way angles grow
+ * (anticlockwise seen from above; angle 0 = +z, like a heading), `step` units apart. `to` is
+ * reached by going round, so to < from means most of a turn.
+ * @param {[number, number]} c
+ * @param {number} r
+ * @param {number} from
+ * @param {number} to
+ * @param {number} [step]
+ * @returns {[number, number][]}
+ */
+export function arc([cx, cz], r, from, to, step = 1) {
+  const sweep = (((to - from) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const n = Math.max(1, Math.ceil((sweep * r) / step));
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const t = from + (sweep * i) / n;
+    return /** @type {[number, number]} */ ([cx + Math.sin(t) * r, cz + Math.cos(t) * r]);
+  });
 }
 
 /**

@@ -1,13 +1,10 @@
 import * as THREE from 'three';
-import { Instancer, VERTEX_COLORED, keep } from '../lowpoly.js';
+import { Instancer, VERTEX_COLORED, UNLIT } from '../lowpoly.js';
 import { KINDS, kindGeometry } from './kinds.js';
 
 // Draws a whole fleet with a few InstancedMeshes per kind of vehicle (body, wheel, and for planes
 // the propeller and navigation lights) — however many vehicles there are. A vehicle only moves
 // empty anchors; its paint colour is the instance tint.
-
-// Unlit, so navigation lights show at night; shared by every world.
-const UNLIT = keep(new THREE.MeshBasicMaterial({ vertexColors: true }));
 
 export class Fleet {
   /** @param {Record<string, number>} counts how many of each kind (KINDS id → number) */

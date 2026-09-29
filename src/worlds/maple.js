@@ -40,7 +40,9 @@ export default defineWorld({
   // village with traffic on it (before the village, so the houses keep off it), and planes.
   features: [
     'station',
-    { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 } }, // off the river (far side) and the railway (ends)
+    // Off the river (far side) and the railway (ends); a roundabout at one end with a road out over
+    // the railway (a level crossing) to a turning circle; lights at the zebra by the station.
+    { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, roundabout: 'b1', branch: 46, lights: ['a0'] },
     { id: 'village', count: 10 },
     'traffic',
     'halt',

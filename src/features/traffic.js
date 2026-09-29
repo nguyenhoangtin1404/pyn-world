@@ -5,10 +5,11 @@ import { Vehicle } from '../world/vehicles/vehicle.js';
 import { KINDS } from '../world/vehicles/kinds.js';
 import { updateTraffic } from '../world/vehicles/traffic.js';
 
-// Vehicles going round a road (features/road.js), all one way: cars, pickups, trucks, motorbikes
-// and bicycles (with riders pedalling). They keep their distance and stop for people crossing.
-// Followed by the vehicle camera (key 8). Options: road (id; default the last road built),
-// vehicles ({ kind: count }, kinds in world/vehicles/kinds.js).
+// Vehicles on a road (features/road.js): cars, pickups, trucks, motorbikes and bicycles (with riders
+// pedalling), shared out between its routes — round the ring, or out along the branch and back.
+// They keep their distance, stop for people crossing, at red lights and closed level crossings, and
+// give way on the roundabout. Followed by the vehicle camera (key 8). Options: road (id; default
+// the last road built), vehicles ({ kind: count }, kinds in world/vehicles/kinds.js).
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang cho xe chạy',
@@ -21,13 +22,19 @@ export default {
     const fleet = new Fleet(vehicles);
     group.add(...fleet.meshes);
 
-    // Spread out evenly round the loop, kinds mixed up.
+    // Kinds mixed up, taking turns at the routes, spread out evenly along the stretch every route
+    // starts with (so no two start on top of each other).
     const kinds = Object.entries(vehicles).flatMap(([kind, n]) => Array(n).fill(kind));
     for (let i = kinds.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
     }
-    const cars = kinds.map((kind, i) => new Vehicle({ kind, fleet, path: road.path, s: (i / kinds.length) * road.path.length, rng, heightAt: road.heightAt }));
+    const cars = kinds.map((kind, i) => {
+      const route = road.routes[i % road.routes.length];
+      const car = new Vehicle({ kind, fleet, path: route.path, s: (i / kinds.length) * road.shared, rng, heightAt: road.heightAt });
+      car.stops = route.stops;
+      return car;
+    });
     for (const c of cars) group.add(c.group);
     world.vehicles.push(...cars);
     const count = {};

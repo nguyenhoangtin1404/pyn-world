@@ -32,6 +32,7 @@ export class Vehicle {
     this.cruise = lerp(lo, hi, rng());
     this.v = this.spec.flies ? this.cruise : 0; // planes are already flying
     this.limit = Infinity;
+    this.stops = undefined; // stop points on its route (world/vehicles/traffic.js), set by the traffic
     this.color = this.spec.colors[Math.floor(rng() * this.spec.colors.length)];
     const { group, wheels, prop } = fleet.add(kind, this.color);
     this.group = group; // the anchor the fleet draws the body at (in the scene)

@@ -11,6 +11,8 @@ export const keep = (resource) => (sharedResources.add(resource), resource);
 export const isShared = (resource) => sharedResources.has(resource);
 
 export const VERTEX_COLORED = keep(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+// Unlit, for small lights that must show at night (plane navigation lights, traffic signals).
+export const UNLIT = keep(new THREE.MeshBasicMaterial({ vertexColors: true }));
 
 // Flat-shaded Lambert material, shared by everyone asking for the same look (flyweight). Never
 // mutate a material from here — anything that animates (emissive at night, fading…) needs its own

@@ -59,7 +59,9 @@ export class World {
     this.spots = {};
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[] }} keys 6, 7 and 8 */
     this.followables = { people: [], birds: [], vehicles: [] };
-    /** @type {{ id: string, path: import('./world/vehicles/path.js').LoopPath, width: number, heightAt: (x: number, z: number) => number }[]} roads (features/road.js) */
+    /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
+     *   signals: import('./world/roads/signals.js').SignalCycle[], gates: import('./world/roads/signals.js').CrossingGate[],
+     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[] }[] }[]} roads (features/road.js) */
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
