@@ -34,7 +34,7 @@ const SEATS = {
 };
 
 export class CameraRig {
-  constructor(camera, dom, { train, bridges, heightAt, followables, occluders }) {
+  constructor(camera, dom, { train, bridges, heightAt, followables, occludes }) {
     this.camera = camera;
     this.dom = dom;
     this.train = train;
@@ -44,9 +44,7 @@ export class CameraRig {
     this.followables = followables || { people: [], birds: [] };
     this.followIndex = { person: -1, bird: -1 };
     this.followTarget = null;
-    this.occluders = occluders || []; // objects that block the follow camera's view
-    this.raycaster = new THREE.Raycaster();
-    this.raycaster.camera = camera; // needed for sprites
+    this.occludes = occludes || (() => false); // (a, b) → is the view blocked by scenery?
     this.occludedFor = 0;
     this.mode = 'overview';
     this.bridgeIndex = 0;
@@ -166,14 +164,15 @@ export class CameraRig {
     this.occludedFor = 0;
   }
 
-  // Nothing solid (buildings, trees, the tunnel hill) between a and b?
+  // Nothing solid (buildings, trees, the ground or the tunnel hill) between a and b?
   clearView(a, b) {
-    if (!this.occluders?.length) return true;
-    const dir = new THREE.Vector3().subVectors(b, a);
-    const dist = dir.length();
-    this.raycaster.set(a, dir.normalize());
-    this.raycaster.far = dist - 0.3;
-    return this.raycaster.intersectObjects(this.occluders, true).length === 0;
+    const n = Math.ceil(a.distanceTo(b) / 1.5);
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+      if (a.y + (b.y - a.y) * t < this.heightAt(x, z)) return false;
+    }
+    return !this.occludes(a, b);
   }
 
   nextBridge() {
