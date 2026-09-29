@@ -31,6 +31,8 @@ const fragmentShader = /* glsl */ `
       c.rgb = mix(c.rgb, ink, edge * 0.85);
     }
     gl_FragColor = c;
+    // The scene was rendered linear into the target; tone map here like a direct render would.
+    #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;

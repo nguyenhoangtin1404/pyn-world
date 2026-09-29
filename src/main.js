@@ -35,6 +35,10 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Neutral keeps the hand-picked low-poly colours while rolling off bright highlights (sun glare,
+// lit windows at night) instead of clipping them.
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.05;
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
