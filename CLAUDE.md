@@ -47,6 +47,16 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
   (dùng các helper của `lowpoly.js` là đảm bảo).
 - `variant()` trong `lowpoly.js` tách material cho mesh skinned/instanced (khác shader program).
   Nếu thêm `onBeforeCompile` cho material, `variant()` đã chép sang — đừng dùng `mat.clone()` trần.
+- **Shader được biên dịch trước lúc loading** (`precompile()` trong `main.js`: bật tạm mọi vật đang
+  ẩn → `compileAsync` → vẽ 1 frame). Đừng đổi cấu hình renderer (loại shadow map, tone mapping…)
+  sau đó: khóa shader đổi → biên dịch lại toàn bộ lúc chơi. `PCFSoftShadowMap` đã bị three r186 bỏ
+  và tự đổi thành `PCFShadowMap` ở frame đầu — từng làm mọi shader biên dịch 2 lần; dùng thẳng
+  `PCFShadowMap`.
+- **Kiểm tra tầm nhìn camera không raycast vào mesh gộp** (~28 nghìn tam giác + từng cây instanced,
+  ~3 ms/tia). Dùng `scenery.occludes(a, b)`: hộp cho nhà/ga, trụ cho cối xay/tán cây. Thêm công trình
+  lớn thì thêm `solidBox(...)` cho nó.
+- `ParticlePool` bỏ qua upload khi không còn hạt nào; đừng sửa `items` từ bên ngoài mà không qua
+  `spawn()`.
 
 ## Đo trước khi tối ưu
 
@@ -60,9 +70,16 @@ material, 898 geometry → sau tối ưu 353 draw call, 84 material, 238 geometr
 1261 → 319, góc làng 1155 → 214); thời gian frame
 trên máy dev (GPU rời) gần như không đổi — lợi ích chủ yếu ở máy yếu/di động nơi draw call đắt.
 
+Đo 2026-09-29 (Chromium, CPU): tầm nhìn camera theo người 3,4 ms/tia → 0,04 ms; phủ tuyết 3,1 ms
+mỗi bước → 0,02 ms; shader biên dịch lúc tải 51 → 33 (hết biên dịch 2 lần), lần đầu mưa/tuyết
+không còn biên dịch shader; `scenery.update` 0,071 → 0,04 ms/frame (khói ống khói ban ngày).
+
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
-- Sóng nước (`terrain.update`), phủ tuyết (`terrain.setSnow`, ~4 ms/lần), mưa/tuyết rơi
-  (`weather.js`) đang tính trên CPU mỗi frame → chuyển sang vertex shader với uniform `uTime`.
+- Sóng nước (`terrain.update`, ~0,25 ms), mưa/tuyết rơi (`weather.js`) đang tính trên CPU mỗi
+  frame → chuyển sang vertex shader với uniform `uTime` (phủ tuyết đã chuyển: `snowCovered()` trong
+  `terrain.js`).
+- 3 PointLight ở ga + đèn pha tàu luôn nằm trong shader mọi vật (kể cả ban ngày, cường độ 0).
+- Pixel ratio tối đa 2 + MSAA: nặng trên màn retina/di động → giới hạn 1,5 hoặc tự hạ khi FPS thấp.
 - Bóng đổ: shadow map 2048 phủ 340×340 đơn vị, lượt vẽ bóng chiếm ~0,8 ms → thu hẹp frustum theo
   khoảng cách camera, tắt `castShadow` cho vật nhỏ ở xa.

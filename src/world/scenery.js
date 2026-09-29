@@ -251,6 +251,10 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
 
   // Static footprints people must walk around: circles {x, z, r} and boxes {x, z, w, d, rot}.
   const colliders = [];
+  // What blocks a line of sight (the follow cameras): buildings as boxes {x, z, w, d, cos, sin, y0, y1}
+  // and towers as upright cylinders {x, z, r, y0, y1}. Trees and rocks come from `colliders`.
+  const solids = [];
+  const solidBox = (x, z, w, d, rot, y0, y1) => solids.push({ x, z, w, d, cos: Math.cos(rot), sin: Math.sin(rot), y0, y1, reach: Math.hypot(w, d) / 2 });
 
   const st = new THREE.Group();
   st.position.set(f0.p.x, 0, f0.p.z);
@@ -270,6 +274,11 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     box(0.12, 2.4, 1.6, '#6b4a33', [ox * 7.95, floor + 1.2, 0]),
   ]);
   colliders.push({ ...stWorld(ox * 11, 0), w: 6, d: 13, rot: stRot });
+  {
+    const b = stWorld(ox * 11, 0), c = stWorld(ox * 4.3, 0);
+    solidBox(b.x, b.z, 7.4, 14, stRot, 0, floor + 6.8); // building and roof
+    solidBox(c.x, c.z, 4.6, 22, stRot, TRACK_Y + 4.45, TRACK_Y + 4.75); // platform canopy
+  }
   for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), windowMat);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture('PYN WORLD') }));
   sign.position.set(ox * 7.9, floor + 3.8, 0);
@@ -463,6 +472,10 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     chimneys.push({ p: new THREE.Vector3(ch.x, h + top + 2.1, ch.z), acc: rng(), rate: 0.9 + rng() * 0.8 });
 
     houseList.push({ x, z, y: h + FLOOR, w, d, cos, sin, r: Math.hypot(w, d) / 2 });
+    // Walls, then the gable roof as two boxes narrowing towards the ridge.
+    solidBox(x, z, w, d, rot, h - 0.4, h + top);
+    solidBox(x, z, (w + 0.8) * 0.75, d + 0.6, rot, h + top, h + top + 1);
+    solidBox(x, z, (w + 0.8) * 0.25, d + 0.6, rot, h + top + 1, h + top + 2);
     // Where villagers stand when they're "home": inside, a step in from the door.
     // Far enough in that whoever stands there is clear of the door, which then closes behind them.
     const inside = world(0.3, d / 2 - T - 2.5);
@@ -510,6 +523,8 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       box(0.08, 0.5, 3.2, WOOD, [oxH * 6.2, floorH + 0.7, 0]),
     ]);
     colliders.push({ ...hWorld(oxH * 6.1, 0), w: 0.9, d: 8.4, rot: hRot });
+    const sh = hWorld(oxH * 5.3, 0);
+    solidBox(sh.x, sh.z, 2.6, 9, hRot, floorH, floorH + 2.8);
     for (const z of [-4, 4]) {
       batch.add(cyl(0.1, 0.1, 2.6, '#efe3c6', [oxH * 4.3, floorH + 1.3, z], {}, 6));
       batch.add(shape(new THREE.SphereGeometry(0.22, 8, 6), '#fff4d6', [oxH * 4.3, floorH + 2.35, z]), lampMat);
@@ -623,6 +638,57 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     chimneySmoke.update(dt);
   });
 
+  // Does the segment a→b pass through a building, tower, tree crown or rock? Plain geometry
+  // instead of raycasting the merged meshes (~28k triangles, plus every tree instance): the ray
+  // cost ~3 ms, this is a few µs.
+  function occludes(a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    const len2 = dx * dx + dz * dz;
+    const midX = (a.x + b.x) / 2, midZ = (a.z + b.z) / 2, half = Math.sqrt(len2) / 2;
+    // Upright cylinder: nearest approach in plan, then the height there.
+    const cylinder = (cx, cz, r, y0, y1) => {
+      if (Math.abs(cx - midX) > half + r || Math.abs(cz - midZ) > half + r) return false;
+      const t = len2 > 1e-9 ? Math.min(1, Math.max(0, ((cx - a.x) * dx + (cz - a.z) * dz) / len2)) : 0;
+      const px = a.x + dx * t - cx, pz = a.z + dz * t - cz;
+      if (px * px + pz * pz > r * r) return false;
+      const y = a.y + dy * t;
+      return y > y0 && y < y1;
+    };
+    for (const s of solids) {
+      if (s.r !== undefined) {
+        if (cylinder(s.x, s.z, s.r, s.y0, s.y1)) return true;
+        continue;
+      }
+      if (Math.abs(s.x - midX) > half + s.reach || Math.abs(s.z - midZ) > half + s.reach) continue;
+      // Slab test in the box's own frame (same rotation convention as the colliders).
+      const ax = a.x - s.x, az = a.z - s.z;
+      const o = [ax * s.cos - az * s.sin, a.y, ax * s.sin + az * s.cos];
+      const v = [dx * s.cos - dz * s.sin, dy, dx * s.sin + dz * s.cos];
+      const lo = [-s.w / 2, s.y0, -s.d / 2], hi = [s.w / 2, s.y1, s.d / 2];
+      let t0 = 0, t1 = 1;
+      for (let k = 0; k < 3 && t0 <= t1; k++) {
+        if (Math.abs(v[k]) < 1e-9) {
+          if (o[k] < lo[k] || o[k] > hi[k]) t1 = -1;
+          continue;
+        }
+        let ta = (lo[k] - o[k]) / v[k], tb = (hi[k] - o[k]) / v[k];
+        if (ta > tb) [ta, tb] = [tb, ta];
+        t0 = Math.max(t0, ta);
+        t1 = Math.min(t1, tb);
+      }
+      if (t0 <= t1) return true;
+    }
+    for (const c of colliders) {
+      const it = c.item;
+      if (!it) continue;
+      // Tree crowns (a little inside the leaves, so peeking past the edge still counts as clear).
+      if (it.pine === undefined) {
+        if (cylinder(it.x, it.z, 0.8 * it.s, it.h - 0.5, it.h + 0.8 * it.s)) return true; // rock
+      } else if (it.pine ? cylinder(it.x, it.z, 1.2 * it.s, it.h + 1.3 * it.s, it.h + 4.5 * it.s) : cylinder(it.x, it.z, 1.4 * it.s, it.h + 1.8 * it.s, it.h + 4.6 * it.s)) return true;
+    }
+    return false;
+  }
+
   // Ground people stand on: terrain, the platform and its ramps, or a house floor.
   const walkHeight = (x, z) => Math.max(heightAt(x, z), platformHeight(x, z), insideHouse(x, z)?.y ?? -Infinity);
 
@@ -654,6 +720,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     group.add(shadowed(mill));
     obstacles.push([best.x, best.z, 7]);
     colliders.push({ x: best.x, z: best.z, r: 2.4 });
+    solids.push({ x: best.x, z: best.z, r: 2.3, y0: best.h - 0.5, y1: best.h + 12.6 });
     updaters.push((dt) => (hub.rotation.z -= dt * 0.7));
   }
 
@@ -837,6 +904,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     obstacles,
     colliders,
     walkHeight,
+    occludes,
     isIndoors: (x, z) => !!insideHouse(x, z),
     doors, // {x, y, z, open 0..1}
     // Who the doors react to: a function returning current positions (life.js sets it).

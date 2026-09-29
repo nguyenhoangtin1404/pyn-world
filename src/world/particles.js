@@ -24,6 +24,8 @@ export class ParticlePool {
     geo.setAttribute('instanceOpacity', this.opacity);
     this.items = Array.from({ length: n }, () => ({ alive: false, life: 0, max: 1, pos: new THREE.Vector3(), rot: new THREE.Euler(), scale: 1, opacity: 0 }));
     this.next = 0;
+    this.live = 0; // particles alive after the last update
+    this.drawn = true; // does the GPU buffer still hold particles? (false once cleared)
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._s = new THREE.Vector3();
@@ -35,6 +37,7 @@ export class ParticlePool {
     const it = this.items[this.next++ % this.items.length];
     it.alive = true;
     it.life = 0;
+    this.live++;
     it.max = max;
     it.pos.copy(pos);
     return it;
@@ -42,13 +45,20 @@ export class ParticlePool {
 
   // Ages every live particle; `step(it, k, dt)` animates it (k = 0..1 through its life).
   update(dt, step) {
+    // Nothing alive and the buffer already cleared (chimney smoke all day long): skip the upload.
+    if (this.live === 0 && !this.drawn) return;
+    let live = 0;
     for (const it of this.items) {
       if (!it.alive) continue;
       it.life += dt;
       const k = it.life / it.max;
       if (k >= 1) it.alive = false;
-      else step(it, k, dt);
+      else {
+        step(it, k, dt);
+        live++;
+      }
     }
+    this.live = live;
     this.sync();
   }
 
@@ -62,6 +72,7 @@ export class ParticlePool {
     });
     mesh.instanceMatrix.needsUpdate = true;
     this.opacity.needsUpdate = true;
+    this.drawn = this.live > 0;
   }
 }
 

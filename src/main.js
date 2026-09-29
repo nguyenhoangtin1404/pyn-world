@@ -32,10 +32,15 @@ const state = {
 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Reading shader logs after every compile makes the browser wait for each compile to finish; only
+// worth it while developing.
+renderer.debug.checkShaderErrors = import.meta.env.DEV;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// three.js r186 dropped PCFSoftShadowMap and falls back to PCFShadowMap at the first shadow render,
+// which made every shader compiled before that (the whole precompile) compile a second time.
+renderer.shadowMap.type = THREE.PCFShadowMap;
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -88,11 +93,10 @@ const steps = [
       // Keep the camera above the ground and out of the tunnel hill.
       heightAt: (x, z) => Math.max(W.terrain.heightAt(x, z), W.tunnel.surfaceAt(x, z)),
       followables: W.life.followables,
-      occluders: [W.scenery.group, W.tunnel.group],
+      occludes: W.scenery.occludes,
     });
     W.sky.setHour(state.hour, true);
     resize();
-    renderer.compile(scene, camera);
   }],
 ];
 
@@ -337,6 +341,27 @@ function frame() {
   }
 }
 
+// Compile every shader while the loading screen is up — including those of things hidden at start
+// (rain, snow, cabins, balloon flames…), which would otherwise compile, and stall a frame, the
+// first time they appear. compileAsync lets the driver compile in parallel where it can.
+async function precompile() {
+  const hidden = [];
+  scene.traverse((o) => {
+    if (!o.visible) {
+      hidden.push(o);
+      o.visible = true;
+    }
+  });
+  try {
+    await renderer.compileAsync(scene, camera);
+    await renderer.compileAsync(W.post.quadScene, W.post.quadCam); // pixel-art / outline pass
+    // Some drivers only really compile on first draw: draw one frame now, behind the loading screen.
+    renderer.render(scene, camera);
+  } finally {
+    hidden.forEach((o) => (o.visible = false));
+  }
+}
+
 async function boot() {
   const loading = document.getElementById('loading');
   const phase = document.getElementById('load-phase');
@@ -359,6 +384,8 @@ async function boot() {
       percent.textContent = `${pct}%`;
       bar.setAttribute('aria-valuenow', String(pct));
     }
+    phase.textContent = 'Đang chuẩn bị shader';
+    await precompile();
   } catch (err) {
     clearInterval(hintTimer);
     phase.textContent = `Lỗi: ${err.message}`;

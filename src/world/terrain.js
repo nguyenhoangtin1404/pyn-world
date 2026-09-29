@@ -30,6 +30,24 @@ const COL = {
 };
 const SNOW = new THREE.Color('#f2f5fa');
 
+// Snow cover drawn by the GPU: each vertex has a `snowWeight` (how flat it is) and the material
+// blends its vertex colour towards white by snowWeight × uSnow. Changing the cover is then just a
+// uniform — rewriting and re-uploading the colour buffer cost ~3 ms per step.
+function patchSnow(shader) {
+  shader.uniforms.uSnow = this.userData.snow;
+  shader.uniforms.uSnowColor = { value: SNOW };
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute float snowWeight;\nuniform float uSnow;\nuniform vec3 uSnowColor;')
+    .replace('#include <color_vertex>', '#include <color_vertex>\nvColor.rgb = mix(vColor.rgb, uSnowColor, snowWeight * uSnow);');
+}
+export function snowCovered(geo, weights, params) {
+  geo.setAttribute('snowWeight', new THREE.BufferAttribute(weights, 1));
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, ...params });
+  mat.userData.snow = { value: 0 };
+  mat.onBeforeCompile = patchSnow; // same function for terrain and tunnel hill → one shader program
+  return mat;
+}
+
 function pickColor(x, y, z, ny, out) {
   if (y < WATER_Y - 0.3) return out.copy(COL.bed);
   if (y < WATER_Y + 0.7) return out.copy(COL.sand);
@@ -209,10 +227,9 @@ export function createTerrain(track, station, halt) {
       snowWeight[t + k] = sw;
     }
   }
-  const colorAttr = new THREE.BufferAttribute(base.slice(), 3);
-  geo.setAttribute('color', colorAttr);
-
-  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
+  const groundMat = snowCovered(geo, snowWeight);
+  const mesh = new THREE.Mesh(geo, groundMat);
   mesh.receiveShadow = true;
 
   // Water: one faceted sheet with small animated waves.
@@ -244,14 +261,7 @@ export function createTerrain(track, station, halt) {
     village,
     town,
     setSnow(amount) {
-      const arr = colorAttr.array;
-      for (let i = 0; i < count; i++) {
-        const w = snowWeight[i] * amount;
-        arr[i * 3] = base[i * 3] + (SNOW.r - base[i * 3]) * w;
-        arr[i * 3 + 1] = base[i * 3 + 1] + (SNOW.g - base[i * 3 + 1]) * w;
-        arr[i * 3 + 2] = base[i * 3 + 2] + (SNOW.b - base[i * 3 + 2]) * w;
-      }
-      colorAttr.needsUpdate = true;
+      groundMat.userData.snow.value = amount;
     },
     update(time) {
       for (let i = 0; i < wp.count; i++) {
