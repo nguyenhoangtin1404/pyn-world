@@ -16,7 +16,7 @@ Lần đầu trên máy mới: `npm install` (cài luôn hook commit-msg) và `n
 |---|---|---|
 | `npm run lint` | ESLint (`eslint.config.js`): bắt lỗi, không soát định dạng | vài giây |
 | `npm run typecheck` | `tsc` trên các file `// @ts-check` | vài giây |
-| `npm test` | Unit test Vitest (`tests/unit/`): tiện ích, config world, `needs`, `Track.distanceTo`, `Site`, `NavGrid` | ~1 s |
+| `npm test` | Unit test Vitest (`tests/unit/`): tiện ích, config world, `needs`, `Track.distanceTo`, `Site`, `NavGrid`, lịch chạy tàu (`Schedule`), thuyền, chim | ~1 s |
 | `npm run e2e` | Playwright Test (`tests/e2e/`): dựng mọi world trong Chromium không giao diện (GPU phần mềm — cùng kết quả mọi máy) | ~45 s |
 
 E2E gồm:
