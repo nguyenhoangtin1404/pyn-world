@@ -61,6 +61,10 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
   mọi vật có chiếu sáng, kể cả ban ngày khi cường độ = 0. Đèn ga/phố/cửa nhà = bóng đèn `lampMat` +
   quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) trong `scenery.js`. Chỉ còn đèn pha tàu là
   đèn thật.
+- **Dáng đi của người tính theo quãng đường, không theo thời gian** (`Walker.step` trong `life.js`:
+  `gait += s·π / (STEP_LENGTH·scale)`, nửa chu kỳ = 1 bước). Đừng đổi lại thành `t × tốc độ` (tay
+  chân vung loạn khi đổi tốc độ). Trong `Person.pose()` đầu gối chỉ gập khi chân đang **vung về
+  trước**; đổi chiều là người đi moonwalk. Đo: chân trụ trượt 4,16 → 0,04 m mỗi mét đi.
 - **Thứ chuyển động đều theo thời gian thì tính trong shader** (uniform `uTime`): sóng nước, dòng
   chảy, lá trôi (`water.js`), mưa, tuyết rơi (`weather.js`). CPU chỉ gán 1 số mỗi frame.
 
