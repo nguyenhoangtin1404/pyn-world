@@ -407,8 +407,9 @@ async function boot() {
   try {
     for (let i = 0; i < steps.length; i++) {
       phase.textContent = steps[i][0];
+      // Let the new label paint (rAF, then a task after the paint), then do the step.
       await nextFrame();
-      await nextFrame();
+      await new Promise((r) => setTimeout(r, 0));
       steps[i][1]();
       const pct = Math.round(((i + 1) / steps.length) * 100);
       fill.style.width = `${pct}%`;

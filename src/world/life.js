@@ -643,7 +643,7 @@ export function createLife({ terrain, track, scenery, train }) {
       const x = peak.x + dir.x * d, z = peak.z + dir.z * d;
       const h = heightAt(x, z);
       len = d;
-      if (h < 8 && h > WATER_Y + 1 && track.distanceTo(x, z) > 12) break;
+      if (h < 8 && h > WATER_Y + 1 && track.distanceTo(x, z, 12) > 12) break;
     }
     const pts = [];
     const N = Math.ceil(len / 3);

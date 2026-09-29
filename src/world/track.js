@@ -39,6 +39,27 @@ export class Track {
       this.coarse[i * 2] = f.p.x;
       this.coarse[i * 2 + 1] = f.p.z;
     }
+    // Bucket those points into a grid so distanceTo() only looks at nearby cells: it is called
+    // hundreds of thousands of times while the world is built (terrain, scenery, nav grids).
+    const C = (this.cell = 12);
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+      x0 = Math.min(x0, this.coarse[i * 2]);
+      x1 = Math.max(x1, this.coarse[i * 2]);
+      z0 = Math.min(z0, this.coarse[i * 2 + 1]);
+      z1 = Math.max(z1, this.coarse[i * 2 + 1]);
+    }
+    this.gx0 = x0;
+    this.gz0 = z0;
+    this.gnx = Math.floor((x1 - x0) / C) + 1;
+    this.gnz = Math.floor((z1 - z0) / C) + 1;
+    const cellOf = (i) => Math.floor((this.coarse[i * 2 + 1] - z0) / C) * this.gnx + Math.floor((this.coarse[i * 2] - x0) / C);
+    this.cellStart = new Int32Array(this.gnx * this.gnz + 1);
+    for (let i = 0; i < n; i++) this.cellStart[cellOf(i) + 1]++;
+    for (let c = 0; c < this.gnx * this.gnz; c++) this.cellStart[c + 1] += this.cellStart[c];
+    this.cellPts = new Int32Array(n);
+    const fill = this.cellStart.slice(0, -1);
+    for (let i = 0; i < n; i++) this.cellPts[fill[cellOf(i)]++] = i;
   }
 
   wrap(s) {
@@ -55,17 +76,38 @@ export class Track {
     return this.frames[((i % M) + M) % M];
   }
 
-  distanceTo(x, z) {
+  // Distance to the nearest (coarse) track point. Searches grid cells in growing rings around
+  // (x, z) and stops once no unvisited cell can hold anything closer — same answer as checking
+  // every point. With `max`, the search stops at that radius: results below `max` are exact, and
+  // anything farther comes back as some value ≥ max (Infinity when nothing was seen).
+  distanceTo(x, z, max = Infinity) {
+    const { cell: C, gnx, gnz, coarse, cellStart, cellPts } = this;
+    const ci = Math.floor((x - this.gx0) / C), cj = Math.floor((z - this.gz0) / C);
+    // Rings that can't touch the grid are skipped; from outside, start where the grid begins.
+    const r0 = Math.max(0, -ci, ci - gnx + 1, -cj, cj - gnz + 1);
+    const rMax = Math.max(ci, gnx - 1 - ci, cj, gnz - 1 - cj);
     let m = Infinity;
-    const c = this.coarse;
-    for (let i = 0; i < c.length; i += 2) {
-      const dx = c[i] - x;
-      const dz = c[i + 1] - z;
-      const d = dx * dx + dz * dz;
-      if (d < m) m = d;
+    for (let r = r0; r <= rMax; r++) {
+      for (let j = cj - r; j <= cj + r; j++) {
+        if (j < 0 || j >= gnz) continue;
+        const edge = j === cj - r || j === cj + r;
+        for (let i = ci - r; i <= ci + r; i += edge ? 1 : 2 * r || 1) {
+          if (i < 0 || i >= gnx) continue;
+          const c = j * gnx + i;
+          for (let k = cellStart[c]; k < cellStart[c + 1]; k++) {
+            const p = cellPts[k];
+            const dx = coarse[p * 2] - x, dz = coarse[p * 2 + 1] - z;
+            const d = dx * dx + dz * dz;
+            if (d < m) m = d;
+          }
+        }
+      }
+      // Anything in ring r + 1 or beyond is at least r·C away.
+      if (m <= (r * C) ** 2 || r * C >= max) break;
     }
     return Math.sqrt(m);
   }
+
 }
 
 // Sweep a 2D profile [[side, up], ...] along a run of track frames. `profile` may also be a

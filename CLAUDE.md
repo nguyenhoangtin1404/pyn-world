@@ -84,9 +84,14 @@ không còn biên dịch shader; `scenery.update` 0,071 → 0,04 ms/frame (khói
 toàn cảnh 385 → 268, góc làng 194 → 170, góc làng ban đêm 186 → 113; CPU sóng nước 0,27 → 0 ms,
 tuyết rơi 0,15 → 0 ms. Pixel ratio tối đa 1,5 và tự hạ (bước 0,25, tới 1) khi FPS < 40 trong 2 s.
 
+Thời gian tải (2026-09-29, trung vị 5 lần, dev server): 2,10 → 1,85 s; dựng địa hình 269 → 163 ms,
+cây/nhà 168 → 114 ms, người + lưới dẫn đường 336 → 274 ms. `track.distanceTo` tra lưới ô 12 đơn vị
+thay vì quét 380 điểm, và nhận `max` để dừng sớm (kết quả < max vẫn chính xác) — truyền `max` khi
+chỉ cần so với một ngưỡng.
+
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
-- Thời gian tải (~3 s): `heightAt` quét cả đường ray (380 điểm) mỗi lần gọi; địa hình ~450 ms, lưới
-  dẫn đường ~300 ms → tính sẵn bảng độ cao rồi tra.
+- Thời gian tải: phần lớn còn lại là biên dịch shader (~0,5 s trên GPU phần mềm) và dựng người
+  (`Person`/`skinFigure`, ~130 ms). `heightAt` giờ chủ yếu là noise (`fbm`).
 - Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng. Còn
   có thể tắt `castShadow` cho vật nhỏ ở xa.

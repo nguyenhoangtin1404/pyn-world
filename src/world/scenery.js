@@ -190,7 +190,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     if (tunnel?.footprint(x, z)) return null; // under the tunnel hill
     const h = heightAt(x, z);
     if (h < WATER_Y + 0.9 || h > 46) return null;
-    if (track.distanceTo(x, z) < clearTrack) return null;
+    if (track.distanceTo(x, z, clearTrack) < clearTrack) return null;
     if (Math.abs(x - riverX(z)) < 17) return null;
     if (Math.hypot(x - f0.p.x, z - f0.p.z) < 30) return null;
     for (const [ox, oz, r] of obstacles) if (Math.hypot(x - ox, z - oz) < r) return null;

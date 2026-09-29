@@ -184,12 +184,12 @@ export function createTerrain(track, station, halt) {
     const r = Math.hypot(x, z);
     let h = 2 + fbm(x, z) * 22;
     // Mountains around the rim of the valley
-    h += smoothstep(165, 280, r) * (38 + fbm(x, z, 4, 0.012, 9.1) * 50);
+    if (r > 165) h += smoothstep(165, 280, r) * (38 + fbm(x, z, 4, 0.012, 9.1) * 50); // (weight 0 further in)
     // River channel
     const river = 1 - smoothstep(5, 16, Math.abs(x - riverX(z)));
     h = lerp(h, RIVER_BED, river);
     // Flatten a corridor for the railway (but let the river cut through → bridges)
-    const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z))) * (1 - river);
+    const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z, 22))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
     // Village plateau: dead flat inside, blending back into the hills over ~18 units.
     const plateau = (1 - smoothstep(0, 18, Math.min(village.outside(x, z), town.outside(x, z)))) * (1 - river);
