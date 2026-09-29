@@ -390,7 +390,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
       return leaf;
     });
     const dc = world(0, d / 2);
-    doors.push({ x: dc.x, y: h + FLOOR, z: dc.z, open: 0, leaves });
+    doors.push({ x: dc.x, y: h + FLOOR, z: dc.z, cos, sin, open: 0, leaves });
 
     // Windows go right through the wall, so they show (and glow at night) inside and out.
     for (let k = 0; k < floors; k++) {
@@ -464,7 +464,8 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
 
     houseList.push({ x, z, y: h + FLOOR, w, d, cos, sin, r: Math.hypot(w, d) / 2 });
     // Where villagers stand when they're "home": inside, a step in from the door.
-    const inside = world(0.3, d / 2 - T - 1.6);
+    // Far enough in that whoever stands there is clear of the door, which then closes behind them.
+    const inside = world(0.3, d / 2 - T - 2.5);
     return new THREE.Vector3(inside.x, h + FLOOR, inside.z);
   }
 
@@ -572,16 +573,33 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
 
   // Doors swing open while someone is next to them; chimneys smoke in the evening.
   let peopleNear = () => [];
+  const lastPos = new WeakMap(); // person position → where it was last frame
+  const moving = new Set();
   let evening = 0;
   const chimneySmoke = new Smoke({ n: 200, color: '#e2ddd5', rise: 1.1, drift: 0.5, grow: 1.7, fade: 0.7 });
   group.add(chimneySmoke.group);
   updaters.push((dt) => {
     if (dt === 0) return;
     const people = peopleNear();
+    // Who moved this frame: people walking up to (or out of) a door, as opposed to someone
+    // standing around just inside.
+    moving.clear();
+    for (const p of people) {
+      const last = lastPos.get(p);
+      if (!last || Math.abs(last.x - p.x) + Math.abs(last.z - p.z) > 1e-4) moving.add(p);
+      if (last) last.copy(p);
+      else lastPos.set(p, p.clone());
+    }
     for (const dr of doors) {
       let near = false;
       for (const p of people) {
-        if (Math.abs(p.x - dr.x) < 2.4 && Math.abs(p.z - dr.z) < 2.4 && Math.abs(p.y - dr.y) < 2 && (p.x - dr.x) ** 2 + (p.z - dr.z) ** 2 < 5.3) {
+        const dx = p.x - dr.x, dz = p.z - dr.z;
+        if (Math.abs(dx) > 2 || Math.abs(dz) > 2 || Math.abs(p.y - dr.y) > 2) continue;
+        // Door-local: lx across the doorway, lz outward (negative = inside the house).
+        const lx = dx * dr.cos - dz * dr.sin, lz = dx * dr.sin + dz * dr.cos;
+        const approaching = moving.has(p) && Math.abs(lx) < 1.3 && lz > -1.5 && lz < 1.8;
+        const inDoorway = Math.abs(lx) < 1 && Math.abs(lz) < 0.8; // never shut the door on anyone
+        if (approaching || inDoorway) {
           near = true;
           break;
         }
