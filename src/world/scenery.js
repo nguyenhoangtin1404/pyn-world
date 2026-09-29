@@ -218,7 +218,6 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     if (ak <= PLAT_HALF + RAMP) return TRACK_Y + rampTop(ak - PLAT_HALF);
     return -Infinity;
   }
-  const walkHeight = (x, z) => Math.max(heightAt(x, z), platformHeight(x, z));
 
   // Static footprints people must walk around: circles {x, z, r} and boxes {x, z, w, d, rot}.
   const colliders = [];
@@ -283,40 +282,154 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   };
 
   // ---------- Village ----------
+  // Houses stand on the flat plateau (terrain.village) and are hollow: a doorway in the front wall,
+  // a floor, some furniture, and — for two-storey houses — stairs up to the upper floor. The walls
+  // are separate colliders, so villagers walk in through the door and out again.
   const walls = ['#f3e6c8', '#e8c9a0', '#f0d8d0', '#d9e4ec', '#efe9d6'];
   const roofs = ['#c8453a', '#8e3b35', '#4f6d8f', '#6b4e3a', '#b0603a'];
-  // Adds a house to the batch (the caller has set batch.at() to its spot).
-  function makeHouse(w, d) {
+  const WOOD = '#8a6038', WOOD_DARK = '#6b4a33', STONE = '#9a9084';
+  const STOREY = 3.0; // floor-to-floor height
+  const T = 0.2; // wall thickness
+  const FLOOR = 0.12; // floor top above the ground outside
+  const DOOR_W = 1.8, DOOR_H = 2.3;
+  const houseList = []; // {x, z, y, w, d, cos, sin} — for floor height and "indoors"
+  const houseLocal = (hs, x, z) => {
+    const dx = x - hs.x, dz = z - hs.z;
+    return { lx: dx * hs.cos - dz * hs.sin, lz: dx * hs.sin + dz * hs.cos };
+  };
+  const insideHouse = (x, z) => {
+    for (const hs of houseList) {
+      if (Math.abs(x - hs.x) > hs.r || Math.abs(z - hs.z) > hs.r) continue;
+      const { lx, lz } = houseLocal(hs, x, z);
+      if (Math.abs(lx) < hs.w / 2 && Math.abs(lz) < hs.d / 2) return hs;
+    }
+    return null;
+  };
+
+  // Adds a house to the batch at (x, h, z) facing +z rotated by `rot`; front (door) is local +z.
+  function makeHouse(x, h, z, rot, w, d, floors) {
     const wall = walls[Math.floor(rng() * walls.length)];
     const roofC = roofs[Math.floor(rng() * roofs.length)];
+    const top = FLOOR + floors * STOREY; // top of the walls
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const world = (lx, lz) => ({ x: x + lx * cos + lz * sin, z: z - lx * sin + lz * cos });
+    const block = (lx, lz, bw, bd) => colliders.push({ ...world(lx, lz), w: bw, d: bd, rot });
+    batch.at(x, h, z, rot);
+
+    // Stone footing (reaches below ground) and a plank floor.
+    batch.add([box(w, 0.6, d, STONE, [0, FLOOR - 0.3, 0]), box(w - 2 * T, 0.02, d - 2 * T, '#b58a5a', [0, FLOOR + 0.005, 0])]);
+    // Walls: back, sides, and the front split around the doorway.
+    const hgt = top - FLOOR, mid = (top + FLOOR) / 2;
+    const side = (w - DOOR_W) / 2;
     batch.add([
-      box(w, 3.2, d, wall, [0, 1.6, 0]),
-      prism(w + 0.8, 2.0, d + 0.6, roofC, [0, 3.2, 0]),
-      box(0.6, 1.6, 0.6, '#8a7a6a', [w * 0.25, 4.4, d * 0.15]), // chimney
-      box(0.9, 1.6, 0.08, '#6b4a33', [0, 0.8, d / 2 + 0.03]), // door
+      box(w, hgt, T, wall, [0, mid, -d / 2 + T / 2]),
+      box(T, hgt, d - 2 * T, wall, [-w / 2 + T / 2, mid, 0]),
+      box(T, hgt, d - 2 * T, wall, [w / 2 - T / 2, mid, 0]),
+      box(side, hgt, T, wall, [-(DOOR_W + side) / 2, mid, d / 2 - T / 2]),
+      box(side, hgt, T, wall, [(DOOR_W + side) / 2, mid, d / 2 - T / 2]),
+      box(DOOR_W, top - FLOOR - DOOR_H, T, wall, [0, (top + FLOOR + DOOR_H) / 2, d / 2 - T / 2]),
+      // Door frame and the two leaves, swung open inward against the frame.
+      box(DOOR_W + 0.3, 0.16, T + 0.08, WOOD_DARK, [0, FLOOR + DOOR_H + 0.08, d / 2 - T / 2]),
+      box(0.08, DOOR_H, 0.8, WOOD_DARK, [-DOOR_W / 2 + 0.04, FLOOR + DOOR_H / 2, d / 2 - T - 0.4]),
+      box(0.08, DOOR_H, 0.8, WOOD_DARK, [DOOR_W / 2 - 0.04, FLOOR + DOOR_H / 2, d / 2 - T - 0.4]),
+      box(DOOR_W + 0.6, 0.06, 1.0, STONE, [0, 0.03, d / 2 + 0.5]), // doorstep
     ]);
-    for (const zs of [1, -1]) {
-      for (const xs of [-1, 1]) batch.add(box(0.9, 0.9, 0.08, '#4a5563', [xs * w * 0.28, 2.0, zs * (d / 2 + 0.03)]), windowMat);
+    block(0, -d / 2 + T / 2, w, T);
+    block(-w / 2 + T / 2, 0, T, d);
+    block(w / 2 - T / 2, 0, T, d);
+    block(-(DOOR_W + side) / 2, d / 2 - T / 2, side, T);
+    block((DOOR_W + side) / 2, d / 2 - T / 2, side, T);
+    block(-DOOR_W / 2 + 0.04, d / 2 - T - 0.4, 0.08, 0.8);
+    block(DOOR_W / 2 - 0.04, d / 2 - T - 0.4, 0.08, 0.8);
+
+    // Windows go right through the wall, so they show (and glow at night) inside and out.
+    for (let k = 0; k < floors; k++) {
+      const wy = FLOOR + k * STOREY + 1.55;
+      for (const xs of [-1, 1]) {
+        batch.add(box(0.9, 0.9, T + 0.08, '#4a5563', [xs * w * 0.3, wy, -d / 2 + T / 2]), windowMat);
+        batch.add(box(0.9, 0.9, T + 0.08, '#4a5563', [xs * (DOOR_W / 2 + side / 2), wy, d / 2 - T / 2]), windowMat);
+        if (!(floors === 2 && k === 0 && xs < 0)) batch.add(box(T + 0.08, 0.9, 0.9, '#4a5563', [xs * (w / 2 - T / 2), wy, 0]), windowMat); // not behind the stairs
+      }
     }
+    // Two storeys: a band between the floors outside, the upper floor inside (open over the stairs),
+    // and a straight flight of steps along the left wall rising from the front to the back.
+    if (floors === 2) {
+      const fy = FLOOR + STOREY;
+      batch.add([
+        box(w + 0.12, 0.2, 0.06, WOOD_DARK, [0, fy, d / 2 + 0.03]),
+        box(w + 0.12, 0.2, 0.06, WOOD_DARK, [0, fy, -d / 2 - 0.03]),
+        box(0.06, 0.2, d, WOOD_DARK, [w / 2 + 0.03, fy, 0]),
+        box(0.06, 0.2, d, WOOD_DARK, [-w / 2 - 0.03, fy, 0]),
+      ]);
+      const SW = 1.0; // stair width
+      const x0 = -w / 2 + T; // left inner face
+      batch.add(box(w - 2 * T - SW, 0.2, d - 2 * T, '#b58a5a', [(x0 + SW + w / 2 - T) / 2, fy - 0.1, 0]));
+      const n = 10, run = (d - 2 * T - 1.2) / n, rise = STOREY / n;
+      const z0 = d / 2 - T - 1.2; // first step (leaves room to turn in from the door)
+      const steps = [];
+      for (let i = 0; i < n; i++) steps.push(box(SW, (i + 1) * rise, run, WOOD, [x0 + SW / 2, FLOOR + ((i + 1) * rise) / 2, z0 - (i + 0.5) * run]));
+      batch.add(steps);
+      block(x0 + SW / 2, z0 - (n * run) / 2, SW, n * run);
+    }
+
+    // Furniture: a table with two stools in the back right corner, a cupboard or bed on the left.
+    const tx = w / 2 - T - 1.0, tz = -d / 2 + T + 0.9;
+    batch.add([
+      box(1.3, 0.08, 0.9, WOOD, [tx, FLOOR + 0.8, tz]),
+      ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => box(0.08, 0.76, 0.08, WOOD_DARK, [tx + a * 0.55, FLOOR + 0.38, tz + b * 0.35])),
+      cyl(0.22, 0.22, 0.45, WOOD_DARK, [tx - 0.95, FLOOR + 0.225, tz], {}, 6),
+      cyl(0.22, 0.22, 0.45, WOOD_DARK, [tx, FLOOR + 0.225, tz + 0.8], {}, 6),
+      ball(0.12, '#d9774a', [tx + 0.2, FLOOR + 0.94, tz - 0.1], {}, 0), // a bowl of fruit, more or less
+      box(1.6, 0.01, 1.1, roofC, [0.2, FLOOR + 0.01, 0.1]), // rug
+    ]);
+    block(tx, tz, 1.3, 0.9);
+    if (floors === 1) {
+      // Bed along the left wall.
+      const bx = -w / 2 + T + 0.5, bz = -d / 2 + T + 1.0;
+      batch.add([box(1.0, 0.45, 2.0, WOOD, [bx, FLOOR + 0.225, bz]), box(0.9, 0.12, 1.5, '#f1ede3', [bx, FLOOR + 0.5, bz + 0.2]), box(0.7, 0.14, 0.4, '#ffffff', [bx, FLOOR + 0.52, bz - 0.7])]);
+      block(bx, bz, 1.0, 2.0);
+    }
+    // Upstairs gets a bed too (nobody walks there, but it shows through the windows).
+    if (floors === 2) {
+      const by = FLOOR + STOREY, bx = w / 2 - T - 0.5, bz = 0.2;
+      batch.add([box(1.0, 0.45, 2.0, WOOD, [bx, by + 0.225, bz]), box(0.9, 0.12, 1.5, '#f1ede3', [bx, by + 0.5, bz + 0.2])]);
+    }
+
+    // Roof and chimney.
+    batch.add([
+      prism(w + 0.8, 2.0, d + 0.6, roofC, [0, top, 0]),
+      box(0.6, 1.6, 0.6, '#8a7a6a', [w * 0.25, top + 1.2, -d * 0.15]),
+    ]);
+    // Lamp over the door.
+    batch.add(shape(new THREE.SphereGeometry(0.16, 6, 4), '#fff4d6', [0, FLOOR + DOOR_H + 0.45, d / 2 + 0.2]), lampMat);
+
+    houseList.push({ x, z, y: h + FLOOR, w, d, cos, sin, r: Math.hypot(w, d) / 2 });
+    // Where villagers stand when they're "home": inside, a step in from the door.
+    const inside = world(0.3, d / 2 - T - 1.6);
+    return new THREE.Vector3(inside.x, h + FLOOR, inside.z);
   }
+
+  const village = terrain.village;
   let houses = 0;
   for (let tries = 0; houses < 14 && tries < 800; tries++) {
-    const a = 34 + rng() * 55;
-    const b = (rng() - 0.5) * 120;
-    const x = f0.p.x + inward.x * a + f0.t.x * b;
-    const z = f0.p.z + inward.z * a + f0.t.z * b;
-    const h = spotOK(x, z, 10);
+    const a = village.A0 + 6 + rng() * (village.A1 - village.A0 - 12);
+    const b = (rng() - 0.5) * (village.HALF_B - 6) * 2;
+    const x = f0.p.x + village.inward.x * a + village.along.x * b;
+    const z = f0.p.z + village.inward.z * a + village.along.z * b;
+    const h = spotOK(x, z, 12);
     if (h === null) continue;
-    if (Math.abs(heightAt(x + 3, z) - heightAt(x - 3, z)) > 1.6 || Math.abs(heightAt(x, z + 3) - heightAt(x, z - 3)) > 1.6) continue;
-    const hw = 4 + rng() * 2, hd = 4 + rng() * 1.5;
-    const rot = Math.atan2(f0.p.x - x, f0.p.z - z);
-    batch.at(x, h - 0.3, z, rot);
-    makeHouse(hw, hd);
-    colliders.push({ x, z, w: hw + 0.8, d: hd + 0.6, rot }); // + roof overhang
-    obstacles.push([x, z, 8]);
-    homes.push(new THREE.Vector3(x, h, z).addScaledVector(new THREE.Vector3(f0.p.x - x, 0, f0.p.z - z).normalize(), 4));
+    if (Math.abs(heightAt(x + 4, z) - h) > 0.15 || Math.abs(heightAt(x - 4, z) - h) > 0.15) continue;
+    if (Math.abs(heightAt(x, z + 4) - h) > 0.15 || Math.abs(heightAt(x, z - 4) - h) > 0.15) continue;
+    const hw = 5.6 + rng() * 1.6, hd = 5.4 + rng() * 1.4;
+    const floors = rng() < 0.5 ? 2 : 1;
+    // Square to the world axes, turned towards the station (tidy streets on the flat ground).
+    const rot = Math.round(Math.atan2(f0.p.x - x, f0.p.z - z) / (Math.PI / 2)) * (Math.PI / 2);
+    homes.push(makeHouse(x, h, z, rot, hw, hd, floors));
+    obstacles.push([x, z, 11]);
     houses++;
   }
+  // Ground people stand on: terrain, the platform and its ramps, or a house floor.
+  const walkHeight = (x, z) => Math.max(heightAt(x, z), platformHeight(x, z), insideHouse(x, z)?.y ?? -Infinity);
 
   // ---------- Windmill on a hill ----------
   let best = null;
@@ -529,6 +642,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     obstacles,
     colliders,
     walkHeight,
+    isIndoors: (x, z) => !!insideHouse(x, z),
     platformPoint,
     canopyPoint,
     outward: out, // horizontal direction from the track towards the platform

@@ -49,7 +49,7 @@ const steps = [
     W.station = W.track.frames[0];
   }],
   ['Đang nặn địa hình', () => {
-    W.terrain = createTerrain(W.track, W.station.p);
+    W.terrain = createTerrain(W.track, W.station);
     scene.add(W.terrain.mesh, W.terrain.water, W.terrain.frame);
   }],
   ['Đang đào đường hầm', () => {

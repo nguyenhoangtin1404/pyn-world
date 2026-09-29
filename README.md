@@ -14,9 +14,9 @@ npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
 |---|---|
 | `src/main.js` | Renderer, loading screen, vòng lặp frame, phím tắt |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |
-| `src/world/terrain.js` | Heightmap từ noise, khoét sông, san phẳng dọc đường ray, màu theo độ cao/độ dốc, nước, thành đất + bệ gỗ của diorama |
+| `src/world/terrain.js` | Heightmap từ noise, khoét sông, san phẳng dọc đường ray và nền làng (`villageZone`), màu theo độ cao/độ dốc, nước, thành đất + bệ gỗ của diorama |
 | `src/world/train.js` | Đầu máy + 3 toa, chạy theo curve, dừng ga, bánh xe/thanh truyền, khói |
-| `src/world/scenery.js` | Ga, làng, cối xay gió, cừu, cây/hoa/đá (instanced), thuyền, mây |
+| `src/world/scenery.js` | Ga, làng (nhà rỗng 1–2 tầng có cửa, sàn, cầu thang, đồ đạc — người đi ra vào được), cối xay gió, cừu, cây/hoa/đá (instanced), thuyền, mây |
 | `src/world/interiors.js` | Nội thất toa khách (ghế nhung, bàn, cửa sổ, hành khách) và buồng lái (mặt nồi hơi, đồng hồ, lò than) — chỉ hiện khi camera ở bên trong |
 | `src/world/people.js` | Con người low-poly: mặt, tóc, mũ, quần áo, khớp gối/khuỷu tay, đồ mang theo, ô khi mưa. Mỗi bộ phận gộp thành 1 mesh vertex-color |
 | `src/world/tunnel.js` | Ngọn núi có đường hầm: mesh đồi riêng trùm lên đường ray, cửa hầm vòm đá, lòng hầm có đèn, thông trên đỉnh |
