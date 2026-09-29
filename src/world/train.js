@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RAIL_TOP } from '../config.js';
 import { approach, mulberry32 } from '../utils.js';
 import { buildCarriageInterior, buildCabInterior, CARRIAGE_WINDOWS } from './interiors.js';
-import { box, cyl, ball, segment, skinFigure, VERTEX_COLORED } from './lowpoly.js';
+import { box, cyl, ball, segment, skinFigure, keep, VERTEX_COLORED } from './lowpoly.js';
 import { Smoke } from './particles.js';
 
 // Every rigid part of a car is baked into one vertex-coloured mesh; only moving parts stay separate.
@@ -22,7 +22,7 @@ const wheelGeos = new Map();
 function wheelGeo(r) {
   if (!wheelGeos.has(r)) {
     const side = { rz: Math.PI / 2 };
-    wheelGeos.set(r, mergeGeometries([cyl(r, r, 0.18, C.black, [0, 0, 0], side, 14), cyl(r * 0.4, r * 0.4, 0.22, C.red, [0, 0, 0], side), box(0.2, r * 1.7, 0.14, C.red)]));
+    wheelGeos.set(r, keep(mergeGeometries([cyl(r, r, 0.18, C.black, [0, 0, 0], side, 14), cyl(r * 0.4, r * 0.4, 0.22, C.red, [0, 0, 0], side), box(0.2, r * 1.7, 0.14, C.red)])));
   }
   return wheelGeos.get(r);
 }

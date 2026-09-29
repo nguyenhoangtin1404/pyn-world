@@ -1,21 +1,19 @@
 import * as THREE from 'three';
 import './style.css';
-import { Track, createTrackCurve, buildTrackMeshes } from './world/track.js';
-import { createTerrain } from './world/terrain.js';
-import { buildScenery } from './world/scenery.js';
-import { Train } from './world/train.js';
-import { createLife } from './world/life.js';
-import { createTunnel } from './world/tunnel.js';
-import { Sky, TIME_PRESETS, presetAtHour } from './world/sky.js';
-import { Weather } from './world/weather.js';
+import { TIME_PRESETS, presetAtHour } from './world/sky.js';
 import { PostFX } from './render/post.js';
 import { CameraRig, CAMERA_MODES } from './cameras.js';
 import { AudioEngine } from './audio.js';
 import { initHud, PIXEL_LEVELS } from './hud.js';
 import { nextFrame } from './utils.js';
-import { HALT_AT } from './config.js';
+import { World } from './World.js';
+import { WORLDS, worldById } from './worlds/index.js';
+
+// The app: renderer, camera, sound, UI and the frame loop. What is on screen is `world` — one
+// World (src/World.js) built from a WorldConfig (src/worlds/); N switches to the next one.
 
 const state = {
+  world: worldById(new URLSearchParams(location.search).get('world')).id,
   mode: 'overview',
   timeOfDay: 'day',
   hour: 9, // 0..24, drives the sky
@@ -46,62 +44,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 document.getElementById('scene').appendChild(renderer.domElement);
 
-const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
 const audio = new AudioEngine();
-const W = {};
-if (import.meta.env.DEV) window.__pyn = { W, camera, state };
-
-const steps = [
-  ['Đang trải đường ray', () => {
-    W.track = new Track(createTrackCurve());
-    W.station = W.track.frames[0];
-    W.halt = W.track.frame(Math.round(W.track.frames.length * HALT_AT));
-  }],
-  ['Đang nặn địa hình', () => {
-    W.terrain = createTerrain(W.track, W.station, W.halt);
-    scene.add(W.terrain.mesh, W.terrain.water, W.terrain.frame);
-  }],
-  ['Đang đào đường hầm', () => {
-    W.tunnel = createTunnel(W.track, W.terrain.heightAt);
-    scene.add(W.tunnel.group);
-  }],
-  ['Đang dựng cầu và tà vẹt', () => {
-    W.rails = buildTrackMeshes(W.track, W.terrain.heightAt);
-    scene.add(W.rails.group);
-  }],
-  ['Đang trồng cây, thả cừu', () => {
-    W.scenery = buildScenery({ track: W.track, terrain: W.terrain, bridges: W.rails.bridges, station: W.station, halt: W.halt, tunnel: W.tunnel });
-    scene.add(W.scenery.group);
-  }],
-  ['Đang lắp đầu máy', () => {
-    W.train = new Train(W.track);
-    W.train.tunnel = W.tunnel;
-    W.train.setStops(W.scenery.stations.map((st) => ({ s: st.frame.s + 14, out: st.out })));
-    scene.add(W.train.group);
-  }],
-  ['Đang thả cá, bơm khinh khí cầu', () => {
-    W.life = createLife({ terrain: W.terrain, track: W.track, scenery: W.scenery, train: W.train });
-    scene.add(W.life.group);
-  }],
-  ['Đang pha màu bầu trời', () => {
-    W.sky = new Sky(scene);
-    W.weather = new Weather(scene);
-  }],
-  ['Đang khởi động máy quay', () => {
-    W.post = new PostFX(renderer);
-    W.rig = new CameraRig(camera, renderer.domElement, {
-      train: W.train,
-      bridges: W.rails.bridges,
-      // Keep the camera above the ground and out of the tunnel hill.
-      heightAt: (x, z) => Math.max(W.terrain.heightAt(x, z), W.tunnel.surfaceAt(x, z)),
-      followables: W.life.followables,
-      occludes: W.scenery.occludes,
-    });
-    W.sky.setHour(state.hour, true);
-    resize();
-  }],
-];
+const post = new PostFX(renderer);
+const rig = new CameraRig(camera, renderer.domElement);
+let world = null; // the World on screen (null while the next one is being built)
+if (import.meta.env.DEV) window.__pyn = { get W() { return world; }, renderer, post, rig, camera, state };
 
 const HINTS = [
   'Kéo chuột để xoay quanh thung lũng, lăn chuột để zoom.',
@@ -110,6 +58,7 @@ const HINTS = [
   'Tàu dừng ở ga PYN WORLD để khách lên xuống.',
   'Bấm F để tìm đôi cừu đang yêu nhau.',
   'Bấm K để bay lên đỉnh núi, nơi dân leo núi vẫy tay chào.',
+  'Bấm N để sang thế giới khác.',
 ];
 
 // Drop the pixel ratio a step when frames run slow for a couple of seconds, and give it back once
@@ -143,21 +92,21 @@ function resize() {
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  W.post?.setSize(w, h, renderer.getPixelRatio());
+  post.setSize(w, h, renderer.getPixelRatio());
 }
 
 let hud;
 const actions = {
   setMode(id) {
     state.mode = id;
-    W.rig.setMode(id);
+    rig.setMode(id);
     hud.sync();
   },
   // Jump the clock to a preset's hour (the automatic cycle keeps running from there).
   setTime(id) {
     state.hour = TIME_PRESETS.find((p) => p.id === id).hour;
     state.timeOfDay = id;
-    W.sky.setHour(state.hour);
+    world?.sky.setHour(state.hour);
     hud.sync();
   },
   toggleAutoDay() {
@@ -166,7 +115,7 @@ const actions = {
   },
   setWeather(id) {
     state.weather = id;
-    W.weather.set(id);
+    world?.weather.set(id);
     hud.sync();
   },
   setSpeed(v) {
@@ -180,17 +129,17 @@ const actions = {
   },
   setPixel(v) {
     state.pixel = v;
-    W.post.setPixel(v);
+    post.setPixel(v);
     hud.sync();
   },
   setOutline(on) {
     state.outline = on;
-    W.post.setOutline(on);
+    post.setOutline(on);
     hud.sync();
   },
   setShadows(on) {
     state.shadows = on;
-    W.sky.sun.castShadow = on;
+    if (world) world.sky.sun.castShadow = on;
     hud.sync();
   },
   toggleMute() {
@@ -210,47 +159,53 @@ const actions = {
 function onKey(e) {
   if (e.target.closest?.('input, select, textarea')) return;
   if (e.repeat) return;
+  if (e.code === 'KeyN') {
+    const i = WORLDS.findIndex((w) => w.id === state.world);
+    switchWorld(WORLDS[(i + 1) % WORLDS.length].id);
+    return;
+  }
+  if (!world) return; // the next world is still being built
   audio.init();
   const digit = /^Digit([1-7])$/.exec(e.code);
   if (digit) {
     const m = CAMERA_MODES[+digit[1] - 1];
     actions.setMode(m.id);
-    hud.toast(W.rig.followLabel ? `Đang theo: ${W.rig.followLabel}` : `Camera: ${m.label}`);
+    hud.toast(rig.followLabel ? `Đang theo: ${rig.followLabel}` : `Camera: ${m.label}`);
     return;
   }
   switch (e.code) {
     case 'KeyB':
-      W.rig.nextBridge();
+      rig.nextBridge();
       state.mode = 'bridge';
       hud.sync();
-      hud.toast(`Cầu số ${W.rig.bridgeIndex + 1}`);
+      hud.toast(`Cầu số ${rig.bridgeIndex + 1}`);
       break;
     case 'KeyF':
-      W.rig.flyToSpot(W.scenery.spots.courting);
+      rig.flyToSpot(world.spots.courting);
       state.mode = 'overview';
       hud.sync();
       hud.toast('Bay tới đôi cừu đang yêu 💕');
       break;
     case 'KeyG':
-      W.rig.flyToSpot(W.scenery.spots.bridgeSheep);
+      rig.flyToSpot(world.spots.bridgeSheep);
       state.mode = 'overview';
       hud.sync();
       hud.toast('Bay tới chú cừu ngắm sông');
       break;
     case 'KeyK':
-      W.rig.flyToSpot(W.life.spots.summit);
+      rig.flyToSpot(world.spots.summit);
       state.mode = 'overview';
       hud.sync();
       hud.toast('Bay lên đỉnh núi ⛰');
       break;
     case 'KeyJ':
-      W.rig.flyToSpot(W.life.spots.fisherman);
+      rig.flyToSpot(world.spots.fisherman);
       state.mode = 'overview';
       hud.sync();
       hud.toast('Bay tới ông câu cá 🎣');
       break;
     case 'KeyL':
-      W.rig.flyToSpot(W.life.spots.steamer);
+      rig.flyToSpot(world.spots.steamer);
       state.mode = 'overview';
       hud.sync();
       hud.toast('Bay tới tàu hơi nước ⛴');
@@ -299,8 +254,6 @@ function onKey(e) {
 }
 
 const clock = new THREE.Clock();
-let simTime = 0;
-let lastSnow = 0;
 
 // Dev only: open with ?stats to see draw calls (incl. the shadow pass), triangles and frame times —
 // check these before and after any rendering change (see CLAUDE.md).
@@ -313,17 +266,17 @@ if (stats) {
 
 function frame() {
   requestAnimationFrame(frame);
+  const delta = clock.getDelta();
+  if (!world) return; // the next world is being built behind the loading screen
   const frameStart = performance.now();
   if (stats) renderer.info.reset();
-  const delta = clock.getDelta();
   adaptResolution(delta);
   const raw = Math.min(delta, 0.1);
   const dt = state.paused ? 0 : raw * state.timeScale;
-  simTime += dt;
   if (state.autoDay && dt > 0) {
     // One in-game hour every 10 s at 1× → a full day in 4 minutes.
     state.hour = (state.hour + dt / 10) % 24;
-    W.sky.setHour(state.hour);
+    world.sky.setHour(state.hour);
     const preset = presetAtHour(state.hour);
     if (preset !== state.timeOfDay) {
       state.timeOfDay = preset;
@@ -332,32 +285,18 @@ function frame() {
   }
   hud.setClock(state.hour, state.autoDay);
 
-  W.train.update(dt, state.speed);
-  W.scenery.update(dt, simTime);
-  W.life.update(dt, simTime, { rain: W.weather.rain });
-  W.terrain.update(simTime);
-  W.weather.update(dt, raw, camera);
-  if (Math.abs(W.weather.snowCover - lastSnow) > 0.01 || (W.weather.snowCover === 0 && lastSnow !== 0)) {
-    lastSnow = W.weather.snowCover;
-    W.terrain.setSnow(lastSnow);
-    W.tunnel.setSnow(lastSnow);
-  }
-
-  W.rig.update(raw);
-  W.sky.update(raw, camera, W.rig.focus, W.weather);
-  W.train.setLights(W.sky.lights);
-  W.scenery.setLights(W.sky.lights);
-  W.life.setLights(W.sky.lights);
-  W.scenery.setOvercast(W.weather.overcast);
+  world.update({ dt, raw, speed: state.speed, camera });
+  rig.update(raw);
+  world.updateLighting({ raw, camera, focus: rig.focus });
 
   audio.update(raw, {
-    trainDistance: camera.position.distanceTo(W.train.locoPos),
-    rain: W.weather.rain,
-    day: W.sky.lights < 0.3,
+    trainDistance: camera.position.distanceTo(world.train.locoPos),
+    rain: world.weather.rain,
+    day: world.sky.lights < 0.3,
     paused: dt === 0,
   });
 
-  W.post.render(scene, camera);
+  post.render(world.scene, camera);
 
   if (stats) {
     stats.n++;
@@ -372,63 +311,116 @@ function frame() {
   }
 }
 
-// Compile every shader while the loading screen is up — including those of things hidden at start
-// (rain, snow, cabins, balloon flames…), which would otherwise compile, and stall a frame, the
-// first time they appear. compileAsync lets the driver compile in parallel where it can.
-async function precompile() {
-  const hidden = [];
-  scene.traverse((o) => {
-    if (!o.visible) {
-      hidden.push(o);
-      o.visible = true;
-    }
-  });
+// Loading screen: shown at start and while switching worlds.
+const loader = (() => {
+  const el = document.getElementById('loading');
+  const logo = el.querySelector('.load-logo');
+  const phase = document.getElementById('load-phase');
+  const percent = document.getElementById('load-percent');
+  const fill = el.querySelector('.load-fill');
+  const bar = el.querySelector('[role="progressbar"]');
+  const hint = document.getElementById('load-hint');
+  let hintTimer = 0, hideTimer = 0;
+  const progress = (pct) => {
+    fill.style.width = `${pct}%`;
+    percent.textContent = `${pct}%`;
+    bar.setAttribute('aria-valuenow', String(pct));
+  };
+  return {
+    show(title) {
+      clearTimeout(hideTimer);
+      logo.textContent = `🚂 ${title}`;
+      progress(0);
+      el.hidden = false;
+      el.classList.remove('done');
+      el.setAttribute('aria-busy', 'true');
+      let h = 0;
+      hint.textContent = HINTS[0];
+      clearInterval(hintTimer);
+      hintTimer = setInterval(() => (hint.textContent = HINTS[++h % HINTS.length]), 2600);
+    },
+    phase: (text) => (phase.textContent = text),
+    progress,
+    error(err) {
+      clearInterval(hintTimer);
+      phase.textContent = `Lỗi: ${err.message}`;
+      console.error(err);
+    },
+    hide() {
+      clearInterval(hintTimer);
+      el.classList.add('done');
+      el.setAttribute('aria-busy', 'false');
+      hideTimer = setTimeout(() => (el.hidden = true), 700);
+    },
+  };
+})();
+
+// Build a world step by step behind the loading screen, compile its shaders, and return it.
+async function buildWorld(cfg) {
+  const next = new World(cfg);
+  const steps = next.steps();
+  for (let i = 0; i < steps.length; i++) {
+    loader.phase(steps[i][0]);
+    // Let the new label paint (rAF, then a task after the paint), then do the step.
+    await nextFrame();
+    await new Promise((r) => setTimeout(r, 0));
+    steps[i][1]();
+    loader.progress(Math.round(((i + 1) / steps.length) * 100));
+  }
+  rig.attach(next.view); // compile from where the camera will start
+  loader.phase('Đang chuẩn bị shader');
+  await next.precompile(renderer, camera);
+  return next;
+}
+
+// Hand the sound and the current settings (clock, weather, shadows) to a newly built world.
+function show(next) {
+  world = next;
+  state.mode = 'overview';
+  world.sky.setHour(state.hour, true);
+  world.weather.set(state.weather);
+  world.sky.sun.castShadow = state.shadows;
+  // Station departure whistle, chuffs and rail joints drive the synthesised sound.
+  world.train.events.chuff = (k) => audio.chuff(k);
+  world.train.events.clack = () => audio.clack();
+  world.train.events.whistle = () => audio.whistle();
+}
+
+let switching = false;
+async function switchWorld(id) {
+  if (switching || id === state.world) return;
+  switching = true;
+  const cfg = worldById(id);
+  loader.show(cfg.name);
+  // Free the old world first: two worlds in memory at once is a lot for a phone.
+  world?.dispose();
+  world = null;
   try {
-    await renderer.compileAsync(scene, camera);
-    await renderer.compileAsync(W.post.quadScene, W.post.quadCam); // pixel-art / outline pass
-    // Some drivers only really compile on first draw: draw one frame now, behind the loading screen.
-    renderer.render(scene, camera);
+    show(await buildWorld(cfg));
+    state.world = cfg.id;
+    hud.sync();
+    loader.hide();
+    hud.toast(`Thế giới: ${cfg.name}`);
+  } catch (err) {
+    loader.error(err);
   } finally {
-    hidden.forEach((o) => (o.visible = false));
+    switching = false;
   }
 }
 
 async function boot() {
-  const loading = document.getElementById('loading');
-  const phase = document.getElementById('load-phase');
-  const percent = document.getElementById('load-percent');
-  const fill = loading.querySelector('.load-fill');
-  const bar = loading.querySelector('[role="progressbar"]');
-  const hint = document.getElementById('load-hint');
-  let h = 0;
-  hint.textContent = HINTS[0];
-  const hintTimer = setInterval(() => (hint.textContent = HINTS[++h % HINTS.length]), 2600);
-
+  const cfg = worldById(state.world);
+  loader.show(cfg.name);
+  resize();
+  let first;
   try {
-    for (let i = 0; i < steps.length; i++) {
-      phase.textContent = steps[i][0];
-      // Let the new label paint (rAF, then a task after the paint), then do the step.
-      await nextFrame();
-      await new Promise((r) => setTimeout(r, 0));
-      steps[i][1]();
-      const pct = Math.round(((i + 1) / steps.length) * 100);
-      fill.style.width = `${pct}%`;
-      percent.textContent = `${pct}%`;
-      bar.setAttribute('aria-valuenow', String(pct));
-    }
-    phase.textContent = 'Đang chuẩn bị shader';
-    await precompile();
+    first = await buildWorld(cfg);
+    await renderer.compileAsync(post.quadScene, post.quadCam); // pixel-art / outline pass
   } catch (err) {
-    clearInterval(hintTimer);
-    phase.textContent = `Lỗi: ${err.message}`;
-    console.error(err);
+    loader.error(err);
     return;
   }
-
-  // Station departure whistle, chuffs and rail joints drive the synthesised sound.
-  W.train.events.chuff = (k) => audio.chuff(k);
-  W.train.events.clack = () => audio.clack();
-  W.train.events.whistle = () => audio.whistle();
+  show(first);
 
   hud = initHud(state, actions);
   addEventListener('keydown', onKey);
@@ -436,10 +428,7 @@ async function boot() {
   addEventListener('pointerdown', () => audio.init(), { once: true });
 
   requestAnimationFrame(frame);
-  clearInterval(hintTimer);
-  loading.classList.add('done');
-  loading.setAttribute('aria-busy', 'false');
-  setTimeout(() => (loading.hidden = true), 700);
+  loader.hide();
 }
 
 boot();

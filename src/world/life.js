@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { WORLD_SIZE, WATER_Y, SEED } from '../config.js';
+import { WATER_Y } from '../config.js';
 import { clamp, mulberry32 } from '../utils.js';
-import { riverX } from './terrain.js';
 import { Person } from './people.js';
 import { createBoats } from './boats.js';
 import { NavGrid } from './nav.js';
@@ -59,8 +58,9 @@ function createSchool(capacity) {
 }
 
 class Fish {
-  constructor(spot, rng, heightAt, ripples, school) {
+  constructor(spot, rng, heightAt, ripples, school, size) {
     this.rng = rng;
+    this.half = size / 2;
     this.heightAt = heightAt;
     this.ripples = ripples;
     this.pos = new THREE.Vector3(spot.x, WATER_Y - 0.3 - rng() * 0.3, spot.z);
@@ -86,7 +86,7 @@ class Fish {
   }
 
   isWater(x, z) {
-    return Math.abs(x) < WORLD_SIZE / 2 - 4 && Math.abs(z) < WORLD_SIZE / 2 - 4 && this.heightAt(x, z) < WATER_Y - 0.9;
+    return Math.abs(x) < this.half - 4 && Math.abs(z) < this.half - 4 && this.heightAt(x, z) < WATER_Y - 0.9;
   }
 
   update(dt, t) {
@@ -248,8 +248,9 @@ function buildBalloon(colors) {
 }
 
 // ---------------------------------------------------------------- main
-export function createLife({ terrain, track, scenery, train }) {
-  const rng = mulberry32(SEED + 7);
+export function createLife({ cfg, terrain, track, scenery, train }) {
+  const { size, riverX } = cfg;
+  const rng = mulberry32(cfg.seed + 7);
   const heightAt = terrain.heightAt;
   const group = new THREE.Group();
   const updaters = [];
@@ -260,15 +261,15 @@ export function createLife({ terrain, track, scenery, train }) {
   group.add(ripples.group);
   const waterSpots = [];
   for (let i = 0; i < 6000 && waterSpots.length < 200; i++) {
-    const x = (rng() - 0.5) * (WORLD_SIZE - 20);
-    const z = (rng() - 0.5) * (WORLD_SIZE - 20);
+    const x = (rng() - 0.5) * (size - 20);
+    const z = (rng() - 0.5) * (size - 20);
     if (heightAt(x, z) < WATER_Y - 1.2) waterSpots.push({ x, z });
   }
   const fish = [];
   const school = createSchool(26);
   group.add(...school.meshes);
   for (let i = 0; i < 26 && waterSpots.length; i++) {
-    const f = new Fish(waterSpots[Math.floor(rng() * waterSpots.length)], rng, heightAt, ripples, school);
+    const f = new Fish(waterSpots[Math.floor(rng() * waterSpots.length)], rng, heightAt, ripples, school, size);
     fish.push(f);
     group.add(f.group);
   }
@@ -288,7 +289,7 @@ export function createLife({ terrain, track, scenery, train }) {
   });
 
   // Paddle steamer + fisherman's rowboat
-  const boats = createBoats({ heightAt, ripples, waterSpots, rng });
+  const boats = createBoats({ heightAt, riverX, ripples, waterSpots, rng });
   group.add(boats.group);
   updaters.push((dt, t) => boats.update(dt, t));
 
@@ -353,7 +354,7 @@ export function createLife({ terrain, track, scenery, train }) {
       b.minZ = Math.min(b.minZ, p.z - 30);
       b.maxZ = Math.max(b.maxZ, p.z + 30);
     }
-    const lim = WORLD_SIZE / 2 - 2;
+    const lim = size / 2 - 2;
     b.minX = Math.max(b.minX, -lim);
     b.minZ = Math.max(b.minZ, -lim);
     b.maxX = Math.min(b.maxX, lim);
@@ -644,9 +645,10 @@ export function createLife({ terrain, track, scenery, train }) {
   const candidates = [];
   for (let i = 0; i < 400; i++) {
     const a = rng() * Math.PI * 2;
-    const r = 175 + rng() * 95;
+    const [rim0, rim1] = cfg.terrain.rim; // among the mountains round the valley
+    const r = rim0 + 10 + rng() * (rim1 - rim0 - 20);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (Math.abs(x) > WORLD_SIZE / 2 - 15 || Math.abs(z) > WORLD_SIZE / 2 - 15) continue;
+    if (Math.abs(x) > size / 2 - 15 || Math.abs(z) > size / 2 - 15) continue;
     if (Math.abs(x - riverX(z)) < 30) continue;
     candidates.push({ x, z, h: heightAt(x, z) });
   }

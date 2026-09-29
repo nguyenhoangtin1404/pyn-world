@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TRACK_Y, WORLD_SIZE, BASE_Y } from './config.js';
+import { TRACK_Y, BASE_Y } from './config.js';
 import { clamp, easeInOut } from './utils.js';
 import { PASSENGER_SEAT, DRIVER_SEAT } from './world/interiors.js';
 
@@ -22,8 +22,10 @@ const FOLLOW = {
 
 const LOOK_MODES = new Set(['passenger', 'driver']);
 const UP = new THREE.Vector3(0, 1, 0);
+// Overview camera for a 600-unit world; scaled with the world's size.
 const HOME_POS = new THREE.Vector3(250, 190, 290);
 const HOME_TARGET = new THREE.Vector3(0, 0, 0);
+const HOME_SIZE = 600;
 
 // Where the camera sits inside a car (local space, +z = forward) and which way it looks.
 // Base yaw: π looks forward (+z), -π/2 looks out of the right-hand window. Passengers start looking
@@ -33,18 +35,16 @@ const SEATS = {
   driver: { car: 0, pos: DRIVER_SEAT, yaw: Math.PI, startYaw: 0, pitch: -0.12, yawLimit: 2.6 },
 };
 
+// One rig for the whole app (it listens to the keyboard and pointer); attach() points it at the
+// world being shown.
 export class CameraRig {
-  constructor(camera, dom, { train, bridges, heightAt, followables, occludes }) {
+  constructor(camera, dom) {
     this.camera = camera;
     this.dom = dom;
-    this.train = train;
-    this.bridges = bridges;
-    this.heightAt = heightAt;
-    // { people: [...], birds: [...] }, each entry { label, anchor() → Object3D }
-    this.followables = followables || { people: [], birds: [] };
+    this.homePos = HOME_POS.clone();
+    this.size = HOME_SIZE;
     this.followIndex = { person: -1, bird: -1 };
     this.followTarget = null;
-    this.occludes = occludes || (() => false); // (a, b) → is the view blocked by scenery?
     this.occludedFor = 0;
     this.mode = 'overview';
     this.bridgeIndex = 0;
@@ -66,8 +66,6 @@ export class CameraRig {
     c.maxDistance = 460;
     c.maxPolarAngle = Math.PI * 0.49;
     c.screenSpacePanning = false;
-    camera.position.copy(HOME_POS);
-    c.target.copy(HOME_TARGET);
 
     addEventListener('keydown', (e) => {
       if (e.target.closest?.('input, select, textarea')) return;
@@ -92,6 +90,25 @@ export class CameraRig {
     const end = () => (drag = null);
     dom.addEventListener('pointerup', end);
     dom.addEventListener('pointercancel', end);
+  }
+
+  // What the rig needs from a world. Starts over in the overview, above the new world.
+  attach({ train, bridges, heightAt, followables, occludes, size }) {
+    this.train = train;
+    this.bridges = bridges;
+    this.heightAt = heightAt;
+    // { people: [...], birds: [...] }, each entry { label, anchor() → Object3D }
+    this.followables = followables || { people: [], birds: [] };
+    this.occludes = occludes || (() => false); // (a, b) → is the view blocked by scenery?
+    this.size = size;
+    this.homePos = HOME_POS.clone().multiplyScalar(size / HOME_SIZE);
+    this.followIndex = { person: -1, bird: -1 };
+    this.followTarget = null;
+    this.bridgeIndex = 0;
+    this.setMode('overview', { fly: false });
+    this.camera.position.copy(this.homePos);
+    this.controls.target.copy(HOME_TARGET);
+    this.controls.update();
   }
 
   get isLook() {
@@ -123,7 +140,7 @@ export class CameraRig {
       this.yaw = SEATS[mode].startYaw;
       this.pitch = SEATS[mode].pitch;
     } else if (mode === 'overview') {
-      if (fly) this.flyTo(HOME_POS, HOME_TARGET);
+      if (fly) this.flyTo(this.homePos, HOME_TARGET);
     } else if (mode === 'train') {
       const loco = this.train.loco;
       const p = loco.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 2, 0));
@@ -261,7 +278,7 @@ export class CameraRig {
     if (this.mode === 'overview' && !this.fly) this.move(dt);
 
     // Keep the orbit pivot on the diorama so the camera can't wander off into the void.
-    const lim = WORLD_SIZE / 2 - 10;
+    const lim = this.size / 2 - 10;
     c.target.x = clamp(c.target.x, -lim, lim);
     c.target.z = clamp(c.target.z, -lim, lim);
     c.target.y = clamp(c.target.y, -5, 120);
@@ -269,7 +286,7 @@ export class CameraRig {
     c.update();
 
     // Never go below the ground (or below the plinth when looking at it from outside).
-    const half = WORLD_SIZE / 2;
+    const half = this.size / 2;
     const inside = Math.abs(cam.position.x) < half && Math.abs(cam.position.z) < half;
     const g = inside ? this.heightAt(cam.position.x, cam.position.z) + 1.2 : BASE_Y - 8;
     if (cam.position.y < g) cam.position.y = g;

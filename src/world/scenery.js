@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { TRACK_Y, WATER_Y, SEED } from '../config.js';
+import { TRACK_Y, WATER_Y } from '../config.js';
 import { mulberry32 } from '../utils.js';
-import { fbm, riverX } from './terrain.js';
+import { fbm } from './terrain.js';
 import { sweep } from './track.js';
 import { lam, box, ball, cyl, cone, prism, shape, Instancer, StaticBatch, VERTEX_COLORED } from './lowpoly.js';
 import { Smoke } from './particles.js';
@@ -162,8 +162,9 @@ class Sheep {
   }
 }
 
-export function buildScenery({ track, terrain, bridges, station, halt, tunnel }) {
-  const rng = mulberry32(SEED);
+export function buildScenery({ cfg, track, terrain, bridges, station, halt, tunnel }) {
+  const { size, riverX } = cfg;
+  const rng = mulberry32(cfg.seed);
   const heightAt = terrain.heightAt;
   const group = new THREE.Group();
   const updaters = [];
@@ -186,7 +187,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
   const inward = out.clone().negate();
 
   function spotOK(x, z, clearTrack = 8) {
-    if (Math.abs(x) > 285 || Math.abs(z) > 285) return null;
+    if (Math.abs(x) > size / 2 - 15 || Math.abs(z) > size / 2 - 15) return null;
     if (tunnel?.footprint(x, z)) return null; // under the tunnel hill
     const h = heightAt(x, z);
     if (h < WATER_Y + 0.9 || h > 46) return null;
@@ -266,7 +267,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
 
   // ---------- Station ----------
   const PLAT_OUT = 7.95;
-  const mainPlat = buildPlatform(0, sg, PLAT_OUT);
+  const mainPlat = buildPlatform(Math.round((f0.s / track.length) * M), sg, PLAT_OUT);
 
   // Static footprints people must walk around: circles {x, z, r} and boxes {x, z, w, d, rot}.
   const colliders = [];
@@ -299,7 +300,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     solidBox(c.x, c.z, 4.6, 22, stRot, TRACK_Y + 4.45, TRACK_Y + 4.75); // platform canopy
   }
   for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), windowMat);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture('PYN WORLD') }));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture(cfg.station.name) }));
   sign.position.set(ox * 7.9, floor + 3.8, 0);
   sign.rotation.y = -ox * (Math.PI / 2);
   st.add(sign);
@@ -558,7 +559,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     const hs = new THREE.Group();
     hs.position.set(hf.p.x, 0, hf.p.z);
     hs.rotation.y = hRot;
-    const hsign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshLambertMaterial({ map: labelTexture('PYN TOWN') }));
+    const hsign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshLambertMaterial({ map: labelTexture(cfg.halt.name) }));
     hsign.position.set(oxH * 4.2, floorH + 3.3, 0);
     hsign.rotation.y = -oxH * (Math.PI / 2);
     const signPosts = new THREE.Mesh(mergeGeometries([-1.4, 1.4].map((z) => cyl(0.05, 0.05, 0.8, '#3a302b', [oxH * 4.25, floorH + 2.9, z], {}, 5))), VERTEX_COLORED);
@@ -833,7 +834,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
   // ---------- Trees ----------
   const trees = [];
   for (let tries = 0; trees.length < 1300 && tries < 24000; tries++) {
-    const x = (rng() - 0.5) * 570, z = (rng() - 0.5) * 570;
+    const x = (rng() - 0.5) * (size - 30), z = (rng() - 0.5) * (size - 30);
     if (fbm(x, z, 3, 0.012, 21.7) < -0.05 && rng() > 0.12) continue;
     const h = spotOK(x, z, 7);
     if (h === null) continue;
@@ -870,7 +871,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
   // Flowers and rocks
   const flowers = [];
   for (let tries = 0; flowers.length < 900 && tries < 9000; tries++) {
-    const x = (rng() - 0.5) * 400, z = (rng() - 0.5) * 400;
+    const x = (rng() - 0.5) * (size * 2 / 3), z = (rng() - 0.5) * (size * 2 / 3);
     const h = spotOK(x, z, 5);
     if (h === null || h > 18) continue;
     flowers.push({ x, z, h: h + 0.25, s: 0.7 + rng() * 0.6, r: rng() * 6 });
@@ -878,7 +879,7 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
   instanced(new THREE.IcosahedronGeometry(0.2, 0), lam('#ffffff'), flowers, ['#ff8fb1', '#ffd36e', '#ffffff', '#b69cff', '#ff9a5a']).castShadow = false;
   const rocks = [];
   for (let tries = 0; rocks.length < 160 && tries < 4000; tries++) {
-    const x = (rng() - 0.5) * 560, z = (rng() - 0.5) * 560;
+    const x = (rng() - 0.5) * (size - 40), z = (rng() - 0.5) * (size - 40);
     const h = spotOK(x, z, 6);
     if (h === null) continue;
     rocks.push({ x, z, h: h + 0.1, s: 0.5 + rng() * 1.6, r: rng() * 6, rx: rng() });
@@ -919,14 +920,14 @@ export function buildScenery({ track, terrain, bridges, station, halt, tunnel })
     }
     const cg = new THREE.Mesh(mergeGeometries(puffs), cloudMat);
     cg.castShadow = false; // 16 extra shadow-pass draws for shadows too soft to notice at that height
-    cg.position.set((rng() - 0.5) * 600, 75 + rng() * 30, (rng() - 0.5) * 600);
+    cg.position.set((rng() - 0.5) * size, 75 + rng() * 30, (rng() - 0.5) * size);
     group.add(cg);
     clouds.push(cg);
   }
   updaters.push((dt) => {
     for (const c of clouds) {
       c.position.x += dt * 2.2;
-      if (c.position.x > 320) c.position.x -= 640;
+      if (c.position.x > size / 2 + 20) c.position.x -= size + 40;
     }
   });
 

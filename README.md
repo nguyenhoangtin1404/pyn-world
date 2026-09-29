@@ -12,7 +12,10 @@ npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
 
 | File | Vai trò |
 |---|---|
-| `src/main.js` | Renderer, loading screen, vòng lặp frame, phím tắt |
+| `src/main.js` | App: renderer, camera, loading screen, vòng lặp frame, phím tắt, đổi world (phím N) |
+| `src/World.js` | Một thế giới hoàn chỉnh dựng từ 1 WorldConfig: scene riêng (cả trời, đèn, sương mù), các bước dựng, `update`, `dispose` |
+| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE); `index.js` liệt kê chúng. Mở thẳng một world bằng `?world=<id>` |
+| `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |
 | `src/world/water.js` | Mặt nước: sóng, dòng chảy trên sông (vệt bọt trôi xuôi) và lá trôi — tất cả chạy trong shader |
 | `src/world/terrain.js` | Heightmap từ noise, khoét sông, san phẳng dọc đường ray, nền làng và nền khu phố (`villageZone`), màu theo độ cao/độ dốc, nước, thành đất + bệ gỗ của diorama |

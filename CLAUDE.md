@@ -7,6 +7,26 @@ npm run dev      # http://localhost:5173  — thêm ?stats để xem draw call /
 npm run build
 ```
 
+## Nhiều world
+
+`main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
+tại một thời điểm; phím N / `?world=<id>` đổi world. Mỗi world dựng từ một **WorldConfig** trong
+`src/worlds/` (seed, kích thước, vòng ray, sông, địa hình, tên + vị trí ga/trạm, hầm).
+
+- **Thứ khác nhau giữa các world thì đọc từ `cfg`, không import hằng số hay hàm cố định.** Builder nhận
+  `cfg` (`createTerrain(cfg, …)`, `buildScenery({ cfg, … })`, `createLife({ cfg, … })`); sông là
+  `cfg.riverX` (JS) và `cfg.riverGLSL` (shader nước), cả hai sinh từ `cfg.river` trong `defineWorld()`.
+  `config.js` chỉ còn hằng số chung cho mọi world (`TRACK_Y`, `WATER_Y`, `GAUGE`…).
+- **Mỗi world một `THREE.Scene`.** Không đặt 2 world cạnh nhau trong 1 scene bằng cách dịch group:
+  `Instancer`/`ParticlePool` vẽ theo tọa độ thế giới (xem bên dưới).
+- **Cache cấp module dùng chung giữa các world phải qua `keep()`** (`lowpoly.js`): `World.dispose()`
+  giải phóng mọi geometry/material/texture trong scene trừ thứ đã `keep()`. Thêm cache mới (Map ở cấp
+  module) mà quên `keep()` thì đổi world sẽ dispose mất đồ của world sau (vẫn chạy, nhưng upload/biên
+  dịch lại).
+- `CameraRig` tạo 1 lần (nó nghe sự kiện bàn phím/chuột), gắn vào world bằng `rig.attach(world.view)`.
+- Đã đo (2026-09-29): PYN sau khi tách giữ nguyên từng đỉnh (checksum geometry), 546 draw call, 36
+  shader như trước; đổi PYN ↔ MAPLE 3 vòng, số geometry/texture/shader trên GPU không tăng.
+
 ## Quy tắc render (ĐỪNG phá)
 
 Mọi thứ dựng hình dùng chung nằm ở `src/world/lowpoly.js` và `src/world/particles.js`. Logic của
@@ -73,7 +93,7 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
 Bật `?stats` (chỉ ở dev). Khi đổi cách render: ghi số draw call và ms/frame ở cùng góc camera
 **trước và sau**. Ít draw call hơn **không** tự động nhanh hơn — trên GPU mạnh mỗi draw call chỉ
 ~2 µs, còn SkinnedMesh / upload buffer mỗi frame có giá cố định. Trong DevTools có `window.__pyn`
-(`{ W, camera, state }`) để đo bằng `W.post.renderer.info`.
+(`{ W, renderer, post, rig, camera, state }`, `W` là world đang hiện) để đo bằng `__pyn.renderer.info`.
 
 Mốc đã đo (2026-09-29, góc toàn cảnh, tính cả lượt vẽ bóng): bản gốc 1683 draw call, 323
 material, 898 geometry → sau tối ưu 353 draw call, 84 material, 238 geometry (góc nhà ga

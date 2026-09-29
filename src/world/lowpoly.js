@@ -4,7 +4,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // Helpers for building detailed low-poly props cheaply: each part gets its colour baked into a
 // vertex attribute, and a list of parts is merged into ONE mesh with a shared material.
 
-export const VERTEX_COLORED = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+// Materials and geometries cached at module level are shared by every world that is built, so
+// World.dispose() must leave them alone: everything cached here goes through keep().
+const sharedResources = new WeakSet();
+export const keep = (resource) => (sharedResources.add(resource), resource);
+export const isShared = (resource) => sharedResources.has(resource);
+
+export const VERTEX_COLORED = keep(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
 
 // Flat-shaded Lambert material, shared by everyone asking for the same look (flyweight). Never
 // mutate a material from here — anything that animates (emissive at night, fading…) needs its own
@@ -13,7 +19,7 @@ const matCache = new Map();
 export function lam(color, extra = {}) {
   const key = `${new THREE.Color(color).getHexString()}|${JSON.stringify(extra)}`;
   let m = matCache.get(key);
-  if (!m) matCache.set(key, (m = new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra })));
+  if (!m) matCache.set(key, (m = keep(new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra }))));
   return m;
 }
 
@@ -74,15 +80,17 @@ export function segment(parts, mat = VERTEX_COLORED) {
 // Skinned and instanced meshes compile a different shader program than plain ones. three.js sorts
 // draws by material, not by program, so sharing one material between the kinds makes the GPU
 // switch programs back and forth; each kind gets its own copy of the material instead.
-const variants = new Map();
+// Weak: a world's own materials (and their variants) go away with the world.
+const variants = new WeakMap();
 function variant(mat, kind) {
-  const key = `${mat.uuid}|${kind}`;
-  if (!variants.has(key)) {
+  let kinds = variants.get(mat);
+  if (!kinds) variants.set(mat, (kinds = {}));
+  if (!kinds[kind]) {
     const v = mat.clone();
     v.onBeforeCompile = mat.onBeforeCompile; // clone() drops shader patches
-    variants.set(key, v);
+    kinds[kind] = isShared(mat) ? keep(v) : v;
   }
-  return variants.get(key);
+  return kinds[kind];
 }
 
 // Turns a jointed figure — a tree of Bones, each holding rigid segment meshes made with `mat` — into
@@ -120,7 +128,7 @@ export function skinFigure(owner, rootBone, mat, key = null) {
     }
   });
   const geo = shared || mergeGeometries(geos);
-  if (key != null) skinnedGeos.set(key, geo);
+  if (key != null) skinnedGeos.set(key, keep(geo));
   const mesh = new THREE.SkinnedMesh(geo, variant(mat, 'skinned'));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
