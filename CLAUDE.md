@@ -48,6 +48,39 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
 - `variant()` trong `lowpoly.js` tách material cho mesh skinned/instanced (khác shader program).
   Nếu thêm `onBeforeCompile` cho material, `variant()` đã chép sang — đừng dùng `mat.clone()` trần.
 
+## Hiệu ứng chạy trên GPU (`src/render/shaders.js`)
+
+Thứ gì thay đổi mỗi frame trên nhiều đỉnh/hạt (sóng nước, dòng chảy, bọt, tuyết phủ, mưa, tuyết
+rơi, cây lay trong gió, đèn cửa sổ theo giờ) được tính **trong shader**, CPU chỉ cập nhật uniform.
+Đừng quay lại vòng lặp JS sửa `position`/`color` từng đỉnh mỗi frame.
+
+- `GLOBALS` (`uTime`, `uWind`, `uWindDir`, `uHour`, `uSnow`) được `main.js` ghi **một lần mỗi
+  frame**; mọi shader liên kết tới đúng các object này (không copy), nên ghi một chỗ là tới tất cả.
+  Cần thêm biến toàn cục → thêm vào `GLOBALS` rồi ghi ở `frame()`.
+- Chèn GLSL vào material có sẵn bằng `patchMaterial(mat, { uniforms, vertex: { head, after },
+  fragment: { head, after } })` — `after` là `{ tênChunk: code }` chèn ngay sau
+  `#include <tênChunk>`. **Không** tự viết `onBeforeCompile` trần: three.js cache shader theo
+  `customProgramCacheKey`, hai bản vá khác nhau với cùng hàm bọc sẽ bị dùng chung một shader.
+  `patchMaterial` bỏ qua bản vá đã áp (material dùng chung cho nhiều mesh — trước đây vá 2 lần làm
+  GLSL khai báo trùng và tán cây **biến mất** không báo lỗi). Khi nghi shader hỏng: xem
+  `renderer.properties.get(mat).currentProgram.diagnostics`.
+- Có sẵn: `snowCover(mat)` (cần attribute `snowWeight`), `swaying(instancedMesh)` (cây lay gió,
+  kèm depth material để bóng lay theo). Vật mới có lá/tuyết → dùng lại, đừng viết lại.
+- Nước: độ sâu / tỉ lệ sông / bọt / hướng dòng chảy nướng sẵn thành attribute (`aWater`, `aFlow`)
+  một lần khi dựng; bọt quanh trụ cầu thêm bằng `terrain.addFoam(points)`.
+- Đèn cửa sổ: mỗi ô kính mang giờ ngủ/giờ dậy của nhà đó (attribute `aLight`, gắn bằng `pane()`
+  trong `scenery.js`). Mọi part dùng `windowMat` phải có `aLight` (StaticBatch cần cùng attribute).
+
+## Nhịp sống & tính tất định
+
+Thế giới dựng từ `mulberry32(SEED)`: thêm một lần gọi `rng()` ở giữa sẽ **dịch chuyển toàn bộ**
+nhà, cây, cừu phía sau. Dữ liệu mới không ảnh hưởng bố cục (giờ ngủ, giờ nấu ăn, sao…) dùng
+generator riêng `mulberry32(SEED + n)` như `hoursRng`, `clockRng`.
+
+Giờ trong ngày (`state.hour`) đi vào `scenery.update(dt, t, { hour, snow })` và
+`life.update(dt, t, { rain, hour })`. Người ở trong nhà / trên tàu / cắm trại thì
+`group.visible = false` — code nào duyệt người (chim, camera theo dõi…) phải bỏ qua người đang ẩn.
+
 ## Đo trước khi tối ưu
 
 Bật `?stats` (chỉ ở dev). Khi đổi cách render: ghi số draw call và ms/frame ở cùng góc camera
@@ -62,7 +95,5 @@ trên máy dev (GPU rời) gần như không đổi — lợi ích chủ yếu �
 
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
-- Sóng nước (`terrain.update`), phủ tuyết (`terrain.setSnow`, ~4 ms/lần), mưa/tuyết rơi
-  (`weather.js`) đang tính trên CPU mỗi frame → chuyển sang vertex shader với uniform `uTime`.
 - Bóng đổ: shadow map 2048 phủ 340×340 đơn vị, lượt vẽ bóng chiếm ~0,8 ms → thu hẹp frustum theo
   khoảng cách camera, tắt `castShadow` cho vật nhỏ ở xa.
