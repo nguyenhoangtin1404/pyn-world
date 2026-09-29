@@ -5,7 +5,8 @@ import { Walker, turnToward } from '../world/walker.js';
 // People living around each stop (world.stations): they walk between their homes and the platform,
 // routed around obstacles on a nav grid per stop, and ride the train to the other stop, where they
 // then go about their day. Children tag along beside a grown-up. Comes after "train".
-// Options: perStop ([12, 10] grown-ups at the first stop / the others), kids ([4, 3]).
+// Options: perStop (grown-ups at each stop; the last number counts for the stops after it: [12, 10]),
+// kids (children, same way: [4, 3]).
 export default {
   label: 'Đang đón dân làng',
   build(world, { rng, perStop = [12, 10], kids: kidsPerStop = [4, 3] }) {
@@ -88,7 +89,7 @@ export default {
       const villagers = [];
       const kids = [];
       areas.forEach((area, ai) => {
-        const n = ai === 0 ? perStop[0] : perStop[1];
+        const n = perStop[Math.min(ai, perStop.length - 1)];
         const first = villagers.length;
         for (let i = 0; i < n; i++) {
           const w = new Walker(rng, walkHeight);
@@ -101,7 +102,7 @@ export default {
           group.add(w.group);
         }
         // Children tag along beside a grown-up.
-        for (let i = 0; i < Math.min(ai === 0 ? kidsPerStop[0] : kidsPerStop[1], n); i++) {
+        for (let i = 0; i < Math.min(kidsPerStop[Math.min(ai, kidsPerStop.length - 1)], n); i++) {
           const parent = villagers[first + i * 3];
           const k = new Walker(rng, walkHeight, { kind: 'child', speed: 1.4 }); // pace set by follow()
           k.parent = parent;

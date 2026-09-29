@@ -31,11 +31,15 @@ export default defineWorld({
     offset: [0, 0], // shifts the noise field: same shapes of hills, different place
   },
 
-  // Stops: fraction of the loop, the name on the sign, and the flat plateau for the houses beside
-  // it (a inward from the track, from A0 to A1; b along the track, ±HALF_B).
-  station: { at: 0, name: 'PYN WORLD', zone: { A0: 30, A1: 95, HALF_B: 66 } },
-  halt: { at: 0.385, name: 'PYN TOWN', zone: { A0: 2, A1: 64, HALF_B: 34 } },
-  tunnel: { at: 0.5 }, // the hill with the tunnel, right opposite the station
+  // Where the train stops, in the order it calls: `at` = fraction of the loop, the name on the sign,
+  // optionally a flat plateau (`zone`) for the houses beside it (a inward from the track, from A0 to
+  // A1; b along the track, ±HALF_B) and a flat `yard` around it kept clear of trees. What is built
+  // at each stop is up to the features (station, halt, village).
+  stops: [
+    { id: 'station', at: 0, name: 'PYN WORLD', zone: { A0: 30, A1: 95, HALF_B: 66 }, yard: true },
+    { id: 'halt', at: 0.385, name: 'PYN TOWN', zone: { A0: 2, A1: 64, HALF_B: 34 } },
+  ],
+  tunnel: { at: 0.5 }, // the hill with the tunnel, right opposite the station (leave out: no tunnel)
 
   // What lives in the world (src/features/), built in this order; an entry is an id or
   // { id, ...options }. `stream`: features with the same number share one random stream, in this

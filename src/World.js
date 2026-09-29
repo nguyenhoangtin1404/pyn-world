@@ -29,6 +29,7 @@ export class World {
   constructor(cfg) {
     this.cfg = cfg;
     this.size = cfg.size;
+    this.tunnel = null; // unless cfg.tunnel
     this.scene = new THREE.Scene();
     this.time = 0; // simulated seconds (stops while paused)
     this.systems = [];
@@ -60,6 +61,14 @@ export class World {
     if (!have) throw new Error(`Feature "${feature}" cần ${what} (thêm nó vào trước trong cfg.features)`);
   }
 
+  // A stop from cfg.stops (with its track frame): the one named, or by default the first one no
+  // feature has built a station on yet.
+  stop(id, feature) {
+    const st = id === undefined ? this.stops.find((s) => !this.stationById(s.id)) : this.stops.find((s) => s.id === id);
+    this.need(id === undefined ? 'một điểm dừng còn trống trong cfg.stops' : `điểm dừng "${id}" trong cfg.stops`, feature, st);
+    return st;
+  }
+
   stationById(id) {
     return this.stations.find((st) => st.id === id);
   }
@@ -86,11 +95,12 @@ export class World {
     return [
       ['Đang trải đường ray', () => {
         this.track = new Track(createTrackCurve(cfg));
-        this.station = this.track.frame(Math.round(this.track.frames.length * cfg.station.at));
-        this.halt = this.track.frame(Math.round(this.track.frames.length * cfg.halt.at));
+        const M = this.track.frames.length;
+        // Every stop in the config with its place on the track (frame); features build on them.
+        this.stops = cfg.stops.map((st) => ({ ...st, frame: this.track.frame(Math.round(M * st.at)) }));
       }],
       ['Đang nặn địa hình', () => {
-        const terrain = (this.terrain = createTerrain(cfg, this.track, this.station, this.halt));
+        const terrain = (this.terrain = createTerrain(cfg, this.track, this.stops));
         this.heightAt = terrain.heightAt;
         this.add({
           group: new THREE.Group().add(terrain.mesh, terrain.water, terrain.frame),
@@ -98,15 +108,18 @@ export class World {
           lateUpdate: (f) => terrain.setSnow(f.snow),
         });
       }],
-      ['Đang đào đường hầm', () => {
-        const tunnel = (this.tunnel = createTunnel(this.track, this.heightAt, cfg.tunnel));
-        this.add({ group: tunnel.group, lateUpdate: (f) => tunnel.setSnow(f.snow) });
-      }],
+      ...(cfg.tunnel
+        ? [['Đang đào đường hầm', () => {
+          const tunnel = (this.tunnel = createTunnel(this.track, this.heightAt, cfg.tunnel));
+          this.add({ group: tunnel.group, lateUpdate: (f) => tunnel.setSnow(f.snow) });
+        }]]
+        : []),
       ['Đang dựng cầu và tà vẹt', () => {
         const rails = buildTrackMeshes(this.track, this.heightAt, cfg.riverX);
         this.bridges = rails.bridges;
         this.add({ group: rails.group });
-        this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, station: this.station });
+        const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
+        this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards });
       }],
       ...features.map((entry) => {
         const { id, stream, ...options } = entry;
@@ -137,7 +150,7 @@ export class World {
       train: this.train,
       bridges: this.bridges,
       // Keep the camera above the ground and out of the tunnel hill.
-      heightAt: (x, z) => Math.max(terrain.heightAt(x, z), tunnel.surfaceAt(x, z)),
+      heightAt: tunnel ? (x, z) => Math.max(terrain.heightAt(x, z), tunnel.surfaceAt(x, z)) : terrain.heightAt,
       followables: this.followables,
       occludes: this.site.occludes,
       size: this.size,

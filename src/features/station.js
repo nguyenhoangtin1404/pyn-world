@@ -5,16 +5,18 @@ import { shadowed, labelTexture } from './common.js';
 import { lamps } from './lamps.js';
 import { buildPlatform, frameIndex, PLAT_TOP } from './platform.js';
 
-// The main station (world.station, cfg.station): platform on the outer side of the loop, the
-// station building behind it, a canopy with lamps and benches. Registers itself as the first stop
-// in world.stations (villagers wait on its platform, pigeons peck on it).
+// A main station at a stop (option `stop`: an id from cfg.stops, by default the first one not built
+// yet): platform on the outer side of the loop, the station building behind it, a canopy with lamps
+// and benches. Registers itself in world.stations (villagers wait on its platform, pigeons peck on
+// it).
 export default {
   label: 'Đang xây nhà ga',
-  build(world) {
-    const { cfg, track, site, batch } = world;
+  build(world, { stop: stopId }) {
+    const { track, site, batch } = world;
+    const stop = world.stop(stopId, 'station');
     const { windowMat, lampMat, halos, pools } = lamps(world);
     const group = new THREE.Group();
-    const f0 = world.station;
+    const f0 = stop.frame;
     const sg = Math.sign(f0.side.dot(f0.p)) || 1; // which side of the track faces outward
     const out = f0.side.clone().multiplyScalar(sg);
     const PLAT_OUT = 7.95;
@@ -44,7 +46,7 @@ export default {
       site.solidBox(c.x, c.z, 4.6, 22, stRot, TRACK_Y + 4.45, TRACK_Y + 4.75); // platform canopy
     }
     for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), windowMat);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture(cfg.station.name) }));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture(stop.name) }));
     sign.position.set(ox * 7.9, floor + 3.8, 0);
     sign.rotation.y = -ox * (Math.PI / 2);
     st.add(sign);
@@ -81,7 +83,7 @@ export default {
     };
 
     world.stations.push({
-      id: 'station',
+      id: stop.id,
       frame: f0,
       out, // horizontal direction from the track towards the platform
       homes: [], // where the people who live around this stop go home to (village.js)

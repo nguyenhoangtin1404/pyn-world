@@ -1,15 +1,16 @@
 {
-  "meshes": 372,
-  "geometry": "81f76ae7",
-  "instances": "9c6596e6",
-  "colliders": 1654,
+  "meshes": 359,
+  "geometry": "64509e1f",
+  "instances": "9242962f",
+  "colliders": 1656,
   "stations": [
-    "station",
-    "halt"
+    "vale",
+    "mill",
+    "peak"
   ],
-  "people": 29,
+  "people": 32,
   "followables": [
-    35,
+    38,
     22
   ],
   "spots": {
@@ -26,6 +27,6 @@
       -167.33
     ]
   },
-  "drawCalls": 284,
-  "programs": 36
+  "drawCalls": 270,
+  "programs": 35
 }

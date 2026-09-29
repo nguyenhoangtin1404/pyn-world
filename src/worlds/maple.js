@@ -1,7 +1,7 @@
 import { defineWorld } from './define.js';
 
 // A second valley, built by the same code from a different recipe: a longer, pinched loop, the river
-// on the other side, hillier ground, and its own names. Fields: see pyn.js.
+// on the other side, hillier ground, its own names — three stops and no tunnel. Fields: see pyn.js.
 export default defineWorld({
   id: 'maple',
   name: 'MAPLE VALE',
@@ -28,14 +28,17 @@ export default defineWorld({
     offset: [173, -91],
   },
 
-  station: { at: 0, name: 'MAPLE VALE', zone: { A0: 30, A1: 90, HALF_B: 60 } },
-  halt: { at: 0.4, name: 'MAPLE MILL', zone: { A0: 2, A1: 60, HALF_B: 34 } },
-  tunnel: { at: 0.56 },
+  stops: [
+    { id: 'vale', at: 0, name: 'MAPLE VALE', zone: { A0: 30, A1: 90, HALF_B: 60 }, yard: true },
+    { id: 'mill', at: 0.4, name: 'MAPLE MILL', zone: { A0: 2, A1: 60, HALF_B: 34 } },
+    { id: 'peak', at: 0.7, name: 'MAPLE PEAK' }, // a lone halt: no zone, so no town
+  ],
 
   // No windmill here; a smaller village, more balloons and more sheep.
   features: [
     'station',
     { id: 'village', count: 10 },
+    'halt',
     'halt',
     { id: 'sheep', flocks: 5 },
     'trees',
@@ -44,7 +47,7 @@ export default defineWorld({
     'fish',
     'boats',
     { id: 'balloons', count: 7 },
-    'villagers',
+    { id: 'villagers', perStop: [12, 10, 3], kids: [4, 3, 0] },
     'birds',
     'hikers',
   ],
