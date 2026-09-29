@@ -31,34 +31,57 @@ export class Weather {
     this.snowCover = 0;
     this.time = 0;
 
+    // Rain and snow fall in their vertex shaders: each drop keeps its start position and the
+    // shader moves it by `uTime` (wrapping inside the box), so the CPU writes nothing per drop.
+    this.uTime = { value: 0 };
+    const fall = (mat, body) => {
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uTime = this.uTime;
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nuniform float uTime;\nattribute float aK;')
+          .replace('#include <begin_vertex>', `#include <begin_vertex>\n${body}`);
+      };
+      return mat;
+    };
+    const wrapY = (speed) => `transformed.y = mod(transformed.y + ${(HEIGHT / 2).toFixed(1)} - uTime * ${speed.toFixed(1)}, ${HEIGHT.toFixed(1)}) - ${(HEIGHT / 2).toFixed(1)};`;
+
+    // Rain: short streaks. Both ends of a streak share the start point; aK = 0 bottom, 1 top.
     const RN = 6000;
-    this.rainRel = new Float32Array(RN * 3);
+    const rpos = new Float32Array(RN * 6);
+    const rk = new Float32Array(RN * 2);
     for (let i = 0; i < RN; i++) {
-      this.rainRel[i * 3] = (Math.random() - 0.5) * BOX;
-      this.rainRel[i * 3 + 1] = (Math.random() - 0.5) * HEIGHT;
-      this.rainRel[i * 3 + 2] = (Math.random() - 0.5) * BOX;
+      const x = (Math.random() - 0.5) * BOX, y = (Math.random() - 0.5) * HEIGHT, z = (Math.random() - 0.5) * BOX;
+      rpos.set([x, y, z, x, y, z], i * 6);
+      rk[i * 2 + 1] = 1;
     }
     const rgeo = new THREE.BufferGeometry();
-    rgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RN * 6), 3));
-    this.rainMesh = new THREE.LineSegments(rgeo, new THREE.LineBasicMaterial({ color: '#b9cde0', transparent: true, opacity: 0 }));
+    rgeo.setAttribute('position', new THREE.BufferAttribute(rpos, 3));
+    rgeo.setAttribute('aK', new THREE.BufferAttribute(rk, 1));
+    const rainMat = fall(new THREE.LineBasicMaterial({ color: '#b9cde0', transparent: true, opacity: 0 }), `${wrapY(55)}\ntransformed += vec3(-0.15, 1.4, 0.0) * aK;`);
+    this.rainMesh = new THREE.LineSegments(rgeo, rainMat);
     this.rainMesh.frustumCulled = false;
     this.rainMesh.visible = false;
     scene.add(this.rainMesh);
 
+    // Snow: slow, swaying flakes (aK = the flake's own phase).
     const SN = 5000;
     const spos = new Float32Array(SN * 3);
-    this.snowPhase = new Float32Array(SN);
+    const sk = new Float32Array(SN);
     for (let i = 0; i < SN; i++) {
       spos[i * 3] = (Math.random() - 0.5) * BOX;
       spos[i * 3 + 1] = (Math.random() - 0.5) * HEIGHT;
       spos[i * 3 + 2] = (Math.random() - 0.5) * BOX;
-      this.snowPhase[i] = Math.random() * Math.PI * 2;
+      sk[i] = Math.random() * Math.PI * 2;
     }
     const sgeo = new THREE.BufferGeometry();
     sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3));
+    sgeo.setAttribute('aK', new THREE.BufferAttribute(sk, 1));
     this.snowMesh = new THREE.Points(
       sgeo,
-      new THREE.PointsMaterial({ color: '#ffffff', map: dotTexture(), size: 0.7, transparent: true, opacity: 0, depthWrite: false }),
+      fall(
+        new THREE.PointsMaterial({ color: '#ffffff', map: dotTexture(), size: 0.7, transparent: true, opacity: 0, depthWrite: false }),
+        `${wrapY(3.5)}\ntransformed.x -= cos(uTime * 0.9 + aK) * 0.67;\ntransformed.z += sin(uTime * 0.7 + aK) * 0.57;`,
+      ),
     );
     this.snowMesh.frustumCulled = false;
     this.snowMesh.visible = false;
@@ -80,43 +103,17 @@ export class Weather {
     this.snow += ((this.kind === 'snow' ? 1 : 0) - this.snow) * k;
     this.snowCover = clamp(this.snowCover + (this.kind === 'snow' ? dt * 0.04 : -dt * 0.07), 0, 1);
 
-    // Rain: short streaks falling fast, box follows the camera.
+    this.uTime.value = this.time;
+    // The precipitation box follows the camera; the drops move in the shader.
     this.rainMesh.visible = this.rain > 0.01;
     if (this.rainMesh.visible) {
       this.rainMesh.position.copy(camera.position);
       this.rainMesh.material.opacity = 0.55 * this.rain;
-      const rel = this.rainRel;
-      const arr = this.rainMesh.geometry.attributes.position.array;
-      for (let i = 0; i < rel.length / 3; i++) {
-        let y = rel[i * 3 + 1] - 55 * dt;
-        if (y < -HEIGHT / 2) y += HEIGHT;
-        rel[i * 3 + 1] = y;
-        const x = rel[i * 3], z = rel[i * 3 + 2];
-        arr[i * 6] = x;
-        arr[i * 6 + 1] = y;
-        arr[i * 6 + 2] = z;
-        arr[i * 6 + 3] = x - 0.15;
-        arr[i * 6 + 4] = y + 1.4;
-        arr[i * 6 + 5] = z;
-      }
-      this.rainMesh.geometry.attributes.position.needsUpdate = true;
     }
-
-    // Snow: slow, swaying flakes.
     this.snowMesh.visible = this.snow > 0.01;
     if (this.snowMesh.visible) {
       this.snowMesh.position.copy(camera.position);
       this.snowMesh.material.opacity = 0.95 * this.snow;
-      const arr = this.snowMesh.geometry.attributes.position.array;
-      for (let i = 0; i < this.snowPhase.length; i++) {
-        const ph = this.snowPhase[i];
-        let y = arr[i * 3 + 1] - 3.5 * dt;
-        if (y < -HEIGHT / 2) y += HEIGHT;
-        arr[i * 3 + 1] = y;
-        arr[i * 3] += Math.sin(this.time * 0.9 + ph) * 0.6 * dt;
-        arr[i * 3 + 2] += Math.cos(this.time * 0.7 + ph) * 0.4 * dt;
-      }
-      this.snowMesh.geometry.attributes.position.needsUpdate = true;
     }
   }
 }

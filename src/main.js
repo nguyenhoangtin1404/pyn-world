@@ -35,7 +35,10 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'hi
 // Reading shader logs after every compile makes the browser wait for each compile to finish; only
 // worth it while developing.
 renderer.debug.checkShaderErrors = import.meta.env.DEV;
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Retina / phone screens: rendering at the full device pixel ratio (with MSAA on top) multiplies
+// the pixels to shade by up to 4×. Start at most at 1.5 and let adaptResolution() go lower.
+const MAX_DPR = Math.min(devicePixelRatio, 1.5);
+renderer.setPixelRatio(MAX_DPR);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 // three.js r186 dropped PCFSoftShadowMap and falls back to PCFShadowMap at the first shadow render,
@@ -108,6 +111,32 @@ const HINTS = [
   'Bấm F để tìm đôi cừu đang yêu nhau.',
   'Bấm K để bay lên đỉnh núi, nơi dân leo núi vẫy tay chào.',
 ];
+
+// Drop the pixel ratio a step when frames run slow for a couple of seconds, and give it back once
+// they are comfortably fast again (not too eagerly, or it would flip back and forth).
+const adapt = { t: 0, n: 0, sum: 0, calm: 0 };
+function adaptResolution(raw) {
+  if (raw > 0.25) return; // a stall (tab switch, loading), not the steady frame rate
+  adapt.t += raw;
+  adapt.n++;
+  adapt.sum += raw;
+  if (adapt.t < 2) return;
+  const avg = adapt.sum / adapt.n;
+  const dpr = renderer.getPixelRatio();
+  let next = dpr;
+  if (avg > 1 / 40) {
+    adapt.calm = 0;
+    if (dpr > 1) next = Math.max(1, dpr - 0.25);
+  } else if (avg < 1 / 55) {
+    if (dpr < MAX_DPR && ++adapt.calm >= 5) next = Math.min(MAX_DPR, dpr + 0.25); // ~10 s of smooth frames
+  } else adapt.calm = 0;
+  if (next !== dpr) {
+    adapt.calm = 0;
+    renderer.setPixelRatio(next);
+    resize();
+  }
+  Object.assign(adapt, { t: 0, n: 0, sum: 0 });
+}
 
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -286,7 +315,9 @@ function frame() {
   requestAnimationFrame(frame);
   const frameStart = performance.now();
   if (stats) renderer.info.reset();
-  const raw = Math.min(clock.getDelta(), 0.1);
+  const delta = clock.getDelta();
+  adaptResolution(delta);
+  const raw = Math.min(delta, 0.1);
   const dt = state.paused ? 0 : raw * state.timeScale;
   simTime += dt;
   if (state.autoDay && dt > 0) {

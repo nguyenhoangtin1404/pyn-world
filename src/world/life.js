@@ -6,7 +6,8 @@ import { Person } from './people.js';
 import { createBoats } from './boats.js';
 import { NavGrid } from './nav.js';
 import { createBirds } from './birds.js';
-import { lam, Instancer } from './lowpoly.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { lam, ball, cone, Instancer } from './lowpoly.js';
 import { Ripples } from './particles.js';
 
 // Everything that moves around the valley on its own: hot-air balloons, fish (with ripples),
@@ -15,19 +16,46 @@ import { Ripples } from './particles.js';
 const turnToward = (heading, want, k) => heading + Math.atan2(Math.sin(want - heading), Math.cos(want - heading)) * k;
 
 // ---------------------------------------------------------------- fish
-const FISH_COLORS = ['#ff8a3d', '#f2b632', '#c9d3db', '#e0603f', '#8fb8d8'];
+const FISH_COLORS = ['#ff8a3d', '#f2b632', '#c9d3db', '#e0603f', '#8fb8d8', '#f4efe6', '#9fc26a'];
 
-// All fish are drawn by two InstancedMeshes (body, tail) with a colour per fish. They glow a
-// little in their own colour so they read through the water: the emissive is tinted per instance.
+// All fish are drawn with one InstancedMesh per part (body, tail) and kind (plain, striped), with a
+// colour per fish. Parts are white/grey vertex colours, so the per-fish tint shows as a darker back
+// and a pale belly. They glow a little in their own colour so they read through the water: the
+// emissive is tinted by the vertex × instance colour.
+function fishParts(striped) {
+  const body = [
+    ball(0.35, '#b4b4b4', [0, 0.02, 0], { sx: 0.55, sy: 0.7, sz: 1.5 }), // back
+    ball(0.33, '#ffffff', [0, -0.07, 0.03], { sx: 0.5, sy: 0.5, sz: 1.35 }), // pale belly
+    cone(0.16, 0.34, '#8c8c8c', [0, 0.27, -0.06], { sx: 0.18, sz: 1.7, rx: -0.35 }, 4), // dorsal fin
+    cone(0.1, 0.24, '#d0d0d0', [0.17, -0.08, 0.14], { sx: 0.2, rz: -1.2, rx: 0.5 }, 4), // pectoral fins
+    cone(0.1, 0.24, '#d0d0d0', [-0.17, -0.08, 0.14], { sx: 0.2, rz: 1.2, rx: 0.5 }, 4),
+    ball(0.055, '#1b1b22', [0.12, 0.07, 0.33], {}, 0), // eyes
+    ball(0.055, '#1b1b22', [-0.12, 0.07, 0.33], {}, 0),
+    ball(0.035, '#ffffff', [0.14, 0.09, 0.36], {}, 0), // catch-lights
+    ball(0.035, '#ffffff', [-0.14, 0.09, 0.36], {}, 0),
+  ];
+  // Perch-like bars: thin dark bands, only on the upper half of the body.
+  if (striped) for (const z of [0.12, -0.1]) body.push(ball(0.35, '#555555', [0, 0.06, z], { sx: 0.53, sy: 0.64, sz: 0.1 }));
+  // Forked tail, hinged at the end of the body.
+  const tail = [
+    cone(0.13, 0.42, '#9a9a9a', [0, 0.1, -0.18], { sx: 0.2, rx: -Math.PI / 2 - 0.45 }, 4),
+    cone(0.13, 0.42, '#9a9a9a', [0, -0.1, -0.18], { sx: 0.2, rx: -Math.PI / 2 + 0.45 }, 4),
+    ball(0.07, '#9a9a9a', [0, 0, 0.02], { sx: 0.6 }, 0),
+  ];
+  return { body: mergeGeometries(body), tail: mergeGeometries(tail) };
+}
+
 function createSchool(capacity) {
-  const mat = new THREE.MeshLambertMaterial({ flatShading: true, emissive: '#ffffff', emissiveIntensity: 0.35 });
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: '#ffffff', emissiveIntensity: 0.3 });
   mat.onBeforeCompile = (s) => {
     s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif');
   };
-  const body = new THREE.IcosahedronGeometry(0.35, 0).scale(0.55, 0.7, 1.5);
-  const fin = new THREE.ConeGeometry(0.28, 0.45, 4).rotateX(-Math.PI / 2).translate(0, 0, -0.2).scale(0.3, 1, 1);
   const opt = { castShadow: false };
-  return { body: new Instancer(body, mat, capacity, opt), tail: new Instancer(fin, mat, capacity, opt) };
+  const kinds = [false, true].map((striped) => {
+    const g = fishParts(striped);
+    return { body: new Instancer(g.body, mat, capacity, opt), tail: new Instancer(g.tail, mat, capacity, opt) };
+  });
+  return { kinds, meshes: kinds.flatMap((k) => [k.body.mesh, k.tail.mesh]) };
 }
 
 class Fish {
@@ -51,8 +79,9 @@ class Fish {
     this.tail = new THREE.Object3D();
     this.tail.position.z = -0.45;
     g.add(this.tail);
-    school.body.add(g, color);
-    school.tail.add(this.tail, color);
+    const kind = school.kinds[rng() < 0.35 ? 1 : 0];
+    kind.body.add(g, color);
+    kind.tail.add(this.tail, color);
     g.scale.setScalar(1.4 + rng() * 0.6);
   }
 
@@ -225,7 +254,7 @@ export function createLife({ terrain, track, scenery, train }) {
   }
   const fish = [];
   const school = createSchool(26);
-  group.add(school.body.mesh, school.tail.mesh);
+  group.add(...school.meshes);
   for (let i = 0; i < 26 && waterSpots.length; i++) {
     const f = new Fish(waterSpots[Math.floor(rng() * waterSpots.length)], rng, heightAt, ripples, school);
     fish.push(f);
