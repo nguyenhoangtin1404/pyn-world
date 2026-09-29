@@ -1,0 +1,31 @@
+{
+  "meshes": 363,
+  "geometry": "6103911",
+  "instances": "288b418",
+  "colliders": 1684,
+  "stations": [
+    "station",
+    "halt"
+  ],
+  "people": 29,
+  "followables": [
+    35,
+    19
+  ],
+  "spots": {
+    "courting": [
+      -79.27,
+      -22.51
+    ],
+    "bridgeSheep": [
+      -3.33,
+      83.79
+    ],
+    "summit": [
+      128.46,
+      -223.66
+    ]
+  },
+  "drawCalls": 273,
+  "programs": 36
+}
