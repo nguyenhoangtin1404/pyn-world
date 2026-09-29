@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { box, ball, cyl, cone, segment, skinFigure } from './lowpoly.js';
+import { box, ball, cyl, cone, segment, skinFigure, keep } from './lowpoly.js';
 
 // Low-poly people with faces, hair, clothes and jointed limbs (hip → knee, shoulder → elbow).
 // Every rigid body segment is merged into ONE vertex-coloured mesh, so a detailed person still costs
 // only ~10 draw calls. The figure faces local +z; y = 0 is the soles of the feet.
 
-const OUTDOOR = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const OUTDOOR = keep(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
 // Inside the train the car body shadows everything, so give people a warm fill glow.
-const INDOOR = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: '#3a2e26' });
+const INDOOR = keep(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: '#3a2e26' }));
 
 const SKIN = ['#f5d0b0', '#e8b48f', '#c98f63', '#9a6440', '#6e4630'];
 const HAIR = ['#2a1d17', '#4a3021', '#7a5236', '#c9a24a', '#a8452f', '#1f1b19'];

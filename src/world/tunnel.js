@@ -9,7 +9,6 @@ import { sweep } from './track.js';
 //
 // Everything is built in track space: rows follow the track frames, columns are offsets to the side.
 
-const TUNNEL_AT = 0.5; // fraction of the loop (the station is at 0)
 const LENGTH = 64; // track units under the hill
 const HALF_WIDTH = 30; // hill footprint either side of the track
 const BORE = 3.3; // bore radius; the arch top is TRACK_Y + 3.6 + BORE
@@ -30,10 +29,11 @@ function archPath(r, y0, path = new THREE.Path()) {
   return path;
 }
 
-export function createTunnel(track, heightAt) {
+// `at`: where the hill sits, as a fraction of the loop (the WorldConfig's tunnel.at).
+export function createTunnel(track, heightAt, { at }) {
   const frames = track.frames;
   const M = frames.length;
-  const iMid = Math.round(M * TUNNEL_AT);
+  const iMid = Math.round(M * at);
   const half = Math.round(((LENGTH / 2) * M) / track.length);
   const i0 = iMid - half;
   const i1 = iMid + half;

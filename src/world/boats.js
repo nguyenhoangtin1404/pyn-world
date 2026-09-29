@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
-import { riverX } from './terrain.js';
 import { Person } from './people.js';
 import { box, ball, cyl, torus, slab, segment } from './lowpoly.js';
 import { Smoke } from './particles.js';
@@ -199,7 +198,7 @@ function buildRowboat(rng) {
 }
 
 // ------------------------------------------------------------------ main
-export function createBoats({ heightAt, ripples, waterSpots, rng }) {
+export function createBoats({ heightAt, riverX, ripples, waterSpots, rng }) {
   const group = new THREE.Group();
   const updaters = [];
   // Funnel smoke: the same pool as the locomotive's, just softer and slower.

@@ -1,16 +1,9 @@
 import * as THREE from 'three';
 import { TRACK_Y, GAUGE } from '../config.js';
-import { riverX } from './terrain.js';
 
-// A closed, gently wobbling loop. The station sits at u = 0 (the +x side).
-export function createTrackCurve() {
-  const pts = [];
-  const N = 18;
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2;
-    const r = 120 + 13 * Math.sin(3 * a + 0.6) + 7 * Math.cos(2 * a);
-    pts.push(new THREE.Vector3(Math.cos(a) * r * 1.08, TRACK_Y, Math.sin(a) * r * 0.86));
-  }
+// The world's closed loop through its (x, z) points, at track height.
+export function createTrackCurve(cfg) {
+  const pts = cfg.track().map(([x, z]) => new THREE.Vector3(x, TRACK_Y, z));
   const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
   curve.arcLengthDivisions = 3000;
   return curve;
@@ -160,7 +153,7 @@ function runs(flags, value) {
 
 const yaw = (t) => Math.atan2(t.x, t.z);
 
-export function buildTrackMeshes(track, heightAt) {
+export function buildTrackMeshes(track, heightAt, riverX) {
   const group = new THREE.Group();
   const frames = track.frames;
   const M = frames.length;

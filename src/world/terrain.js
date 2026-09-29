@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
-import { WORLD_SIZE, TERRAIN_SEGMENTS, TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
+import { TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
 import { clamp, lerp, smoothstep, hash2 } from '../utils.js';
 import { createWater } from './water.js';
 
@@ -16,9 +16,6 @@ export function fbm(x, z, octaves = 4, freq = 0.006, seed = 1.7) {
   }
   return sum / norm;
 }
-
-// The river winds north–south through the valley and crosses the loop twice.
-export const riverX = (z) => -25 + 42 * Math.sin(z * 0.011 + 0.9) + 10 * Math.sin(z * 0.034 + 2.0);
 
 const COL = {
   bed: new THREE.Color('#c7b58a'),
@@ -69,9 +66,8 @@ const SKIRT = {
 };
 
 // Cut-away walls around the four edges (grass → soil strata → rock), like a model-railway diorama.
-function buildSkirt(heightAt) {
-  const half = WORLD_SIZE / 2;
-  const n = TERRAIN_SEGMENTS;
+function buildSkirt(heightAt, size, n) {
+  const half = size / 2;
   const pos = [];
   const col = [];
   const quad = (xa, za, ya0, ya1, xb, zb, yb0, yb1, c) => {
@@ -86,10 +82,10 @@ function buildSkirt(heightAt) {
     return { wet, ys: [top, y1, lerp(y1, BASE_Y, 0.4), lerp(y1, BASE_Y, 0.75), BASE_Y] };
   };
   const edges = [
-    (t) => [-half + t * WORLD_SIZE, half],
-    (t) => [half, half - t * WORLD_SIZE],
-    (t) => [half - t * WORLD_SIZE, -half],
-    (t) => [-half, -half + t * WORLD_SIZE],
+    (t) => [-half + t * size, half],
+    (t) => [half, half - t * size],
+    (t) => [half - t * size, -half],
+    (t) => [-half, -half + t * size],
   ];
   for (const edge of edges) {
     let [xa, za] = edge(0);
@@ -134,9 +130,9 @@ function nameplateTexture(text) {
 }
 
 // Wooden plinth the diorama sits on, with a brass nameplate on the front.
-function buildPlinth() {
+function buildPlinth(size, name) {
   const g = new THREE.Group();
-  const W = WORLD_SIZE;
+  const W = size;
   const wood = new THREE.MeshLambertMaterial({ color: '#5a3b2a' });
   const trim = new THREE.MeshLambertMaterial({ color: '#3f2a1f' });
   const body = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 8, W + 4), wood);
@@ -145,7 +141,7 @@ function buildPlinth() {
   lip.position.y = BASE_Y - 0.6 + 0.02;
   const foot = new THREE.Mesh(new THREE.BoxGeometry(W + 10, 2, W + 10), trim);
   foot.position.y = BASE_Y - 9;
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshLambertMaterial({ map: nameplateTexture('PYN WORLD') }));
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshLambertMaterial({ map: nameplateTexture(name) }));
   plate.position.set(0, BASE_Y - 4.5, W / 2 + 2.05);
   g.add(body, lip, foot, plate);
   g.traverse((o) => o.isMesh && (o.receiveShadow = true));
@@ -177,14 +173,18 @@ export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
   };
 }
 
-export function createTerrain(track, station, halt) {
-  const village = villageZone(station);
-  const town = villageZone(halt, { A0: 2, A1: 64, HALF_B: 34 });
+export function createTerrain(cfg, track, station, halt) {
+  const { riverX, size } = cfg;
+  const { hills, rim: [rim0, rim1], mountains: [mBase, mNoise], offset: [ox, oz] } = cfg.terrain;
+  // One grid cell every ~3 units, whatever the size of the world.
+  const segments = Math.round(size / 3);
+  const village = villageZone(station, cfg.station.zone);
+  const town = villageZone(halt, cfg.halt.zone);
   function heightAt(x, z) {
     const r = Math.hypot(x, z);
-    let h = 2 + fbm(x, z) * 22;
+    let h = 2 + fbm(x + ox, z + oz) * hills;
     // Mountains around the rim of the valley
-    if (r > 165) h += smoothstep(165, 280, r) * (38 + fbm(x, z, 4, 0.012, 9.1) * 50); // (weight 0 further in)
+    if (r > rim0) h += smoothstep(rim0, rim1, r) * (mBase + fbm(x + ox, z + oz, 4, 0.012, 9.1) * mNoise); // (weight 0 further in)
     // River channel
     const river = 1 - smoothstep(5, 16, Math.abs(x - riverX(z)));
     h = lerp(h, RIVER_BED, river);
@@ -199,7 +199,7 @@ export function createTerrain(track, station, halt) {
     return lerp(h, TRACK_Y - 0.4, pad);
   }
 
-  const grid = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
+  const grid = new THREE.PlaneGeometry(size, size, segments, segments);
   grid.rotateX(-Math.PI / 2);
   const gp = grid.attributes.position;
   for (let i = 0; i < gp.count; i++) gp.setY(i, heightAt(gp.getX(i), gp.getZ(i)));
@@ -234,10 +234,10 @@ export function createTerrain(track, station, halt) {
   mesh.receiveShadow = true;
 
   // Water: one faceted sheet, animated in its shader (see water.js).
-  const water = createWater();
+  const water = createWater(cfg);
 
   const frame = new THREE.Group();
-  frame.add(buildSkirt(heightAt), buildPlinth());
+  frame.add(buildSkirt(heightAt, size, segments), buildPlinth(size, cfg.name));
 
   return {
     mesh,

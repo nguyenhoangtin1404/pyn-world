@@ -1,15 +1,16 @@
 import * as THREE from 'three';
-import { WORLD_SIZE, WATER_Y } from '../config.js';
+import { WATER_Y } from '../config.js';
 import { shape } from './lowpoly.js';
 
 // The water sheet and what floats on the river. Everything moves in the vertex/fragment shaders
 // from one `uTime` uniform: the CPU only sets that number each frame (moving ~10k vertices on the
 // CPU and re-uploading them used to cost ~0.27 ms a frame).
 
-// Same curve as riverX() in terrain.js, and the same small waves everywhere on the water.
-const GLSL = /* glsl */ `
+// The world's riverX() (cfg.riverGLSL, same curve as cfg.riverX), and the same small waves
+// everywhere on the water.
+const glsl = (riverGLSL) => /* glsl */ `
   uniform float uTime;
-  float riverX(float z) { return -25.0 + 42.0 * sin(z * 0.011 + 0.9) + 10.0 * sin(z * 0.034 + 2.0); }
+  ${riverGLSL}
   float waves(vec2 p, float inRiver) {
     return sin(p.x * 0.09 + uTime * 1.2) * 0.12 + cos(p.y * 0.07 + uTime * 0.9) * 0.12
       + inRiver * sin(p.y * 0.35 - uTime * 2.4) * 0.07; // ripples running downstream
@@ -27,13 +28,14 @@ const NOISE = /* glsl */ `
 `;
 const FLOW = 1.6; // river current, units per second towards +z
 
-export function createWater() {
+export function createWater({ size, riverGLSL }) {
+  const GLSL = glsl(riverGLSL);
   const uTime = { value: 0 };
   const group = new THREE.Group();
 
   // ---- The sheet: small waves everywhere, plus a current in the river: pale streaks of foam
   // drifting downstream.
-  const geo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 100, 100).rotateX(-Math.PI / 2);
+  const geo = new THREE.PlaneGeometry(size, size, 100, 100).rotateX(-Math.PI / 2);
   const mat = new THREE.MeshPhongMaterial({ color: '#4fa3cf', specular: '#d8f1ff', shininess: 70, transparent: true, opacity: 0.74, flatShading: true });
   mat.onBeforeCompile = (s) => {
     s.uniforms.uTime = uTime;
@@ -76,7 +78,7 @@ export function createWater() {
         '#include <begin_vertex>',
         `#include <begin_vertex>
         {
-          float span = ${WORLD_SIZE.toFixed(1)};
+          float span = ${size.toFixed(1)};
           float z = mod(aSeed.x * span + uTime * ${FLOW.toFixed(2)} * (0.8 + aSeed.y * 0.4), span) - span * 0.5;
           float x = riverX(z) + (aSeed.z - 0.5) * 9.0 + sin(uTime * 0.3 + aSeed.x * 40.0) * 1.2;
           float a = uTime * (aSeed.y - 0.5) * 0.8 + aSeed.z * 6.28;
