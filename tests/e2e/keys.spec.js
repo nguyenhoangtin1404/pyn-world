@@ -36,6 +36,11 @@ test('keyboard shortcuts', async ({ page }) => {
   await page.keyboard.press('KeyH');
   await expect(page.locator('#app')).not.toHaveClass(/hud-hidden/);
 
+  // Nothing to follow: this world has no vehicles.
+  await page.keyboard.press('Digit8');
+  await expect(toast).toHaveText('Thế giới này không có gì để theo');
+  expect((await state()).mode).toBe('overview');
+
   // Typing in a field is not a shortcut.
   await page.locator('#weather').focus();
   await page.keyboard.press('Digit3');

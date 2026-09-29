@@ -26,10 +26,10 @@ export function createKeyHandler(app) {
     }
     if (!world) return; // the next world is still being built
     audio.init();
-    const digit = /^Digit([1-7])$/.exec(e.code);
-    if (digit) {
+    const digit = /^Digit([1-9])$/.exec(e.code);
+    if (digit && CAMERA_MODES[+digit[1] - 1]) {
       const m = CAMERA_MODES[+digit[1] - 1];
-      actions.setMode(m.id);
+      if (!actions.setMode(m.id)) return; // nothing to follow here (it said so)
       hud.toast(rig.followLabel ? `Đang theo: ${rig.followLabel}` : `Camera: ${m.label}`);
       return;
     }

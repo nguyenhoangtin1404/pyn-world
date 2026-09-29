@@ -12,12 +12,14 @@ export const CAMERA_MODES = [
   { id: 'driver', label: 'Lái tàu', key: '5' },
   { id: 'person', label: 'Theo người', key: '6' },
   { id: 'bird', label: 'Theo chim', key: '7' },
+  { id: 'vehicle', label: 'Theo xe', key: '8' },
 ];
 
 // Chase-camera framing for the follow modes: distance behind, height above, and the point looked at.
 const FOLLOW = {
   person: { back: 6, up: 2.6, look: 1.3, list: 'people' },
   bird: { back: 7, up: 1.8, look: 0.2, list: 'birds' },
+  vehicle: { back: 11, up: 4.5, look: 1.2, list: 'vehicles' },
 };
 
 const LOOK_MODES = new Set(['passenger', 'driver']);
@@ -43,7 +45,7 @@ export class CameraRig {
     this.dom = dom;
     this.homePos = HOME_POS.clone();
     this.size = HOME_SIZE;
-    this.followIndex = { person: -1, bird: -1 };
+    this.followIndex = {}; // mode → index in its list of who is followed
     this.followTarget = null;
     this.occludedFor = 0;
     this.mode = 'overview';
@@ -98,11 +100,11 @@ export class CameraRig {
     this.bridges = bridges;
     this.heightAt = heightAt;
     // { people: [...], birds: [...] }, each entry { label, anchor() → Object3D }
-    this.followables = followables || { people: [], birds: [] };
+    this.followables = followables || { people: [], birds: [], vehicles: [] };
     this.occludes = occludes || (() => false); // (a, b) → is the view blocked by scenery?
     this.size = size;
     this.homePos = HOME_POS.clone().multiplyScalar(size / HOME_SIZE);
-    this.followIndex = { person: -1, bird: -1 };
+    this.followIndex = {}; // mode → index in its list of who is followed
     this.followTarget = null;
     this.bridgeIndex = 0;
     this.setMode('overview', { fly: false });
@@ -119,12 +121,13 @@ export class CameraRig {
     return FOLLOW[this.mode] && this.followTarget ? this.followTarget.label : null;
   }
 
+  // Returns false (and changes nothing) for a follow mode with nothing to follow in this world.
   setMode(mode, { fly = true } = {}) {
-    // Pressing the same follow key again moves on to the next person / bird.
+    // Pressing the same follow key again moves on to the next person / bird / vehicle.
     if (FOLLOW[mode]) {
       const list = this.followables[FOLLOW[mode].list];
-      if (!list.length) return;
-      this.followIndex[mode] = (this.followIndex[mode] + 1) % list.length;
+      if (!list.length) return false;
+      this.followIndex[mode] = ((this.followIndex[mode] ?? -1) + 1) % list.length;
       this.followTarget = list[this.followIndex[mode]];
     }
     this.mode = mode;
@@ -154,6 +157,7 @@ export class CameraRig {
     } else if (FOLLOW[mode]) {
       this.placeFollowCamera();
     }
+    return true;
   }
 
   // Put the chase camera behind the subject — or, if a wall or tree is in the way, at the first

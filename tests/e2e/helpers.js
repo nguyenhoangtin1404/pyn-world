@@ -71,6 +71,7 @@ export function simulate() {
   const houses = W.services.get('houses');
   const hikers = W.followables.people.filter((p) => p.label.startsWith('Người leo')).map((p) => p.anchor());
   const start = hikers.map((h) => h.position.clone());
+  const vehicleStart = W.vehicles.map((v) => v.group.position.clone());
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
@@ -91,6 +92,8 @@ export function simulate() {
   s.trainStops = W.train.stopId;
   s.umbrellas = W.people.filter((w) => w.person.umbrella.scale.x > 0).length;
   s.hikersMoved = hikers.filter((h, i) => h.position.distanceTo(start[i]) > 1).length;
+  s.vehicles = W.vehicles.length;
+  s.vehiclesMoved = W.vehicles.filter((v, i) => v.group.position.distanceTo(vehicleStart[i]) > 5).length;
   W.weather.set('clear');
   return s;
 }

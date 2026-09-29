@@ -36,10 +36,13 @@ export default defineWorld({
     { id: 'peak', at: 0.7, name: 'MAPLE PEAK' }, // a lone halt: no zone, so no town
   ],
 
-  // No windmill here; a smaller village, more balloons and more sheep.
+  // No windmill here; a smaller village, more balloons and more sheep — and a ring road round the
+  // village with traffic on it (before the village, so the houses keep off it), and planes.
   features: [
     'station',
+    { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 } }, // off the river (far side) and the railway (ends)
     { id: 'village', count: 10 },
+    'traffic',
     'halt',
     'halt',
     { id: 'sheep', flocks: 5 },
@@ -52,5 +55,6 @@ export default defineWorld({
     { id: 'villagers', perStop: [12, 10, 3], kids: [4, 3, 0] },
     'birds',
     'hikers',
+    'aircraft',
   ],
 });

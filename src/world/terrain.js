@@ -159,6 +159,7 @@ export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
     return { a: dx * inward.x + dz * inward.z, b: dx * along.x + dz * along.z };
   };
   return {
+    origin: station.p, // the stop: a = b = 0
     inward,
     along,
     A0,
@@ -208,6 +209,24 @@ export function createTerrain(cfg, track, stops) {
     return h;
   }
 
+  // The ground as drawn: heightAt() at the grid's corners, flat triangles in between (split along
+  // the same diagonal as PlaneGeometry). Things laid ON the ground — a road — follow this, not
+  // heightAt(), or the triangles poke through them wherever the ground isn't flat.
+  const cell = size / segments;
+  function meshHeightAt(x, z) {
+    const gx = (x + size / 2) / cell, gz = (z + size / 2) / cell;
+    const ix = Math.min(segments - 1, Math.max(0, Math.floor(gx))), iz = Math.min(segments - 1, Math.max(0, Math.floor(gz)));
+    const u = gx - ix, v = gz - iz;
+    const x0 = ix * cell - size / 2, z0 = iz * cell - size / 2;
+    const h01 = heightAt(x0, z0 + cell), h10 = heightAt(x0 + cell, z0);
+    if (u + v <= 1) {
+      const h00 = heightAt(x0, z0);
+      return h00 + u * (h10 - h00) + v * (h01 - h00);
+    }
+    const h11 = heightAt(x0 + cell, z0 + cell);
+    return h11 + (1 - u) * (h01 - h11) + (1 - v) * (h10 - h11);
+  }
+
   const grid = new THREE.PlaneGeometry(size, size, segments, segments);
   grid.rotateX(-Math.PI / 2);
   const gp = grid.attributes.position;
@@ -253,6 +272,7 @@ export function createTerrain(cfg, track, stops) {
     water: water.group,
     frame,
     heightAt,
+    meshHeightAt,
     zones, // stop id → villageZone(), for the stops with houses
     setSnow(amount) {
       groundMat.userData.snow.value = amount;

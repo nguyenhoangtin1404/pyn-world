@@ -135,7 +135,7 @@ export interface TrackFrame {
   s: number;
 }
 
-/** Something the follow cameras (keys 6, 7) can ride along with. */
+/** Something the follow cameras (keys 6, 7, 8) can ride along with. */
 export interface Followable {
   label: string;
   anchor(): Object3D;

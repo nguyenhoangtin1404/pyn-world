@@ -13,7 +13,7 @@ for (const { id } of WORLDS) {
       expect(page.errors).toEqual([]);
     });
 
-    test('comes alive: train, people, doors, rain, hikers', async ({ page }) => {
+    test('comes alive: train, people, doors, rain, hikers, vehicles', async ({ page }) => {
       await openWorld(page, id);
       const life = await page.evaluate(simulate);
       expect(life.trainStops, 'the train keeps calling at stops').toBeGreaterThanOrEqual(2);
@@ -24,6 +24,8 @@ for (const { id } of WORLDS) {
         if (life.houses) expect(life.doorOpenMax, 'house doors swing open').toBeGreaterThan(1.4);
       }
       if (life.hikers > 0) expect(life.hikersMoved, 'hikers climb').toBeGreaterThan(0);
+      // (A vehicle may be waiting for someone crossing, but not all of them for 300 s.)
+      if (life.vehicles > 0) expect(life.vehiclesMoved, 'vehicles drive and fly').toBeGreaterThan(life.vehicles / 2);
       expect(page.errors).toEqual([]);
     });
   });

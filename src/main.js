@@ -73,10 +73,15 @@ const actions = {
   setWorld(id) {
     switchWorld(id);
   },
+  // False when there is nothing to follow in this world (no vehicles, say).
   setMode(id) {
+    if (!rig.setMode(id)) {
+      hud.toast('Thế giới này không có gì để theo');
+      return false;
+    }
     state.mode = id;
-    rig.setMode(id);
     hud.sync();
+    return true;
   },
   // Jump the clock to a preset's hour (the automatic cycle keeps running from there).
   setTime(id) {

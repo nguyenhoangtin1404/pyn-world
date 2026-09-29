@@ -1,8 +1,8 @@
 {
-  "meshes": 359,
-  "geometry": "64509e1f",
-  "instances": "9242962f",
-  "colliders": 1656,
+  "meshes": 377,
+  "geometry": "edb05323",
+  "instances": "bd6cdc6f",
+  "colliders": 1657,
   "stations": [
     "vale",
     "mill",
@@ -11,7 +11,7 @@
   "people": 32,
   "followables": [
     38,
-    22
+    24
   ],
   "spots": {
     "courting": [
@@ -31,6 +31,6 @@
       54.5
     ]
   },
-  "drawCalls": 270,
-  "programs": 35
+  "drawCalls": 304,
+  "programs": 36
 }

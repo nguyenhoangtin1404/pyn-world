@@ -22,9 +22,10 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `tests/unit/` | Unit test (Vitest, `npm test`): tiện ích, config world, kiểm tra `needs`, `Track.distanceTo`, `Site`, `NavGrid`, lịch chạy tàu, thuyền, chim |
 | `tests/e2e/` | E2E (Playwright Test, `npm run e2e`): dựng mọi world trong Chromium không giao diện, so với `tests/e2e/golden/`, tua nhanh mô phỏng, đổi world, thử tổ hợp feature |
 | `.github/workflows/` | CI/CD: `ci.yml` (lint, kiểu, unit, build, e2e, deploy GitHub Pages), `pr.yml` (tiêu đề PR + commit theo Conventional Commits), `labeler.yml` (gắn nhãn tự động) |
+| `src/world/vehicles/` | Phương tiện dùng cho mọi world: `kinds.js` (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay), `fleet.js` (vẽ cả đội xe bằng Instancer), `vehicle.js` (chạy theo đường, bánh quay, xe 2 bánh nghiêng vào cua, người đạp xe, máy bay nghiêng cánh), `path.js` (đường khép kín theo độ dài), `traffic.js` (giữ khoảng cách, dừng cho người đi bộ). Bật bằng feature `road` / `traffic` / `aircraft` — xem CLAUDE.md |
 | `src/world/site.js` | "Cái gì ở đâu" trong một world: vật cản khi đặt đồ, collider cho người đi vòng, khối chắn tầm nhìn camera, mặt đi được (sân ga, sàn nhà) |
 | `src/world/walker.js` | Người đi theo waypoint (dáng đi theo quãng đường), dùng cho dân làng và người leo núi |
-| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm); `index.js` liệt kê chúng. Mở thẳng một world bằng `?world=<id>` |
+| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm, đường vòng có xe chạy, máy bay); `index.js` liệt kê chúng. Mở thẳng một world bằng `?world=<id>` |
 | `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |
 | `src/world/water.js` | Mặt nước: sóng, dòng chảy trên sông (vệt bọt trôi xuôi) và lá trôi — tất cả chạy trong shader |
