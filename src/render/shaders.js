@@ -6,6 +6,7 @@ export const GLOBALS = {
   uTime: { value: 0 }, // simulation seconds (stops while paused)
   uWind: { value: 1 }, // wind strength, ~1 calm … ~2.5 storm
   uWindDir: { value: new THREE.Vector2(1, 0.25).normalize() }, // blows towards +x, like the clouds
+  uHour: { value: 12 }, // clock, 0..24
   uSnow: { value: 0 }, // 0..1, how much snow lies on the ground
   uSnowColor: { value: new THREE.Color('#f2f5fa') },
 };

@@ -334,17 +334,20 @@ export function createLife({ terrain, track, scenery, train }) {
       while (s === not && stops.length > 1);
       return s;
     };
+    // Bedtime: everyone heads for their own front door and goes inside.
+    const homeStops = stops.filter((s) => s.face == null);
     const plan = (w) => {
       for (let tries = 0; tries < 4; tries++) {
-        const stop = pickStop(w.stop);
+        const home = w.asleep && w.homeStop;
+        const stop = home ? w.homeStop : pickStop(w.stop);
         // Don't all stand on the exact same spot: pick a free place a little around the stop.
-        const a = rng() * Math.PI * 2, r = 0.6 + rng() * 1.6;
+        const a = rng() * Math.PI * 2, r = home ? 0 : 0.6 + rng() * 1.6;
         let goal = nav.nearestFree(stop.p.x + Math.cos(a) * r, stop.p.z + Math.sin(a) * r, 2);
         if (!goal || nav.regionAt(goal.x, goal.z) !== nav.regionAt(stop.p.x, stop.p.z)) goal = stop.p;
         const path = nav.findPath(w.pos, goal);
-        if (path && path.length) {
+        if (path && (path.length || home)) {
           w.stop = stop;
-          w.path = path;
+          w.path = path.length ? path : [goal]; // already on the doorstep
           w.pi = 0;
           return;
         }
@@ -353,12 +356,18 @@ export function createLife({ terrain, track, scenery, train }) {
       w.pause = 3;
     };
 
+    // Each household keeps its own hours (own generator, so the rest of the valley is unchanged).
+    const clockRng = mulberry32(SEED + 13);
     for (let i = 0; i < 12; i++) {
       const w = new Walker(rng, walkHeight);
       w.stop = pickStop(null);
       w.place(w.stop.p);
       w.pause = rng() * 4;
       w.plan = plan;
+      w.homeStop = homeStops.length ? homeStops[i % homeStops.length] : null;
+      w.bed = 20.3 + clockRng() * 2.5;
+      w.wake = 5.6 + clockRng() * 1.6;
+      w.homeCheck = 0;
       villagers.push(w);
       group.add(w.group);
     }
@@ -409,7 +418,7 @@ export function createLife({ terrain, track, scenery, train }) {
     let aboard = villagers.filter((w) => w.mode === 'riding' || w.mode === 'waitAlight').length;
     for (const w of villagers) {
       // Anyone waiting on — or heading for — the platform may hop on.
-      if (w.mode || w.stop?.face == null || aboard >= 6 || rng() > 0.85) continue;
+      if (w.mode || w.asleep || w.stop?.face == null || aboard >= 6 || rng() > 0.85) continue; // no rides at bedtime
       let best = null;
       for (const d of ds) if (!best || d.p.distanceToSquared(w.pos) < best.p.distanceToSquared(w.pos)) best = d;
       if (best.p.distanceTo(w.pos) > 25) continue; // too far away to make it
@@ -484,8 +493,21 @@ export function createLife({ terrain, track, scenery, train }) {
       onTrainArrived();
     }
     for (const w of villagers) {
+      w.asleep = !!w.homeStop && (env.hour >= w.bed || env.hour < w.wake);
       w.person.setUmbrella(rainy);
       if (trainStep(w, dt, t)) continue;
+      if (w.atHome) {
+        // Indoors (hidden) until morning, then out of the front door.
+        if (w.asleep) continue;
+        w.atHome = false;
+        w.group.visible = true;
+        w.pause = 0.5 + rng() * 2;
+      } else if (w.asleep && w.stop !== w.homeStop && (w.homeCheck -= dt) <= 0) {
+        // Bedtime: drop whatever they were doing and head home (retry every 2 s if there's no path).
+        w.homeCheck = 2;
+        w.pause = 0;
+        w.plan(w);
+      }
       if (w.pause > 0) {
         w.pause -= dt;
         if (w.stop?.face != null) w.heading = turnToward(w.heading, w.stop.face, Math.min(1, dt * 3));
@@ -502,6 +524,11 @@ export function createLife({ terrain, track, scenery, train }) {
         w.pi++;
         if (w.pi >= w.path.length) {
           w.path = null;
+          if (w.asleep && w.stop === w.homeStop) {
+            w.atHome = true; // goes inside
+            w.group.visible = false;
+            continue;
+          }
           w.pause = w.stop.face != null ? 6 + rng() * 10 : 2 + rng() * 6;
         }
       }
@@ -509,8 +536,9 @@ export function createLife({ terrain, track, scenery, train }) {
     for (const k of kids) {
       const p = k.parent;
       k.person.setUmbrella(rainy);
-      // On the train with the parent: hidden while riding, stepping through the door right behind them.
-      if (p.mode === 'riding' || p.mode === 'waitAlight') {
+      // On the train with the parent — or indoors with them at night: hidden, and back out right
+      // behind them.
+      if (p.mode === 'riding' || p.mode === 'waitAlight' || p.atHome) {
         k.group.visible = false;
         continue;
       }
@@ -562,8 +590,8 @@ export function createLife({ terrain, track, scenery, train }) {
   group.add(birds.group);
   updaters.push((dt, t) => {
     const people = [];
-    for (const w of villagers) people.push(w.pos);
-    for (const k of kids) people.push(k.pos);
+    for (const w of villagers) if (w.group.visible) people.push(w.pos); // not the ones indoors or on the train
+    for (const k of kids) if (k.group.visible) people.push(k.pos);
     birds.update(dt, t, people, lights);
   });
 
@@ -646,9 +674,23 @@ export function createLife({ terrain, track, scenery, train }) {
       group.add(w.group);
     }
   });
-  updaters.push((dt, t) => {
+  // Hikers head down before dark and are gone (camping at the trailhead) until morning.
+  const hikerNight = (h) => h >= 18.8 || h < 6.5;
+  updaters.push((dt, t, env) => {
     if (dt === 0) return;
+    const night = hikerNight(env.hour);
     for (const w of hikers) {
+      if (w.camping) {
+        if (night) continue;
+        w.camping = false;
+        w.group.visible = true;
+        w.dir = 1;
+        w.pause = rng() * 6;
+      } else if (night && w.dir === 1) {
+        w.dir = -1; // turn back down
+        w.pause = 0;
+        w.waving = false;
+      }
       if (w.pause > 0) {
         w.pause -= dt;
         w.idle(t);
@@ -658,7 +700,10 @@ export function createLife({ terrain, track, scenery, train }) {
       const target = w.trail[w.idx];
       if (w.step(target, dt, t, true)) {
         const next = w.idx + w.dir;
-        if (next < 0 || next >= w.trail.length) {
+        if (next < 0 && night) {
+          w.camping = true;
+          w.group.visible = false;
+        } else if (next < 0 || next >= w.trail.length) {
           // Reached summit (wave!) or trailhead (rest), then turn around.
           w.dir *= -1;
           w.waving = next >= w.trail.length;

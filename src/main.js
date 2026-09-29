@@ -301,12 +301,13 @@ function frame() {
   hud.setClock(state.hour, state.autoDay);
 
   W.train.update(dt, state.speed);
-  W.scenery.update(dt, simTime);
-  W.life.update(dt, simTime, { rain: W.weather.rain });
+  W.scenery.update(dt, simTime, { hour: state.hour, snow: W.weather.snowCover });
+  W.life.update(dt, simTime, { rain: W.weather.rain, hour: state.hour });
   W.weather.update(dt, raw, camera);
   // Everything animated on the GPU (water, snow cover, swaying trees) reads these.
   GLOBALS.uTime.value = simTime;
   GLOBALS.uSnow.value = W.weather.snowCover;
+  GLOBALS.uHour.value = state.hour;
   GLOBALS.uWind.value = 1 + W.weather.rain * 1.4 + W.weather.snow * 0.4; // storms blow harder
 
   W.rig.update(raw);

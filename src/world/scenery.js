@@ -4,7 +4,8 @@ import { TRACK_Y, WATER_Y, SEED } from '../config.js';
 import { mulberry32 } from '../utils.js';
 import { fbm, riverX } from './terrain.js';
 import { sweep } from './track.js';
-import { GLOBALS, swaying } from '../render/shaders.js';
+import { GLOBALS, patchMaterial, swaying } from '../render/shaders.js';
+import { Smoke } from './particles.js';
 import { lam, box, ball, cyl, cone, prism, shape, Instancer, StaticBatch, VERTEX_COLORED } from './lowpoly.js';
 
 function shadowed(obj) {
@@ -107,7 +108,7 @@ class Sheep {
     this.group.rotation.y = this.heading;
   }
 
-  update(dt, time) {
+  update(dt, time, night) {
     if (dt === 0) return;
     if (this.fixed) {
       this.headPivot.rotation.x = 0.15 + Math.sin(time * 1.3 + this.phase) * 0.12;
@@ -117,7 +118,7 @@ class Sheep {
     if (this.state === 'graze') {
       this.headPivot.rotation.x += (0.7 - this.headPivot.rotation.x) * Math.min(1, dt * 3);
       this.legs.forEach((l) => (l.rotation.x = 0));
-      if (this.timer < 0) {
+      if (this.timer < 0 && !night) { // sheep stay put at night
         const a = this.rng() * Math.PI * 2;
         const r = this.rng() * 7;
         this.target.set(this.home.x + Math.cos(a) * r, 0, this.home.z + Math.sin(a) * r);
@@ -155,7 +156,31 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   const homes = []; // house door positions, used by the villagers
 
   // Own materials (not the shared cache): they light up at night.
-  const windowMat = new THREE.MeshLambertMaterial({ color: '#4a5563', emissive: '#ffcf70', emissiveIntensity: 0, flatShading: true });
+  // Windows go dark house by house: each pane carries its household's bedtime and waking hour
+  // (aLight), and the shader compares them with the clock. Still one draw call for all windows.
+  const windowMat = patchMaterial(new THREE.MeshLambertMaterial({ color: '#4a5563', emissive: '#ffcf70', emissiveIntensity: 0, flatShading: true }), {
+    uniforms: { uHour: GLOBALS.uHour },
+    vertex: { head: 'attribute vec2 aLight;\nvarying vec2 vLight;', after: { begin_vertex: 'vLight = aLight;' } },
+    fragment: {
+      head: 'uniform float uHour;\nvarying vec2 vLight;',
+      after: {
+        emissivemap_fragment: /* glsl */ `
+          float hh = uHour < 12.0 ? uHour + 24.0 : uHour; // evenings run on past midnight
+          float beforeBed = 1.0 - smoothstep(vLight.x - 0.2, vLight.x + 0.2, hh);
+          float upEarly = uHour < 12.0 ? smoothstep(vLight.y - 0.2, vLight.y + 0.2, uHour) : 0.0;
+          totalEmissiveRadiance *= max(beforeBed, upEarly);`,
+      },
+    },
+  });
+  // Tags a window pane with its household's hours (bed may pass 24 for night owls).
+  const pane = (geo, bed, wake) => {
+    const n = geo.attributes.position.count;
+    const a = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) a.set([bed, wake], i * 2);
+    geo.setAttribute('aLight', new THREE.BufferAttribute(a, 2));
+    return geo;
+  };
+  const chimneys = []; // world positions of chimney tops, for kitchen smoke
   const lampMat = new THREE.MeshLambertMaterial({ color: '#fff4d6', emissive: '#ffd58a', emissiveIntensity: 0, flatShading: true });
   const lamps = [];
   // Station, houses and the windmill tower are baked into one mesh per material.
@@ -242,7 +267,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     box(0.12, 2.4, 1.6, '#6b4a33', [ox * 7.95, floor + 1.2, 0]),
   ]);
   colliders.push({ ...stWorld(ox * 11, 0), w: 6, d: 13, rot: stRot });
-  for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), windowMat);
+  for (const z of [-4.5, -2.2, 2.2, 4.5]) batch.add(pane(box(0.12, 1.2, 1.3, '#4a5563', [ox * 7.95, floor + 2.3, z]), 99, 0), windowMat); // the station stays lit
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshLambertMaterial({ map: labelTexture('PYN WORLD') }));
   sign.position.set(ox * 7.9, floor + 3.8, 0);
   sign.rotation.y = -ox * (Math.PI / 2);
@@ -287,7 +312,11 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   const walls = ['#f3e6c8', '#e8c9a0', '#f0d8d0', '#d9e4ec', '#efe9d6'];
   const roofs = ['#c8453a', '#8e3b35', '#4f6d8f', '#6b4e3a', '#b0603a'];
   // Adds a house to the batch (the caller has set batch.at() to its spot).
+  // Household hours come from their own generator so the village layout (rng) doesn't change.
+  const hoursRng = mulberry32(SEED + 21);
   function makeHouse(w, d) {
+    const bed = 21 + hoursRng() * 4; // 21:00 … 01:00
+    const wake = 5 + hoursRng() * 1.8;
     const wall = walls[Math.floor(rng() * walls.length)];
     const roofC = roofs[Math.floor(rng() * roofs.length)];
     batch.add([
@@ -297,8 +326,12 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
       box(0.9, 1.6, 0.08, '#6b4a33', [0, 0.8, d / 2 + 0.03]), // door
     ]);
     for (const zs of [1, -1]) {
-      for (const xs of [-1, 1]) batch.add(box(0.9, 0.9, 0.08, '#4a5563', [xs * w * 0.28, 2.0, zs * (d / 2 + 0.03)]), windowMat);
+      for (const xs of [-1, 1]) batch.add(pane(box(0.9, 0.9, 0.08, '#4a5563', [xs * w * 0.28, 2.0, zs * (d / 2 + 0.03)]), bed, wake), windowMat);
     }
+    // Kitchen smoke: breakfast and dinner at slightly different times in every house.
+    const top = new THREE.Vector3(w * 0.25, 5.3, d * 0.15).applyMatrix4(batch.matrix);
+    const meal = hoursRng() * 0.8;
+    chimneys.push({ p: top, meals: [[wake + 0.3 + meal, wake + 2 + meal], [17 + meal, 19.3 + meal]], timer: hoursRng() });
   }
   let houses = 0;
   for (let tries = 0; houses < 14 && tries < 800; tries++) {
@@ -413,7 +446,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     }
   }
   sheep.forEach((s) => group.add(s.group));
-  updaters.push((dt, t) => sheep.forEach((s) => s.update(dt, t)));
+  updaters.push((dt, t, env) => sheep.forEach((s) => s.update(dt, t, env.hour >= 21 || env.hour < 5.5)));
 
   // ---------- Trees ----------
   const trees = [];
@@ -492,6 +525,25 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     touched.forEach((m) => (m.instanceMatrix.needsUpdate = true));
   }
 
+  // ---------- Kitchen smoke ----------
+  // Chimneys smoke while a meal is cooking, and all day when snow lies (the stove is heating).
+  const kitchenSmoke = new Smoke({ n: 140, color: '#d9d6d0', rise: 1.1, drift: 0.9, grow: 2.2, fade: 0.7 });
+  group.add(kitchenSmoke.group);
+  updaters.push((dt, t, env) => {
+    if (dt > 0) {
+      for (const c of chimneys) {
+        const cooking = c.meals.some(([a, b]) => env.hour >= a && env.hour < b);
+        const heating = env.snow > 0.2;
+        if (!cooking && !heating) continue;
+        c.timer -= dt;
+        if (c.timer > 0) continue;
+        c.timer = cooking ? 0.6 + Math.random() * 0.4 : 1.2 + Math.random() * 0.8;
+        kitchenSmoke.emit(c.p, 0.1);
+      }
+    }
+    kitchenSmoke.update(dt);
+  });
+
   // ---------- Clouds ----------
   // Own material: clouds grey over when it rains. Each cloud is one mesh of merged puffs.
   const cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.12, flatShading: true });
@@ -536,8 +588,9 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     canopyPoint,
     outward: out, // horizontal direction from the track towards the platform
     clearAround,
-    update(dt, time) {
-      for (const u of updaters) u(dt, time);
+    // env: { hour, snow } — the clock drives sheep bedtime and kitchen smoke.
+    update(dt, time, env) {
+      for (const u of updaters) u(dt, time, env);
     },
     setLights(l) {
       windowMat.emissiveIntensity = l * 1.3;
