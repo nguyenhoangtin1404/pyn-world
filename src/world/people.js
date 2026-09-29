@@ -230,11 +230,17 @@ export class Person {
     const w = this.stride;
     const p = this.gaitP ?? 0;
     const s = Math.sin(p) * w;
+    // Legs swing on a triangle wave: the planted foot then moves back at a constant speed, matching
+    // the ground going by (with a sine it slid, fast mid-step and slow at the ends). Arms keep the sine.
+    const tri = ((Math.asin(Math.sin(p)) * 2) / Math.PI) * w;
     const sway = (i) => Math.sin((this.idleT ?? 0) * 1.5 + this.phase + i) * 0.05 * (1 - w);
-    this.hips[0].rotation.x = s * 0.55;
-    this.hips[1].rotation.x = -s * 0.55;
-    this.knees[0].rotation.x = w * (0.1 + Math.max(0, Math.sin(p + Math.PI / 2)) * 0.8);
-    this.knees[1].rotation.x = w * (0.1 + Math.max(0, Math.sin(p - Math.PI / 2)) * 0.8);
+    // +x hip rotation swings a leg back. A knee bends only while its leg swings FORWARD (foot in the
+    // air); the straight leg is the one pushing back on the ground. Leg 0 swings forward when cos p
+    // < 0, leg 1 when cos p > 0 — getting these swapped makes people moonwalk.
+    this.hips[0].rotation.x = tri * 0.55;
+    this.hips[1].rotation.x = -tri * 0.55;
+    this.knees[0].rotation.x = w * (0.1 + Math.max(0, -Math.cos(p)) * 0.8);
+    this.knees[1].rotation.x = w * (0.1 + Math.max(0, Math.cos(p)) * 0.8);
     this.shoulders[0].rotation.set(sway(0) - s * 0.5, 0, 0);
     this.shoulders[1].rotation.set(sway(1) + s * 0.5, 0, 0);
     this.elbows.forEach((e) => (e.rotation.x = -0.15 - 0.2 * w));
