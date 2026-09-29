@@ -307,6 +307,7 @@ function frame() {
   // Everything animated on the GPU (water, snow cover, swaying trees) reads these.
   GLOBALS.uTime.value = simTime;
   GLOBALS.uSnow.value = W.weather.snowCover;
+  GLOBALS.uWind.value = 1 + W.weather.rain * 1.4 + W.weather.snow * 0.4; // storms blow harder
 
   W.rig.update(raw);
   W.sky.update(raw, camera, W.rig.focus, W.weather);

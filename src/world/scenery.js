@@ -4,6 +4,7 @@ import { TRACK_Y, WATER_Y, SEED } from '../config.js';
 import { mulberry32 } from '../utils.js';
 import { fbm, riverX } from './terrain.js';
 import { sweep } from './track.js';
+import { GLOBALS, swaying } from '../render/shaders.js';
 import { lam, box, ball, cyl, cone, prism, shape, Instancer, StaticBatch, VERTEX_COLORED } from './lowpoly.js';
 
 function shadowed(obj) {
@@ -346,7 +347,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
     group.add(shadowed(mill));
     obstacles.push([best.x, best.z, 7]);
     colliders.push({ x: best.x, z: best.z, r: 2.4 });
-    updaters.push((dt) => (hub.rotation.z -= dt * 0.7));
+    updaters.push((dt) => (hub.rotation.z -= dt * 0.7 * GLOBALS.uWind.value));
   }
 
   group.add(batch.build());
@@ -448,8 +449,10 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   ]);
   const roundGeo = new THREE.IcosahedronGeometry(1.8, 0).translate(0, 3.2, 0);
   instanced(trunkGeo, lam('#7a5236'), trees);
-  instanced(pineGeo, lam('#ffffff'), trees.filter((t) => t.pine), ['#4f8f45', '#5f9e4a', '#3f7d44', '#6c9a3c']);
-  instanced(roundGeo, lam('#ffffff'), trees.filter((t) => !t.pine), ['#8cbf55', '#a3c75a', '#7fb34d', '#e0a64a', '#d9774a']);
+  // Foliage has its own material (not the lam() cache): it is patched to sway in the wind.
+  const foliage = new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true });
+  swaying(instanced(pineGeo, foliage, trees.filter((t) => t.pine), ['#4f8f45', '#5f9e4a', '#3f7d44', '#6c9a3c']));
+  swaying(instanced(roundGeo, foliage, trees.filter((t) => !t.pine), ['#8cbf55', '#a3c75a', '#7fb34d', '#e0a64a', '#d9774a']));
 
   // Flowers and rocks
   const flowers = [];
@@ -509,7 +512,7 @@ export function buildScenery({ track, terrain, bridges, station, tunnel }) {
   }
   updaters.push((dt) => {
     for (const c of clouds) {
-      c.position.x += dt * 2.2;
+      c.position.x += dt * 2.2 * GLOBALS.uWind.value;
       if (c.position.x > 320) c.position.x -= 640;
     }
   });

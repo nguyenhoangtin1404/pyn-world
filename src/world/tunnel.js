@@ -3,7 +3,7 @@ import { TRACK_Y, WATER_Y } from '../config.js';
 import { smoothstep, lerp, hash2, mulberry32 } from '../utils.js';
 import { fbm } from './terrain.js';
 import { sweep } from './track.js';
-import { snowCover } from '../render/shaders.js';
+import { snowCover, swaying } from '../render/shaders.js';
 
 // A hill the railway runs straight through. It is its own mesh laid over the track (a heightfield
 // can't overhang), with stone portals at both ends and a dark lined bore inside.
@@ -177,7 +177,7 @@ export function createTunnel(track, heightAt) {
     if (h < WATER_Y + 1) continue;
     spots.push({ x, z, h, s: 0.7 + rng() * 0.6, r: rng() * 6 });
   }
-  const pines = new THREE.InstancedMesh(pineGeo, new THREE.MeshLambertMaterial({ color: '#4f8f45', flatShading: true }), spots.length);
+  const pines = swaying(new THREE.InstancedMesh(pineGeo, new THREE.MeshLambertMaterial({ color: '#4f8f45', flatShading: true }), spots.length));
   const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: '#7a5236', flatShading: true }), spots.length);
   const dummy = new THREE.Object3D();
   spots.forEach((sp, i) => {

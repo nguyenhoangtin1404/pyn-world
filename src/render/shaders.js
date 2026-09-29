@@ -28,9 +28,14 @@ export function patchMaterial(mat, { uniforms = {}, vertex = {}, fragment = {} }
     }
     return src;
   };
+  const key = JSON.stringify([vertex, fragment]);
+  // A material shared by several meshes may be handed in more than once: patch it only once, or
+  // the GLSL would be declared twice and the shader would fail to compile (the mesh vanishes).
+  const applied = (mat.userData.patches ||= new Set());
+  if (applied.has(key)) return mat;
+  applied.add(key);
   const prev = mat.onBeforeCompile;
   const prevKey = mat.customProgramCacheKey.bind(mat);
-  const key = JSON.stringify([vertex, fragment]);
   mat.onBeforeCompile = (shader, renderer) => {
     prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, uniforms);
@@ -52,4 +57,34 @@ export function snowCover(mat) {
       after: { color_fragment: 'diffuseColor.rgb = mix(diffuseColor.rgb, uSnowColor, vSnow * uSnow);' },
     },
   });
+}
+
+// Instanced foliage bends in the wind: the higher above the trunk, the further it leans (quadratic),
+// with gusts that roll across the valley in the wind direction and a quicker flutter per tree.
+// The offset is computed in world space and turned back into the instance's local space, so it is
+// the same whatever the tree's random rotation/scale.
+const SWAY = /* glsl */ `
+#ifdef USE_INSTANCING
+  mat4 swayM = modelMatrix * instanceMatrix;
+  vec3 swayO = swayM[3].xyz;
+  float swayH = max(position.y - 1.4, 0.0);
+  float gust = sin(uTime * 1.1 - dot(swayO.xz, uWindDir) * 0.05) * 0.5 + 0.5;
+  float flutter = sin(uTime * 3.7 + swayO.x * 0.3 + swayO.z * 0.2) * 0.25;
+  vec3 swayOff = vec3(uWindDir.x, 0.0, uWindDir.y) * swayH * swayH * 0.012 * uWind * (0.35 + gust + flutter);
+  transformed += inverse(mat3(swayM)) * swayOff;
+#endif`;
+
+function windSway(mat) {
+  return patchMaterial(mat, {
+    uniforms: { uTime: GLOBALS.uTime, uWind: GLOBALS.uWind, uWindDir: GLOBALS.uWindDir },
+    vertex: { head: 'uniform float uTime;\nuniform float uWind;\nuniform vec2 uWindDir;', after: { begin_vertex: SWAY } },
+  });
+}
+
+// Makes an InstancedMesh of trees sway — its shadow too (a matching depth material).
+let swayDepth = null;
+export function swaying(mesh) {
+  windSway(mesh.material);
+  mesh.customDepthMaterial = swayDepth ||= windSway(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }));
+  return mesh;
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WATER_Y } from '../config.js';
+import { GLOBALS } from '../render/shaders.js';
 
 // Object pool of short-lived particles drawn as ONE InstancedMesh (one draw call for the whole
 // pool). Each item is a plain object: move `pos`, set `scale`/`rot`/`opacity`, then call sync().
@@ -84,7 +85,7 @@ export class Smoke {
     this.pool.update(dt, (it, k) => {
       it.vel.y *= 1 - 0.6 * dt;
       it.pos.addScaledVector(it.vel, dt);
-      it.pos.x += this.drift * dt; // light breeze
+      it.pos.x += this.drift * GLOBALS.uWind.value * dt; // blown by the shared wind
       it.scale = it.s0 + k * this.grow;
       it.rot.y += dt * 0.4;
       it.opacity = this.fade * Math.pow(1 - k, 1.5);
