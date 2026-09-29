@@ -188,15 +188,19 @@ async function checkMinimal() {
     'unknown feature': { features: ['station', 'dragons', 'train'], expect: /"dragons"/ },
     'villagers before the train': { features: ['station', 'villagers', 'train'], expect: /"villagers".*"train"/ },
     'birds without a station': { features: ['halt', 'train', 'birds'], expect: /"birds".*"station"/ },
+    'village without a stop': { features: ['village', 'station', 'train'], expect: /"village".*"station"/ },
+    'three stops': { features: ['station', 'village', 'halt', 'halt', 'train', 'villagers'], stops: 3, expect: 'ok' },
   };
   const results = await page.evaluate(async (cases) => {
     const { World } = await import('/src/World.js');
     const { WORLDS } = await import('/src/worlds/index.js');
     const { camera, rig } = window.__pyn;
     const out = {};
-    for (const [name, { features }] of Object.entries(cases)) {
+    for (const [name, { features, stops }] of Object.entries(cases)) {
       try {
-        const w = new World({ ...WORLDS[0], features });
+        const cfg = { ...WORLDS[0], features };
+        if (stops === 3) cfg.stops = [...cfg.stops, { id: 'extra', at: 0.75, name: 'EXTRA' }];
+        const w = new World(cfg);
         for (const [, step] of w.steps()) step();
         for (let i = 0; i < 50; i++) {
           w.update({ dt: 0.1, raw: 0.1, speed: 1, camera });
@@ -209,7 +213,7 @@ async function checkMinimal() {
       }
     }
     return out;
-  }, Object.fromEntries(Object.entries(cases).map(([k, v]) => [k, { features: v.features }])));
+  }, Object.fromEntries(Object.entries(cases).map(([k, v]) => [k, { features: v.features, stops: v.stops }])));
   for (const [name, { expect }] of Object.entries(cases)) {
     const got = results[name];
     ok(expect === 'ok' ? got === 'ok' : got !== 'ok' && expect.test(got), `${name}: ${got}`);

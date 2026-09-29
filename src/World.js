@@ -91,7 +91,7 @@ export class World {
   steps() {
     const { cfg, scene } = this;
     const features = cfg.features.map((entry) => (typeof entry === 'string' ? { id: entry } : entry));
-    for (const { id } of features) if (!FEATURES[id]) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+    checkFeatures(features);
     return [
       ['Đang trải đường ray', () => {
         this.track = new Track(createTrackCurve(cfg));
@@ -136,7 +136,6 @@ export class World {
         this.add({ update: (f) => weather.update(f.dt, f.raw, f.camera) });
       }],
       ['Đang hoàn thiện', () => {
-        if (!this.train) throw new Error('WorldConfig cần feature "train" (máy quay đi theo tàu)');
         for (const s of this.systems) s.finish?.();
         scene.add(this.batch.build());
       }],
@@ -216,4 +215,20 @@ export class World {
     for (const t of textures) t.dispose();
     this.scene.clear();
   }
+}
+
+// Before anything is built: every feature exists, comes after the features it needs (feature.needs:
+// ids, or a list of ids any one of which will do), and there is a train (the cameras ride it).
+function checkFeatures(features) {
+  const before = new Set();
+  for (const { id } of features) {
+    const feature = FEATURES[id];
+    if (!feature) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+    for (const need of feature.needs ?? []) {
+      const options = [need].flat();
+      if (!options.some((n) => before.has(n))) throw new Error(`Feature "${id}" cần ${options.map((n) => `"${n}"`).join(' hoặc ')} đứng trước nó trong cfg.features`);
+    }
+    before.add(id);
+  }
+  if (!before.has('train')) throw new Error('WorldConfig cần feature "train" (máy quay đi theo tàu)');
 }

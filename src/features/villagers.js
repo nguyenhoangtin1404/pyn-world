@@ -9,9 +9,9 @@ import { Walker, turnToward } from '../world/walker.js';
 // kids (children, same way: [4, 3]).
 export default {
   label: 'Đang đón dân làng',
+  needs: ['train'],
   build(world, { rng, perStop = [12, 10], kids: kidsPerStop = [4, 3] }) {
     const { track, site, train, size } = world;
-    world.need('"train"', 'villagers', train);
     const isIndoors = (x, z) => world.services.get('houses')?.isIndoors(x, z) ?? false;
     const group = new THREE.Group();
       // People walking between houses and a platform, routed around obstacles. There are two areas —

@@ -5,6 +5,7 @@ import { houses } from './houses.js';
 // Options: stop (id; by default the station built just before), count (houses, 14).
 export default {
   label: 'Đang dựng làng',
+  needs: [['station', 'halt']], // its houses belong to a stop
   build(world, { rng, stop: stopId = world.stations.at(-1)?.id, count = 14 }) {
     const { site, heightAt, terrain } = world;
     const station = world.stationById(stopId);

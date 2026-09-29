@@ -14,8 +14,9 @@ import birds from './birds.js';
 import hikers from './hikers.js';
 
 // Everything a WorldConfig can put in its world, by id (cfg.features). A feature is
-//   { label, build(world, { rng, ...options }) → system | undefined }
+//   { label, needs?, build(world, { rng, ...options }) → system | undefined }
 // where a system is { group?, update?(f), lateUpdate?(f), finish?(), dispose?() } — see World.js.
 // Features are built in the order the config lists them; later ones may use what earlier ones
-// added to the world (stops, the train, people, colliders…) — each file says what it needs.
+// added to the world (stations, the train, people, colliders…). `needs` lists the features that
+// must come before (an inner list: any one of them), checked before the world is built.
 export const FEATURES = { station, village, halt, windmill, sheep, trees, clouds, train, fish, boats, balloons, villagers, birds, hikers };
