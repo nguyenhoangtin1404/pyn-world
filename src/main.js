@@ -9,6 +9,7 @@ import { createTunnel } from './world/tunnel.js';
 import { Sky, TIME_PRESETS, presetAtHour } from './world/sky.js';
 import { Weather } from './world/weather.js';
 import { PostFX } from './render/post.js';
+import { GLOBALS } from './render/shaders.js';
 import { CameraRig, CAMERA_MODES } from './cameras.js';
 import { AudioEngine } from './audio.js';
 import { initHud, PIXEL_LEVELS } from './hud.js';
@@ -63,6 +64,7 @@ const steps = [
   ['Đang dựng cầu và tà vẹt', () => {
     W.rails = buildTrackMeshes(W.track, W.terrain.heightAt);
     scene.add(W.rails.group);
+    W.terrain.addFoam(W.rails.bridges.flatMap((b) => b.piers));
   }],
   ['Đang trồng cây, thả cừu', () => {
     W.scenery = buildScenery({ track: W.track, terrain: W.terrain, bridges: W.rails.bridges, station: W.station, tunnel: W.tunnel });
@@ -269,7 +271,6 @@ function onKey(e) {
 
 const clock = new THREE.Clock();
 let simTime = 0;
-let lastSnow = 0;
 
 // Dev only: open with ?stats to see draw calls (incl. the shadow pass), triangles and frame times —
 // check these before and after any rendering change (see CLAUDE.md).
@@ -302,13 +303,10 @@ function frame() {
   W.train.update(dt, state.speed);
   W.scenery.update(dt, simTime);
   W.life.update(dt, simTime, { rain: W.weather.rain });
-  W.terrain.update(simTime);
   W.weather.update(dt, raw, camera);
-  if (Math.abs(W.weather.snowCover - lastSnow) > 0.01 || (W.weather.snowCover === 0 && lastSnow !== 0)) {
-    lastSnow = W.weather.snowCover;
-    W.terrain.setSnow(lastSnow);
-    W.tunnel.setSnow(lastSnow);
-  }
+  // Everything animated on the GPU (water, snow cover, swaying trees) reads these.
+  GLOBALS.uTime.value = simTime;
+  GLOBALS.uSnow.value = W.weather.snowCover;
 
   W.rig.update(raw);
   W.sky.update(raw, camera, W.rig.focus, W.weather);

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 import { WORLD_SIZE, TERRAIN_SEGMENTS, TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
 import { clamp, lerp, smoothstep, hash2 } from '../utils.js';
+import { GLOBALS, patchMaterial, snowCover } from '../render/shaders.js';
 
 const perlin = new ImprovedNoise();
 
@@ -28,7 +29,6 @@ const COL = {
   rock: new THREE.Color('#a1978a'),
   snow: new THREE.Color('#f3f4f1'),
 };
-const SNOW = new THREE.Color('#f2f5fa');
 
 function pickColor(x, y, z, ny, out) {
   if (y < WATER_Y - 0.3) return out.copy(COL.bed);
@@ -179,29 +179,14 @@ export function createTerrain(track, station) {
       snowWeight[t + k] = sw;
     }
   }
-  const colorAttr = new THREE.BufferAttribute(base.slice(), 3);
-  geo.setAttribute('color', colorAttr);
+  geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
+  geo.setAttribute('snowWeight', new THREE.BufferAttribute(snowWeight, 1));
 
-  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  // Snow settles on the GPU (GLOBALS.uSnow), so the ground never has to be recoloured on the CPU.
+  const mesh = new THREE.Mesh(geo, snowCover(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
   mesh.receiveShadow = true;
 
-  // Water: one faceted sheet with small animated waves.
-  const wgeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 100, 100);
-  wgeo.rotateX(-Math.PI / 2);
-  const water = new THREE.Mesh(
-    wgeo,
-    new THREE.MeshPhongMaterial({
-      color: '#4fa3cf',
-      specular: '#d8f1ff',
-      shininess: 70,
-      transparent: true,
-      opacity: 0.74,
-      flatShading: true,
-    }),
-  );
-  water.position.y = WATER_Y;
-  water.receiveShadow = true;
-  const wp = wgeo.attributes.position;
+  const water = buildWater(heightAt);
 
   const frame = new THREE.Group();
   frame.add(buildSkirt(heightAt), buildPlinth());
@@ -211,22 +196,87 @@ export function createTerrain(track, station) {
     water,
     frame,
     heightAt,
-    setSnow(amount) {
-      const arr = colorAttr.array;
-      for (let i = 0; i < count; i++) {
-        const w = snowWeight[i] * amount;
-        arr[i * 3] = base[i * 3] + (SNOW.r - base[i * 3]) * w;
-        arr[i * 3 + 1] = base[i * 3 + 1] + (SNOW.g - base[i * 3 + 1]) * w;
-        arr[i * 3 + 2] = base[i * 3 + 2] + (SNOW.b - base[i * 3 + 2]) * w;
+    // White water around bridge piers and other things standing in the river: [[x, z], …].
+    addFoam(points, radius = 4) {
+      const pos = water.geometry.attributes.position;
+      const foam = water.geometry.attributes.aWater;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i);
+        for (const [px, pz] of points) {
+          const f = 1 - smoothstep(radius * 0.4, radius, Math.hypot(x - px, z - pz));
+          foam.setZ(i, Math.max(foam.getZ(i), f));
+        }
       }
-      colorAttr.needsUpdate = true;
-    },
-    update(time) {
-      for (let i = 0; i < wp.count; i++) {
-        const x = wp.getX(i), z = wp.getZ(i);
-        wp.setY(i, Math.sin(x * 0.09 + time * 1.2) * 0.12 + Math.cos(z * 0.07 + time * 0.9) * 0.12);
-      }
-      wp.needsUpdate = true;
+      foam.needsUpdate = true;
     },
   };
+}
+
+// Water: one faceted sheet. Everything that moves is done in its shader — the CPU never touches it.
+// Per vertex (baked once): depth below the surface, how much it is river (vs lake), shore foam, and
+// the river's downstream direction.
+const WATER_SEGMENTS = 150;
+function buildWater(heightAt) {
+  const geo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, WATER_SEGMENTS, WATER_SEGMENTS);
+  geo.rotateX(-Math.PI / 2);
+  const p = geo.attributes.position;
+  const info = new Float32Array(p.count * 3); // depth, river, foam
+  const flow = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i);
+    const depth = WATER_Y - heightAt(x, z);
+    info[i * 3] = depth;
+    info[i * 3 + 1] = 1 - smoothstep(6, 16, Math.abs(x - riverX(z)));
+    info[i * 3 + 2] = 1 - smoothstep(0.15, 1.3, depth);
+    // Downstream is +z; the channel's heading follows riverX'(z).
+    const dxdz = 42 * 0.011 * Math.cos(z * 0.011 + 0.9) + 10 * 0.034 * Math.cos(z * 0.034 + 2.0);
+    const n = Math.hypot(dxdz, 1);
+    flow[i * 2] = dxdz / n;
+    flow[i * 2 + 1] = 1 / n;
+  }
+  geo.setAttribute('aWater', new THREE.BufferAttribute(info, 3));
+  geo.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+
+  const mat = new THREE.MeshPhongMaterial({ color: '#4fa3cf', specular: '#d8f1ff', shininess: 70, transparent: true, opacity: 0.74, flatShading: true });
+  patchMaterial(mat, {
+    uniforms: { uTime: GLOBALS.uTime, uShallow: { value: new THREE.Color('#8fd3dc') } },
+    vertex: {
+      head: 'uniform float uTime;\nattribute vec3 aWater;\nattribute vec2 aFlow;\nvarying vec3 vWater;\nvarying vec2 vFlowUV;',
+      after: {
+        begin_vertex: /* glsl */ `
+          vec2 wp = (modelMatrix * vec4(transformed, 1.0)).xz;
+          float along = dot(wp, aFlow);
+          float across = dot(wp, vec2(-aFlow.y, aFlow.x));
+          // Standing swell everywhere, plus waves running downstream on the river.
+          transformed.y += sin(wp.x * 0.09 + uTime * 1.2) * 0.12 + cos(wp.y * 0.07 + uTime * 0.9) * 0.12;
+          transformed.y += sin(along * 0.55 - uTime * 2.6) * 0.07 * aWater.y;
+          vWater = aWater;
+          vFlowUV = vec2(along, across);`,
+      },
+    },
+    fragment: {
+      head: 'uniform float uTime;\nuniform vec3 uShallow;\nvarying vec3 vWater;\nvarying vec2 vFlowUV;',
+      after: {
+        color_fragment: /* glsl */ `
+          float shallow = 1.0 - smoothstep(0.3, 3.5, vWater.x);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uShallow, shallow * 0.55);
+          // Foam: breathing bands at the shore and piers, and streaks drifting downstream.
+          float shore = vWater.z * (0.7 + 0.3 * sin(uTime * 2.0 + vFlowUV.x * 0.4));
+          // Streaks: short dashes scattered over a grid that slides downstream with the current.
+          vec2 q = vec2(vFlowUV.x * 0.1 - uTime * 0.35, vFlowUV.y * 0.3);
+          vec2 cell = floor(q), fq = fract(q);
+          float pick = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+          float dash = smoothstep(0.14, 0.05, abs(fq.y - 0.5)) * smoothstep(0.1, 0.3, fq.x) * smoothstep(0.75, 0.5, fq.x);
+          float streak = step(0.6, pick) * dash;
+          float foam = clamp(shore + streak * vWater.y * 0.6, 0.0, 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), foam);
+          diffuseColor.a = mix(diffuseColor.a, 0.95, foam);`,
+      },
+    },
+  });
+  const water = new THREE.Mesh(geo, mat);
+  water.position.y = WATER_Y;
+  water.receiveShadow = true;
+  water.frustumCulled = false; // waves move it beyond its bounding box a little
+  return water;
 }

@@ -158,6 +158,7 @@ export function buildTrackMeshes(track, heightAt) {
   const bridges = [];
   const posts = [];
   for (const [start, len] of runs(isBridge, true)) {
+    const piers = []; // [x, z] of each pier standing in the water (the river foams around them)
     add(sweep(frames, start, len + 1, [[-2.1, -0.35], [2.1, -0.35], [2.1, 0.3], [-2.1, 0.3]], TRACK_Y), mats.deck);
     add(sweep(frames, start, len + 1, [[-1.5, -1.7], [1.5, -1.7], [1.5, -0.35], [-1.5, -0.35]], TRACK_Y), mats.girder);
     for (const sx of [-2.05, 2.05]) {
@@ -178,9 +179,10 @@ export function buildTrackMeshes(track, heightAt) {
       const pier = add(new THREE.BoxGeometry(3.8, top - bottom, 1.5), mats.stone);
       pier.position.set(f.p.x, (top + bottom) / 2, f.p.z);
       pier.rotation.y = yaw(f.t);
+      piers.push([f.p.x, f.p.z]);
     }
     const mid = track.frame(start + Math.floor(len / 2));
-    bridges.push({ center: mid.p.clone(), side: mid.side.clone(), tangent: mid.t.clone(), index: (start + Math.floor(len / 2)) % M });
+    bridges.push({ center: mid.p.clone(), side: mid.side.clone(), tangent: mid.t.clone(), index: (start + Math.floor(len / 2)) % M, piers });
   }
 
   const dummy = new THREE.Object3D();

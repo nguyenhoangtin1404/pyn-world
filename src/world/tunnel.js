@@ -3,6 +3,7 @@ import { TRACK_Y, WATER_Y } from '../config.js';
 import { smoothstep, lerp, hash2, mulberry32 } from '../utils.js';
 import { fbm } from './terrain.js';
 import { sweep } from './track.js';
+import { snowCover } from '../render/shaders.js';
 
 // A hill the railway runs straight through. It is its own mesh laid over the track (a heightfield
 // can't overhang), with stone portals at both ends and a dark lined bore inside.
@@ -20,7 +21,6 @@ const COL = {
   grassB: new THREE.Color('#6fae4f'),
   rock: new THREE.Color('#9d9384'),
 };
-const SNOW = new THREE.Color('#f2f5fa');
 
 function archPath(r, y0, path = new THREE.Path()) {
   path.moveTo(-r, y0);
@@ -90,9 +90,10 @@ export function createTunnel(track, heightAt) {
       snowWeight[v + q] = smoothstep(0.55, 0.85, ny);
     }
   }
-  const colorAttr = new THREE.BufferAttribute(base.slice(), 3);
-  hillGeo.setAttribute('color', colorAttr);
-  const hill = new THREE.Mesh(hillGeo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }));
+  hillGeo.setAttribute('color', new THREE.BufferAttribute(base, 3));
+  hillGeo.setAttribute('snowWeight', new THREE.BufferAttribute(snowWeight, 1));
+  // Snow comes from the shared GPU snow cover, like the valley floor.
+  const hill = new THREE.Mesh(hillGeo, snowCover(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })));
   hill.castShadow = true;
   hill.receiveShadow = true;
   group.add(hill);
@@ -221,15 +222,5 @@ export function createTunnel(track, heightAt) {
     // Is (x, z) on the hill (plus a margin)? Scenery avoids these spots.
     footprint: (x, z, margin = 4) => locate(x, z, margin) !== null,
     portals: [frames[i0].p.clone(), frames[i1].p.clone()],
-    setSnow(amount) {
-      const arr = colorAttr.array;
-      for (let i = 0; i < count; i++) {
-        const w = snowWeight[i] * amount;
-        arr[i * 3] = base[i * 3] + (SNOW.r - base[i * 3]) * w;
-        arr[i * 3 + 1] = base[i * 3 + 1] + (SNOW.g - base[i * 3 + 1]) * w;
-        arr[i * 3 + 2] = base[i * 3 + 2] + (SNOW.b - base[i * 3 + 2]) * w;
-      }
-      colorAttr.needsUpdate = true;
-    },
   };
 }

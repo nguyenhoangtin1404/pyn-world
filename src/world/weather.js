@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp } from '../utils.js';
+import { patchMaterial } from '../render/shaders.js';
 
 const BOX = 160; // horizontal size of the precipitation volume around the camera
 const HEIGHT = 80;
@@ -23,43 +24,63 @@ export const WEATHER_OPTIONS = [
   { id: 'snow', label: '❄ Tuyết' },
 ];
 
+// Rain and snow are animated entirely in their vertex shaders: the buffers hold each particle's
+// start position once, and falling/swaying is a function of uFall (the weather's own clock).
+// The volume is centred on the camera.
 export class Weather {
   constructor(scene) {
     this.kind = 'clear';
     this.rain = 0;
     this.snow = 0;
     this.snowCover = 0;
-    this.time = 0;
+    this.uFall = { value: 0 };
+    const H = HEIGHT.toFixed(1);
 
+    // Rain: a short streak per drop (two vertices, aEnd 0 = bottom, 1 = top).
     const RN = 6000;
-    this.rainRel = new Float32Array(RN * 3);
+    const rpos = new Float32Array(RN * 6);
+    const rend = new Float32Array(RN * 2);
     for (let i = 0; i < RN; i++) {
-      this.rainRel[i * 3] = (Math.random() - 0.5) * BOX;
-      this.rainRel[i * 3 + 1] = (Math.random() - 0.5) * HEIGHT;
-      this.rainRel[i * 3 + 2] = (Math.random() - 0.5) * BOX;
+      const x = (Math.random() - 0.5) * BOX, y = Math.random() * HEIGHT, z = (Math.random() - 0.5) * BOX;
+      rpos.set([x, y, z, x, y, z], i * 6);
+      rend[i * 2 + 1] = 1;
     }
     const rgeo = new THREE.BufferGeometry();
-    rgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RN * 6), 3));
-    this.rainMesh = new THREE.LineSegments(rgeo, new THREE.LineBasicMaterial({ color: '#b9cde0', transparent: true, opacity: 0 }));
+    rgeo.setAttribute('position', new THREE.BufferAttribute(rpos, 3));
+    rgeo.setAttribute('aEnd', new THREE.BufferAttribute(rend, 1));
+    const rmat = patchMaterial(new THREE.LineBasicMaterial({ color: '#b9cde0', transparent: true, opacity: 0 }), {
+      uniforms: { uFall: this.uFall },
+      vertex: {
+        head: 'uniform float uFall;\nattribute float aEnd;',
+        after: { begin_vertex: `transformed.y = mod(position.y - uFall * 55.0, ${H}) - ${H} * 0.5 + aEnd * 1.4;\ntransformed.x -= aEnd * 0.15;` },
+      },
+    });
+    this.rainMesh = new THREE.LineSegments(rgeo, rmat);
     this.rainMesh.frustumCulled = false;
     this.rainMesh.visible = false;
     scene.add(this.rainMesh);
 
+    // Snow: slow flakes swaying on their own phase.
     const SN = 5000;
     const spos = new Float32Array(SN * 3);
-    this.snowPhase = new Float32Array(SN);
+    const sphase = new Float32Array(SN);
     for (let i = 0; i < SN; i++) {
-      spos[i * 3] = (Math.random() - 0.5) * BOX;
-      spos[i * 3 + 1] = (Math.random() - 0.5) * HEIGHT;
-      spos[i * 3 + 2] = (Math.random() - 0.5) * BOX;
-      this.snowPhase[i] = Math.random() * Math.PI * 2;
+      spos.set([(Math.random() - 0.5) * BOX, Math.random() * HEIGHT, (Math.random() - 0.5) * BOX], i * 3);
+      sphase[i] = Math.random() * Math.PI * 2;
     }
     const sgeo = new THREE.BufferGeometry();
     sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3));
-    this.snowMesh = new THREE.Points(
-      sgeo,
-      new THREE.PointsMaterial({ color: '#ffffff', map: dotTexture(), size: 0.7, transparent: true, opacity: 0, depthWrite: false }),
-    );
+    sgeo.setAttribute('aPhase', new THREE.BufferAttribute(sphase, 1));
+    const smat = patchMaterial(new THREE.PointsMaterial({ color: '#ffffff', map: dotTexture(), size: 0.7, transparent: true, opacity: 0, depthWrite: false }), {
+      uniforms: { uFall: this.uFall },
+      vertex: {
+        head: 'uniform float uFall;\nattribute float aPhase;',
+        after: {
+          begin_vertex: `transformed.y = mod(position.y - uFall * 3.5, ${H}) - ${H} * 0.5;\ntransformed.x -= cos(uFall * 0.9 + aPhase) * 0.67;\ntransformed.z += sin(uFall * 0.7 + aPhase) * 0.57;`,
+        },
+      },
+    });
+    this.snowMesh = new THREE.Points(sgeo, smat);
     this.snowMesh.frustumCulled = false;
     this.snowMesh.visible = false;
     scene.add(this.snowMesh);
@@ -74,49 +95,18 @@ export class Weather {
   }
 
   update(dt, rawDt, camera) {
-    this.time += dt;
+    this.uFall.value += dt;
     const k = 1 - Math.exp(-rawDt * 0.9);
     this.rain += ((this.kind === 'rain' ? 1 : 0) - this.rain) * k;
     this.snow += ((this.kind === 'snow' ? 1 : 0) - this.snow) * k;
     this.snowCover = clamp(this.snowCover + (this.kind === 'snow' ? dt * 0.04 : -dt * 0.07), 0, 1);
 
-    // Rain: short streaks falling fast, box follows the camera.
     this.rainMesh.visible = this.rain > 0.01;
-    if (this.rainMesh.visible) {
-      this.rainMesh.position.copy(camera.position);
-      this.rainMesh.material.opacity = 0.55 * this.rain;
-      const rel = this.rainRel;
-      const arr = this.rainMesh.geometry.attributes.position.array;
-      for (let i = 0; i < rel.length / 3; i++) {
-        let y = rel[i * 3 + 1] - 55 * dt;
-        if (y < -HEIGHT / 2) y += HEIGHT;
-        rel[i * 3 + 1] = y;
-        const x = rel[i * 3], z = rel[i * 3 + 2];
-        arr[i * 6] = x;
-        arr[i * 6 + 1] = y;
-        arr[i * 6 + 2] = z;
-        arr[i * 6 + 3] = x - 0.15;
-        arr[i * 6 + 4] = y + 1.4;
-        arr[i * 6 + 5] = z;
-      }
-      this.rainMesh.geometry.attributes.position.needsUpdate = true;
-    }
+    this.rainMesh.position.copy(camera.position);
+    this.rainMesh.material.opacity = 0.55 * this.rain;
 
-    // Snow: slow, swaying flakes.
     this.snowMesh.visible = this.snow > 0.01;
-    if (this.snowMesh.visible) {
-      this.snowMesh.position.copy(camera.position);
-      this.snowMesh.material.opacity = 0.95 * this.snow;
-      const arr = this.snowMesh.geometry.attributes.position.array;
-      for (let i = 0; i < this.snowPhase.length; i++) {
-        const ph = this.snowPhase[i];
-        let y = arr[i * 3 + 1] - 3.5 * dt;
-        if (y < -HEIGHT / 2) y += HEIGHT;
-        arr[i * 3 + 1] = y;
-        arr[i * 3] += Math.sin(this.time * 0.9 + ph) * 0.6 * dt;
-        arr[i * 3 + 2] += Math.cos(this.time * 0.7 + ph) * 0.4 * dt;
-      }
-      this.snowMesh.geometry.attributes.position.needsUpdate = true;
-    }
+    this.snowMesh.position.copy(camera.position);
+    this.snowMesh.material.opacity = 0.95 * this.snow;
   }
 }
