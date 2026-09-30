@@ -217,9 +217,11 @@ export function createTerrain(cfg, track, stops, rivers) {
       // Mountains around the rim of the valley
       if (r > rim0) h += smoothstep(rim0, rim1, r) * (mBase + fbm(x + ox, z + oz, 4, 0.012, 9.1) * mNoise); // (weight 0 further in)
     }
+    // Water the map data has in the ground itself (rivers and lakes as areas): nothing fills it in.
+    const wet = ground ? 1 - smoothstep(WATER_Y - 1.5, WATER_Y + 0.8, h) : 0;
     // River channel
-    const river = 1 - smoothstep(5, 16, rivers.distance(x, z));
-    h = lerp(h, RIVER_BED, river);
+    const river = Math.max(wet, 1 - smoothstep(5, 16, rivers.distance(x, z)));
+    h = lerp(h, RIVER_BED, river - wet);
     // Flatten a corridor for the railway (but let the river cut through → bridges)
     const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z, 22))) * (1 - river);
     h = lerp(h, TRACK_Y - 0.4, flat);
@@ -230,7 +232,7 @@ export function createTerrain(cfg, track, stops, rivers) {
     h = lerp(h, TRACK_Y - 0.4, plateau);
     // Station yards
     for (const p of yards) {
-      const pad = (1 - smoothstep(16, 34, Math.hypot(x - p.x, z - p.z))) * (1 - river);
+      const pad = (1 - smoothstep(16 * (track.k ?? 1), 34 * (track.k ?? 1), Math.hypot(x - p.x, z - p.z))) * (1 - river); // the yard at the railway's size
       h = lerp(h, TRACK_Y - 0.4, pad);
     }
     // Landmarks stand on level ground: their pad at the height of its middle, blending out over 10.
@@ -245,17 +247,23 @@ export function createTerrain(cfg, track, stops, rivers) {
   // the same diagonal as PlaneGeometry). Things laid ON the ground — a road — follow this, not
   // heightAt(), or the triangles poke through them wherever the ground isn't flat.
   const cell = size / segments;
+  // heightAt() at the grid's corners, each worked out once (NaN until asked for).
+  const corners = new Float64Array((segments + 1) * (segments + 1)).fill(NaN);
+  const corner = (/** @type {number} */ ix, /** @type {number} */ iz) => {
+    const k = iz * (segments + 1) + ix;
+    const v = corners[k];
+    return Number.isNaN(v) ? (corners[k] = heightAt(ix * cell - size / 2, iz * cell - size / 2)) : v;
+  };
   function meshHeightAt(x, z) {
     const gx = (x + size / 2) / cell, gz = (z + size / 2) / cell;
     const ix = Math.min(segments - 1, Math.max(0, Math.floor(gx))), iz = Math.min(segments - 1, Math.max(0, Math.floor(gz)));
     const u = gx - ix, v = gz - iz;
-    const x0 = ix * cell - size / 2, z0 = iz * cell - size / 2;
-    const h01 = heightAt(x0, z0 + cell), h10 = heightAt(x0 + cell, z0);
+    const h01 = corner(ix, iz + 1), h10 = corner(ix + 1, iz);
     if (u + v <= 1) {
-      const h00 = heightAt(x0, z0);
+      const h00 = corner(ix, iz);
       return h00 + u * (h10 - h00) + v * (h01 - h00);
     }
-    const h11 = heightAt(x0 + cell, z0 + cell);
+    const h11 = corner(ix + 1, iz + 1);
     return h11 + (1 - u) * (h01 - h11) + (1 - v) * (h10 - h11);
   }
 

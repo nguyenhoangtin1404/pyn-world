@@ -51,6 +51,7 @@ export default {
   label: 'Đang làm đường',
   build(world, { rng, stop: stopId, margin = 6, inset = {}, width = 5, id = `road ${world.roads.length + 1}`, roundabout, branch, lights = [], junctions = [] }) {
     const { terrain, track } = world;
+    world.scale.note('lane', width / 2, 'road'); // (not drawn at world.scale yet — see CLAUDE.md)
     const stop = stopId ? world.stop(stopId, 'road') : world.stops.find((s) => terrain.zones[s.id]);
     const zone = stop && terrain.zones[stop.id];
     world.need(`một điểm dừng có zone trong cfg.stops${stopId ? ` ("${stopId}")` : ''}`, 'road', zone);

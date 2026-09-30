@@ -11,7 +11,7 @@ export default {
   build(world, { rng }) {
     const st = world.stations.find((s) => s.canopyPoint);
     const scenery = { platformPoint: st.point, canopyPoint: st.canopyPoint };
-    const birds = createBirds({ rng, scenery, nav: st.nav ?? null, train: world.train });
+    const birds = createBirds({ rng, scenery, nav: st.nav ?? null, train: world.train, size: world.track.k });
     // First in the bird camera's list (key 7 starts on a bird, then the balloons).
     world.followables.birds.unshift(...birds.followables);
     return {

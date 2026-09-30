@@ -26,11 +26,13 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/world/roads/` | Mạng đường: `network.js` (đường vòng + vòng xoay + nhánh ra vòng quay đầu + phố cắt ngang ở ngã tư → các tuyến xe chạy), `signals.js` (chu kỳ đèn giao thông, đèn ngã tư hai pha, chắn tàu theo tàu), `paint.js` (mặt đường, vạch kẻ bám địa hình, gộp vào batch), `props.js` (cột đèn, đèn đi bộ, cột chắn tàu, thanh chắn), `walkmap.js` (vỉa hè / lòng đường / vạch sang đường cho người đi bộ), `builder.js` (đồ nghề chung khi dựng một con đường), `parts/` (mỗi thành phần một file: đường vòng, vòng xoay, nhánh + chắn tàu, phố + ngã tư, vạch sang đường, vòng quay đầu, vỉa hè) |
 | `src/world/site.js` | "Cái gì ở đâu" trong một world: vật cản khi đặt đồ, collider cho người đi vòng, khối chắn tầm nhìn camera, mặt đi được (sân ga, sàn nhà) |
 | `src/world/walker.js` | Người đi theo waypoint (dáng đi theo quãng đường), dùng cho dân làng và người leo núi |
-| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm, đường vòng có xe chạy, máy bay), `tuyhoa.js` (Tuy Hòa từ bản đồ thật: độ cao SRTM, bờ biển, sông Đà Rằng, Núi Nhạn, đường sắt Bắc–Nam với tàu con thoi); `index.js` liệt kê chúng; `data/` là dữ liệu bản đồ (`tuyhoa.json`). Mở thẳng một world bằng `?world=<id>` |
+| `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm, đường vòng có xe chạy, máy bay), `tuyhoa.js` (Tuy Hòa từ bản đồ thật: độ cao SRTM, bờ biển, sông Đà Rằng và hồ theo bản đồ, Núi Nhạn, ~900 đường phố và ~26 000 ngôi nhà thật, đường sắt Bắc–Nam với tàu con thoi); `index.js` liệt kê chúng; `data/` là dữ liệu bản đồ (`tuyhoa.json`). Mở thẳng một world bằng `?world=<id>` |
 | `src/world/geo.js`, `geodata.js`, `rivers.js` | Bản đồ thật: đổi kinh độ/vĩ độ ↔ (x, z); định dạng file dữ liệu world (kiểm tra + chiếu vào sa bàn); sông (hàm `riverX` hay đường gấp khúc có bề rộng) |
 | `src/landmarks/` | Công trình nổi tiếng cho world bản đồ thật: `nghinh-phong.js` (Tháp Nghinh Phong + quảng trường, LED ban đêm), `thap-nhan.js` (Tháp Nhạn); `index.js` đăng ký; feature `landmarks` dựng, phím V bay tới |
-| `src/world/landcover.js` | Lớp phủ đất (biển, bãi cát, phi lao ven biển, phố, rừng, ruộng, cỏ) từ độ cao + khoảng cách tới biển: màu đất và mật độ cây |
-| `tools/import/` | Dựng file dữ liệu world: `build.mjs` (độ cao SRTM + sông/ray/địa danh từ file công thức hoặc OpenStreetMap), `srtm.mjs`, `osm.mjs`, công thức `tuyhoa.vectors.json` |
+| `src/world/scale.js` | Tỉ lệ của world: tỉ lệ bản đồ + tỉ lệ đồ vật, kích thước chuẩn (`SIZES`), kiểm tra tỉ lệ (`audit`) |
+| `src/world/landcover.js` | Lớp phủ đất (biển, bãi cát, phi lao ven biển, phố, rừng, ruộng, cỏ) từ độ cao + khoảng cách tới biển + mật độ nhà: màu đất và mật độ cây |
+| `src/features/streets.js`, `buildings.js` | Phố và nhà thật của world bản đồ (`cfg.roads`, `cfg.buildings`): đường vẽ lên mặt đất (cầu + trụ khi qua sông, nâng lên khi qua ray), nhà là khối InstancedMesh theo hình chữ nhật của móng, mái ngói cho nhà thấp, cửa sổ sáng ban đêm |
+| `tools/import/` | Dựng file dữ liệu world: `build.mjs` (độ cao SRTM + sông/ray/địa danh từ file công thức, hoặc ray/phố/nhà/mặt nước từ bản trích OpenStreetMap), `srtm.mjs`, `osm.mjs`, `overture.py` (tải bản trích từ Overture Maps trên AWS khi không vào được OSM), công thức `tuyhoa.vectors.json` |
 | `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3) — vòng khép kín hoặc tuyến hai đầu (có ụ chắn cuối tuyến), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |
 | `src/world/water.js` | Mặt nước: sóng, dòng chảy trên sông (vệt bọt trôi xuôi) và lá trôi — tất cả chạy trong shader |
@@ -50,3 +52,10 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/cameras.js` | 5 chế độ camera, bay WASD, fly-to |
 | `src/audio.js` | Âm thanh tổng hợp bằng Web Audio: tiếng xình xịch, ray, còi, mưa, chim |
 | `src/hud.js` | Bảng điều khiển, nút chọn world (góc trên trái) |
+
+## Dữ liệu bản đồ
+
+World TUY HÒA dùng độ cao SRTM (NASA/USGS, public domain) và bản đồ từ
+[Overture Maps](https://overturemaps.org) (đường sắt, đường phố, nhà, sông hồ) —
+© OpenStreetMap contributors, cấp phép [ODbL](https://opendatacommons.org/licenses/odbl/); nhà có thêm
+nguồn mở khác qua Overture. Nguồn ghi trong `sources` của `src/worlds/data/tuyhoa.json`.

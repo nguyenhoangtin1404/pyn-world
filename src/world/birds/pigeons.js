@@ -72,11 +72,15 @@ function buildPigeon(rng, parts) {
 }
 
 // `place`: { ground(), roof() → a random spot on the platform / canopy, isFree(x, z) }.
+// `size`: drawn this many times as big (the station's size, world.scale.props) — and its hops,
+// flights and waddles with it.
 export class Pigeon {
-  constructor(rng, place, parts) {
+  constructor(rng, place, parts, size = 1) {
     this.rng = rng;
     this.place = place; // { ground(), roof(), isFree(x, z) }
+    this.size = size;
     Object.assign(this, buildPigeon(rng, parts));
+    this.group.scale.multiplyScalar(size);
     this.pos = place.ground();
     this.heading = rng() * Math.PI * 2;
     this.state = 'peck';
@@ -96,8 +100,8 @@ export class Pigeon {
   takeOff(to) {
     const from = this.pos.clone();
     const mid = from.clone().lerp(to, 0.5);
-    mid.y = Math.max(from.y, to.y) + 2 + from.distanceTo(to) * 0.15;
-    this.fly = { from, mid, to, k: 0, dur: Math.max(1.2, from.distanceTo(to) / 5) };
+    mid.y = Math.max(from.y, to.y) + 2 * this.size + from.distanceTo(to) * 0.15;
+    this.fly = { from, mid, to, k: 0, dur: Math.max(1.2, from.distanceTo(to) / (5 * this.size)) };
     this.state = 'fly';
   }
 
@@ -145,7 +149,7 @@ export class Pigeon {
     // Startled by someone walking too close (or the train pulling in)?
     if (!this.onRoof) {
       for (const p of threats) {
-        if ((p.x - this.pos.x) ** 2 + (p.z - this.pos.z) ** 2 < (p.r || 1.8) ** 2 && Math.abs(p.y - this.pos.y) < 1.5) {
+        if ((p.x - this.pos.x) ** 2 + (p.z - this.pos.z) ** 2 < (p.r || 1.8 * this.size) ** 2 && Math.abs(p.y - this.pos.y) < 1.5 * this.size) {
           // Most flutter a few metres along the platform, some go up onto the canopy.
           this.onRoof = rng() < 0.4;
           this.takeOff(this.onRoof ? this.place.roof() : this.place.ground());
@@ -166,7 +170,7 @@ export class Pigeon {
           return;
         }
         // Waddle to a nearby spot
-        const a = rng() * Math.PI * 2, r = 0.6 + rng() * 1.6;
+        const a = rng() * Math.PI * 2, r = (0.6 + rng() * 1.6) * this.size;
         this.target.set(this.pos.x + Math.cos(a) * r, this.pos.y, this.pos.z + Math.sin(a) * r);
         if (this.onRoof || this.place.isFree(this.target.x, this.target.z)) this.state = 'walk';
         this.timer = 1 + rng() * 3;
@@ -176,13 +180,13 @@ export class Pigeon {
       const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
       const d = Math.hypot(dx, dz);
       this.heading = turnToward(this.heading, Math.atan2(dx, dz), Math.min(1, dt * 6));
-      const s = Math.min(d, 0.6 * dt);
+      const s = Math.min(d, 0.6 * this.size * dt);
       this.pos.x += (dx / (d || 1)) * s;
       this.pos.z += (dz / (d || 1)) * s;
       // The famous pigeon head-bob
       this.head.position.z = 0.2 + Math.sin(t * 14 + this.phase) * 0.05;
       this.head.rotation.x = 0;
-      if (d < 0.05 || this.timer < 0) {
+      if (d < 0.05 * this.size || this.timer < 0) {
         this.state = 'peck';
         this.timer = 1.5 + rng() * 4;
         this.head.position.z = 0.2;

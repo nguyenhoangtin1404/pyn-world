@@ -11,12 +11,45 @@ import { createProjection } from './geo.js';
 //   version: 1, name, sources: { … } (where it came from, licences — shown in the README)
 //   frame: { center: [lat, lon], metersPerUnit, verticalScale }  how it maps onto the diorama
 //   heights: { south, west, north, east, rows, cols, data }  metres above sea, row 0 = north,
-//     data = base64 of Int16 little-endian, rows × cols; the sea is below 0 (the importer marks it)
+//     data = base64 of Int16 little-endian, rows × cols; water is below 0 (the importer marks it):
+//     the sea at SEA_BED, rivers and lakes higher
 //   rivers: [{ id, name, width (m), points: [[lat, lon], …] }]
 //   rails: [{ id, name, points: [[lat, lon], …] }]
 //   places: [{ id, name, kind ('landmark' | 'station' | 'peak' | …), at: [lat, lon] }]
+//   roads (optional): [{ kind (ROAD_WIDTH's keys), name?, points: [[lat, lon], …] }]
+//   buildings (optional): { count, data } — each building a rectangle (its footprint's smallest
+//     enclosing one), BUILDING_FIELDS Int16 little-endian values in base64: centre metres east and
+//     north of frame.center and length, width, all in decimetres; the length's direction in
+//     hundredths of a degree from east towards north (0–18000); floors (0 = unknown); kind
+//     (index in BUILDING_KINDS)
 
 export const DATA_VERSION = 1;
+/** Metres the sea bed is given (the importer marks the sea with it; rivers and lakes are higher). */
+export const SEA_BED = -10;
+
+/** Roads by kind (OpenStreetMap's highway=…) and how wide they really are, metres. */
+export const ROAD_WIDTH = {
+  motorway: 22,
+  trunk: 20,
+  primary: 16,
+  secondary: 12,
+  tertiary: 10,
+  unclassified: 7,
+  residential: 6,
+  living_street: 5,
+  pedestrian: 5,
+  service: 4,
+  track: 3.5,
+  road: 6,
+};
+export const BUILDING_KINDS = /** @type {const} */ (['house', 'school', 'public', 'commercial', 'shelter']);
+export const BUILDING_FIELDS = 7;
+
+/**
+ * @typedef {{ x: number, z: number, length: number, width: number, angle: number, floors: number,
+ *   kind: typeof BUILDING_KINDS[number] }} Building a footprint in world units, `angle` the
+ *   length's direction as a rotation.y
+ */
 
 /**
  * @typedef {[number, number]} LatLon
@@ -25,8 +58,13 @@ export const DATA_VERSION = 1;
  *   heights: { south: number, west: number, north: number, east: number, rows: number, cols: number, data: string },
  *   rivers: { id: string, name?: string, width: number, points: LatLon[] }[],
  *   rails: { id: string, name?: string, points: LatLon[] }[],
- *   places: { id: string, name: string, kind: string, at: LatLon }[] }} WorldData
+ *   places: { id: string, name: string, kind: string, at: LatLon }[],
+ *   roads?: { kind: string, name?: string, points: LatLon[] }[],
+ *   buildings?: { count: number, data: string } }} WorldData
  */
+
+/** @param {string} b64 */
+const base64Bytes = (b64) => Math.floor((b64.length * 3) / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isLatLon = (p) => Array.isArray(p) && p.length === 2 && isNum(p[0]) && isNum(p[1]) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180;
@@ -52,9 +90,7 @@ export function checkWorldData(d) {
     if (h.north <= h.south || h.east <= h.west) errs.push('heights: north > south và east > west');
     if (!(h.rows >= 2 && h.cols >= 2)) errs.push('heights: ít nhất 2 × 2 điểm');
     if (typeof h.data !== 'string') errs.push('heights.data phải là base64');
-    else if (Math.floor((h.data.length * 3) / 4) - (h.data.endsWith('==') ? 2 : h.data.endsWith('=') ? 1 : 0) !== h.rows * h.cols * 2) {
-      errs.push(`heights.data phải có đúng rows × cols = ${h.rows * h.cols} số Int16`);
-    }
+    else if (base64Bytes(h.data) !== h.rows * h.cols * 2) errs.push(`heights.data phải có đúng rows × cols = ${h.rows * h.cols} số Int16`);
   }
   const line = (list, what, needWidth) => {
     if (!Array.isArray(list)) return errs.push(`${what} phải là mảng`);
@@ -68,6 +104,21 @@ export function checkWorldData(d) {
   };
   line(d.rivers, 'rivers', true);
   line(d.rails, 'rails', false);
+  if (d.roads !== undefined) {
+    if (!Array.isArray(d.roads)) errs.push('roads phải là mảng');
+    else d.roads.forEach((r, i) => {
+      if (!(r?.kind in ROAD_WIDTH)) errs.push(`roads[${i}]: kind phải là một trong ${Object.keys(ROAD_WIDTH).join(', ')} (đang là ${r?.kind})`);
+      if (!Array.isArray(r?.points) || r.points.length < 2) errs.push(`roads[${i}]: points cần ít nhất 2 điểm`);
+      else r.points.forEach((p, k) => isLatLon(p) || errs.push(`roads[${i}].points[${k}] phải là [lat, lon]`));
+    });
+  }
+  const b = d.buildings;
+  if (b !== undefined) {
+    if (!(Number.isInteger(b?.count) && b.count >= 0)) errs.push('buildings.count phải là số nguyên ≥ 0');
+    else if (typeof b.data !== 'string' || base64Bytes(b.data) !== b.count * BUILDING_FIELDS * 2) {
+      errs.push(`buildings.data phải có đúng count × ${BUILDING_FIELDS} = ${b.count * BUILDING_FIELDS} số Int16`);
+    }
+  }
   if (!Array.isArray(d.places)) errs.push('places phải là mảng');
   else d.places.forEach((p, i) => {
     if (typeof p?.id !== 'string' || typeof p?.name !== 'string' || typeof p?.kind !== 'string') errs.push(`places[${i}]: cần id, name, kind`);
@@ -141,16 +192,65 @@ export function prepareWorldData(d) {
     rivers: d.rivers.map((r) => ({ id: r.id, name: r.name ?? r.id, width: projection.length(r.width), points: project(r.points) })),
     rails: d.rails.map((r) => ({ id: r.id, name: r.name ?? r.id, points: project(r.points) })),
     places: Object.fromEntries(d.places.map((p) => [p.id, { ...p, p: projection.toWorld(p.at[0], p.at[1]) }])),
+    /** Streets: polylines in (x, z), their real width in units. */
+    roads: (d.roads ?? []).map((r) => ({ kind: r.kind, name: r.name ?? '', width: projection.length(ROAD_WIDTH[r.kind]), points: project(r.points) })),
+    buildings: decodeBuildings(d.buildings, projection),
   };
 }
 
 /**
- * Distance (metres) from every grid point to the nearest sea point (below 0 m): two chamfer passes.
+ * Buildings (footprints in metres) → the data file's `buildings` (see the format above). Those that
+ * don't fit the Int16 fields (centre further than 3.2 km from `center`, sides over 3.2 km) are left out.
+ * @param {{ at: LatLon, length: number, width: number, angle: number, floors?: number, kind?: string }[]} list
+ *   `angle` in degrees from east towards north
+ * @param {LatLon} center
+ */
+export function encodeBuildings(list, center) {
+  const p = createProjection({ center, metersPerUnit: 1 });
+  const v = [];
+  for (const b of list) {
+    const [e, s] = p.toWorld(b.at[0], b.at[1]);
+    const f = [Math.round(e * 10), Math.round(-s * 10), Math.round(b.length * 10), Math.round(b.width * 10), Math.round((((b.angle % 180) + 180) % 180) * 100) % 18000, b.floors ?? 0, Math.max(0, BUILDING_KINDS.indexOf(/** @type {any} */ (b.kind ?? 'house')))];
+    if (f.every((x) => Math.abs(x) <= 32767)) v.push(...f);
+  }
+  return { count: v.length / BUILDING_FIELDS, data: encodeHeights(v) };
+}
+
+/**
+ * The buildings of a data file in world units (see the format above).
+ * @param {WorldData['buildings']} b @param {import('./geo.js').Projection} projection
+ * @returns {Building[]}
+ */
+export function decodeBuildings(b, projection) {
+  if (!b?.count) return [];
+  const v = decodeHeights(b.data), mpu = projection.metersPerUnit;
+  const [lat0, lon0] = projection.center;
+  const [ox, oz] = projection.toWorld(lat0, lon0);
+  /** @type {Building[]} */
+  const out = [];
+  for (let i = 0; i < b.count; i++) {
+    const k = i * BUILDING_FIELDS;
+    out.push({
+      x: ox + v[k] / 10 / mpu,
+      z: oz - v[k + 1] / 10 / mpu, // north is -z
+      length: v[k + 2] / 10 / mpu,
+      width: v[k + 3] / 10 / mpu,
+      angle: (v[k + 4] / 100) * (Math.PI / 180), // east towards north = rotation.y (x east, z south)
+      floors: v[k + 5],
+      kind: BUILDING_KINDS[v[k + 6]] ?? 'house',
+    });
+  }
+  return out;
+}
+
+/**
+ * Distance (metres) from every grid point to the nearest sea point (at the sea bed, SEA_BED — not
+ * a river or a lake): two chamfer passes.
  * @param {Int16Array} m metres, rows × cols @param {number} rows @param {number} cols @param {number} step metres between points
  */
 export function seaDistances(m, rows, cols, step) {
   const d = new Float32Array(rows * cols);
-  for (let k = 0; k < d.length; k++) d[k] = m[k] < 0 ? 0 : Infinity;
+  for (let k = 0; k < d.length; k++) d[k] = m[k] <= SEA_BED ? 0 : Infinity;
   const D = Math.SQRT2 * step;
   const relax = (k, j, w) => {
     if (d[j] + w < d[k]) d[k] = d[j] + w;

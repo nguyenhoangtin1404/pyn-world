@@ -78,16 +78,18 @@ export class ParticlePool {
 
 // Puffs that rise, grow and fade — locomotive chimney and steamer funnel.
 export class Smoke {
-  constructor({ n = 48, color = '#f4f1ec', rise = 2.4, drift = 0.8, grow = 2.4, fade = 0.8 } = {}) {
+  // size: puffs, speeds and spread × size (a smaller engine, a smaller puff).
+  constructor({ n = 48, color = '#f4f1ec', rise = 2.4, drift = 0.8, grow = 2.4, fade = 0.8, size = 1 } = {}) {
     this.pool = new ParticlePool(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color, flatShading: true }), n);
     this.group = this.pool.mesh;
-    Object.assign(this, { rise, drift, grow, fade });
+    Object.assign(this, { rise: rise * size, drift: drift * size, grow: grow * size, fade, size });
   }
 
   emit(pos, strength = 1) {
     const it = this.pool.spawn(pos, 2.2 + Math.random() * 1.2);
-    it.s0 = 0.35 + 0.25 * strength;
-    (it.vel ||= new THREE.Vector3()).set((Math.random() - 0.5) * 0.6, this.rise + Math.random() * 1.2 * strength, (Math.random() - 0.5) * 0.6);
+    const k = this.size;
+    it.s0 = (0.35 + 0.25 * strength) * k;
+    (it.vel ||= new THREE.Vector3()).set((Math.random() - 0.5) * 0.6 * k, this.rise + Math.random() * 1.2 * strength * k, (Math.random() - 0.5) * 0.6 * k);
     it.rot.set(Math.random() * 3, Math.random() * 3, 0);
   }
 

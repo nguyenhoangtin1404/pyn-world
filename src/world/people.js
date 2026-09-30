@@ -23,6 +23,9 @@ const MOUTH = '#8a3b35';
 const GOLD = '#d9a441';
 
 
+/** Height of the model as built, before group.scale (hat and hair included). */
+export const PERSON_HEIGHT = 2.2;
+
 export class Person {
   /**
    * kind: 'villager' | 'hiker' | 'child' | 'passenger'
@@ -194,6 +197,7 @@ export class Person {
     this.umbrellaOn = false;
     this.umbrella.scale.setScalar(0);
 
+    this.child = child;
     this.group.scale.setScalar(child ? 0.55 : 0.85);
   }
 

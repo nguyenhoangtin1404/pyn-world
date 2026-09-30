@@ -1,5 +1,5 @@
 // @ts-check
-import { RAIL_TOP, WATER_Y } from '../../config.js';
+import { WATER_Y } from '../../config.js';
 import { smoothstep } from '../../utils.js';
 import { Paint } from './paint.js';
 import { ARM_OPEN, SignalProps } from './props.js';
@@ -69,7 +69,7 @@ export class RoadBuilder {
       let h = -Infinity;
       for (const { p } of crossings) {
         if (Math.abs(x - p[0]) > 14 || Math.abs(z - p[1]) > 14) continue;
-        h = Math.max(h, RAIL_TOP - 0.09 - Math.max(0, track.distanceTo(x, z, 12) - 2.8) * 0.22);
+        h = Math.max(h, track.railTop - 0.09 - Math.max(0, track.distanceTo(x, z, 12) - 2.8 * track.k) * 0.22);
       }
       return h;
     };
@@ -183,7 +183,7 @@ export class RoadBuilder {
     const { world, crosswalks, signals, crossings } = this;
     world.batch.at(0, 0, 0, 0).add(this.paint.geometry() ?? []);
     const group = this.props.build();
-    const trainLength = () => (world.train ? world.train.cars.at(-1).offset + 6 : 0);
+    const trainLength = () => (world.train ? world.train.length : 0);
     return {
       group,
       update({ dt }) {

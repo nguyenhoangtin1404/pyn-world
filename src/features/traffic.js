@@ -20,6 +20,7 @@ export default {
     const road = roadId ? world.roads.find((r) => r.id === roadId) : world.roads.at(-1);
     world.need(`đường "${roadId}"`, 'traffic', road);
     for (const kind of Object.keys(vehicles)) world.need(`loại xe có bánh (không phải "${kind}")`, 'traffic', KINDS[kind] && !KINDS[kind].flies);
+    if (vehicles.car) world.scale.note('car', KINDS.car.length, 'traffic'); // (not drawn at world.scale yet)
     const group = new THREE.Group();
     const fleet = new Fleet(vehicles);
     group.add(...fleet.meshes);

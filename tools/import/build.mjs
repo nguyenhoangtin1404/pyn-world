@@ -2,23 +2,44 @@
 // - a recipe (tools/import/<id>.vectors.json): the place's centre and extent, the diorama's size,
 //   how much to exaggerate heights, which map edges are open sea, and the rivers, railways and
 //   named places — traced by hand, or
-// - an OpenStreetMap extract (--osm file.json, Overpass JSON with `out geom`) for those vectors
+// - an OpenStreetMap extract (--osm file.json, Overpass JSON with `out geom`, or the same from
+//   Overture Maps by tools/import/overture.py) for the railways, streets and buildings — and the
+//   rivers and places too, where it has them (the recipe's are kept where it hasn't, the recipe's
+//   places win over the extract's of the same id)
 // - SRTM elevation for the ground (downloaded into .cache/dem the first time).
 //
 //   node tools/import/build.mjs tools/import/tuyhoa.vectors.json [--osm osm.json] [--out file]
 //
 // The sea: grid points at or below 0 m joined to an open-sea edge get -10 m (the sea bed), so the
-// coast is wherever the land really meets the water.
+// coast is wherever the land really meets the water. Rivers and lakes that the map has as areas:
+// the grid points inside get -4 m (a river bed) — the ground itself then shows where the water
+// is, islands and all, and the recipe's hand-traced rivers are left out.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { elevation } from './srtm.mjs';
 import { osmToVectors } from './osm.mjs';
-import { checkWorldData, encodeHeights, DATA_VERSION } from '../../src/world/geodata.js';
+import { checkWorldData, encodeBuildings, encodeHeights, DATA_VERSION, SEA_BED } from '../../src/world/geodata.js';
 
-const SEA_BED = -10;
+const WATER_BED = -4;
+
+/**
+ * Is [lat, lon] in a water area (inside an outer ring, not in an island)? Even–odd rule.
+ * @param {{ outer: [number, number][][], inner: [number, number][][] }} w @param {number} lat @param {number} lon
+ */
+export function inWater(w, lat, lon) {
+  const inside = (/** @type {[number, number][]} */ ring) => {
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [ay, ax] = ring[i], [by, bx] = ring[j];
+      if (ay > lat !== by > lat && lon < ((bx - ax) * (lat - ay)) / (by - ay) + ax) c = !c;
+    }
+    return c;
+  };
+  return w.outer.some(inside) && !w.inner.some(inside);
+}
 const EARTH = 6371008.8, RAD = Math.PI / 180;
 
 /** The grid of metres (row 0 = north) with the sea marked, from any elevation(lat, lon). */
-export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = []) {
+export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = []) {
   const h = new Int16Array(n * n);
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) h[r * n + c] = Math.round(elevationAt(north - ((north - south) * r) / (n - 1), west + ((east - west) * c) / (n - 1)));
@@ -39,6 +60,15 @@ export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdge
     if (c < n - 1) stack.push(k + 1);
   }
   for (let k = 0; k < n * n; k++) h[k] = sea[k] ? SEA_BED : Math.max(0, h[k]); // dry land below 0: bad data
+  if (water.length) {
+    for (let r = 0; r < n; r++) {
+      const lat = north - ((north - south) * r) / (n - 1);
+      for (let c = 0; c < n; c++) {
+        const k = r * n + c;
+        if (!sea[k] && water.some((w) => inWater(w, lat, west + ((east - west) * c) / (n - 1)))) h[k] = WATER_BED;
+      }
+    }
+  }
   return h;
 }
 
@@ -48,18 +78,21 @@ export async function build(recipe, { osm = null, demDir = '.cache/dem', elevati
   const box = { south: lat0 - dLat, west: lon0 - dLon, north: lat0 + dLat, east: lon0 + dLon };
   const at = elevationAt ?? (await elevation(box, demDir));
   const n = recipe.grid;
-  const heights = heightGrid(box, n, at, recipe.sea ?? []);
-  const vectors = osm ? osmToVectors(osm) : recipe;
+  const map = osm ? osmToVectors(osm, { box }) : null;
+  const heights = heightGrid(box, n, at, recipe.sea ?? [], map?.water ?? []);
+  const pick = (/** @type {string} */ k) => (map?.[k]?.length ? map[k] : recipe[k] ?? []);
+  const places = [...(recipe.places ?? []), ...(map?.places ?? []).filter((p) => !recipe.places?.some((q) => q.id === p.id))];
   const round = (v) => +v.toFixed(6);
   const data = {
     version: DATA_VERSION,
     name: recipe.name,
-    sources: { ...recipe.sources, vectors: osm ? 'OpenStreetMap (ODbL)' : recipe.sources?.vectors },
+    sources: { ...recipe.sources, ...(osm ? { map: `${osm.generator ?? 'OpenStreetMap'} — © OpenStreetMap contributors (ODbL)${/Overture/.test(osm.generator ?? '') ? '; buildings also from other open sources via Overture Maps Foundation' : ''}` } : {}) },
     frame: { center: recipe.center, metersPerUnit: round((2 * recipe.halfExtent) / recipe.size), verticalScale: recipe.verticalScale ?? 1 },
     heights: { south: round(box.south), west: round(box.west), north: round(box.north), east: round(box.east), rows: n, cols: n, data: encodeHeights(heights) },
-    rivers: vectors.rivers ?? [],
-    rails: vectors.rails ?? [],
-    places: [...(vectors.places ?? []), ...(osm ? recipe.places ?? [] : [])],
+    rivers: map?.water.length ? map.rivers : pick('rivers'), // the areas are the rivers
+    rails: pick('rails'),
+    places,
+    ...(map ? { roads: map.roads, buildings: encodeBuildings(map.buildings, recipe.center) } : {}),
   };
   const errs = checkWorldData(data);
   if (errs.length) throw new Error(`Dữ liệu sinh ra bị sai:\n- ${errs.join('\n- ')}`);
@@ -82,5 +115,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const data = await build(recipe, { osm: osmFile ? JSON.parse(readFileSync(osmFile, 'utf8')) : null, demDir: opt('--dem') ?? '.cache/dem' });
   const out = opt('--out') ?? `src/worlds/data/${recipe.id}.json`;
   writeFileSync(out, JSON.stringify(data) + '\n');
-  console.log(`${out}: ${data.heights.rows}×${data.heights.cols} độ cao, ${data.rivers.length} sông, ${data.rails.length} đường ray, ${data.places.length} địa danh`);
+  console.log(`${out}: ${data.heights.rows}×${data.heights.cols} độ cao, ${data.rivers.length} sông, ${data.rails.length} đường ray, ${data.roads?.length ?? 0} đường phố, ${data.buildings?.count ?? 0} nhà, ${data.places.length} địa danh`);
+  if (osmFile) console.log(`  mặt nước từ bản đồ: ${osmToVectors(JSON.parse(readFileSync(osmFile, 'utf8'))).water.map((w) => w.name ?? w.kind).join(', ') || 'không có'}`);
 }

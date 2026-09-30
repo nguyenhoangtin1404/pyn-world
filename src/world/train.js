@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RAIL_TOP } from '../config.js';
+import { TRACK_Y } from '../config.js';
 import { mulberry32 } from '../utils.js';
 import { buildCarriageInterior, buildCabInterior } from './interiors.js';
 import { Smoke } from './particles.js';
@@ -11,15 +11,20 @@ const TRAIN_LENGTH = 8.1 * 3 + 5; // front of the engine to the back of the last
 // A steam locomotive and three carriages running round the loop, calling at every stop. What it
 // looks like is in train/cars.js, where it is and what it is doing (running, stopped, leaving) in
 // train/schedule.js; this puts the cars on the track and animates wheels, rods, doors and smoke.
+// Drawn `k` times the size it was built at (world.scale.props): the cars are scaled, and the
+// schedule runs in the model's own units (world distance / k), so its speeds, braking distances
+// and stopping points all shrink with it. Everything outside sees world units (s, v, length).
 export class Train {
   // stationS: where the locomotive stops until setStops() — a little past the station centre so all
-  // three carriages line up along the platform (which spans roughly s = -18…18).
-  constructor(track, { stationS = 14 } = {}) {
+  // three carriages line up along the platform (which spans roughly s = -18…18) — in world units.
+  constructor(track, { k = 1, stationS = 14 * k } = {}) {
     this.track = track;
+    this.k = k;
+    this.railTop = TRACK_Y + 0.62 * k; // where the wheels run (the track is drawn at k too)
     this.group = new THREE.Group();
     // On a line with ends the locomotive stays far enough from them for its carriages.
-    const ends = track.closed ? null : { min: TRAIN_LENGTH + 6, max: track.length - 6 };
-    this.schedule = new Schedule({ wrap: (s) => track.wrap(s), stops: [{ s: stationS, out: null }], ends });
+    const ends = track.closed ? null : { min: TRAIN_LENGTH + 6, max: track.length / k - 6 };
+    this.schedule = new Schedule({ wrap: (s) => track.wrap(s * k) / k, stops: [{ s: stationS / k, out: null }], ends });
     this.schedule.onDepart = () => this.events.whistle();
     this.chuffAcc = 0;
     this.clackAcc = 0;
@@ -49,7 +54,7 @@ export class Train {
     this.loco.add(this.cab.group);
     this.time = 0;
 
-    this.smoke = new Smoke();
+    this.smoke = new Smoke({ size: k });
     this.group.add(this.smoke.group);
     this.locoPos = new THREE.Vector3();
     this._a = new THREE.Vector3();
@@ -58,12 +63,16 @@ export class Train {
     this.place();
   }
 
-  // ---- the schedule, as the rest of the world sees it
+  // ---- the schedule, as the rest of the world sees it (world units)
   get s() {
-    return this.schedule.s;
+    return this.schedule.s * this.k;
   }
   get v() {
-    return this.schedule.v;
+    return this.schedule.v * this.k;
+  }
+  /** Front of the engine to the back of the last carriage, and a little. */
+  get length() {
+    return (this.cars[this.cars.length - 1].offset + 6) * this.k;
   }
   get state() {
     return this.schedule.state;
@@ -88,13 +97,15 @@ export class Train {
     this.schedule.canDepart = fn;
   }
 
-  // Every place the train calls at: s = where the locomotive halts, out = direction from the track
-  // to that platform (which side's doors open).
+  // Every place the train calls at: s = where the locomotive halts (world units), out = direction
+  // from the track to that platform (which side's doors open).
   setStops(stops) {
-    this.schedule.stops = stops;
+    this.schedule.stops = stops.map((st) => ({ ...st, s: st.s / this.k }));
   }
 
+  // offset: behind the engine, in the model's units.
   addCar(obj, offset) {
+    obj.scale.setScalar(this.k);
     this.group.add(obj);
     this.cars.push({ obj, offset });
   }
@@ -124,7 +135,7 @@ export class Train {
   }
 
   update(dt, speedMul) {
-    const ds = this.schedule.step(dt, speedMul);
+    const ds = this.schedule.step(dt, speedMul); // in the model's units: wheels, chuffs, clacks as built
 
     // Only the doors facing the platform open.
     const { doorOpen, platformOut } = this.schedule;
@@ -176,16 +187,16 @@ export class Train {
     this.smoke.update(dt);
   }
 
-  // Each car sits on the rails between two points 2.6 units either side of its centre.
+  // Each car sits on the rails between two points 2.6 (model) units either side of its centre.
   place() {
-    const a = this._a, b = this._b;
+    const a = this._a, b = this._b, k = this.k, top = this.railTop;
     for (const car of this.cars) {
-      const sc = this.s - car.offset;
-      this.track.pointAt(sc + 2.6, a);
-      this.track.pointAt(sc - 2.6, b);
+      const sc = this.s - car.offset * k;
+      this.track.pointAt(sc + 2.6 * k, a);
+      this.track.pointAt(sc - 2.6 * k, b);
       car.obj.position.copy(a).add(b).multiplyScalar(0.5);
-      car.obj.position.y = RAIL_TOP;
-      a.y = RAIL_TOP;
+      car.obj.position.y = top;
+      a.y = top;
       car.obj.lookAt(a);
     }
     this.loco.getWorldPosition(this.locoPos);
