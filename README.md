@@ -28,6 +28,8 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/world/walker.js` | Người đi theo waypoint (dáng đi theo quãng đường), dùng cho dân làng và người leo núi |
 | `src/worlds/` | Các WorldConfig: `pyn.js` (thung lũng gốc), `maple.js` (MAPLE VALE: 3 trạm, không hầm, đường vòng có xe chạy, máy bay), `tuyhoa.js` (Tuy Hòa từ bản đồ thật: độ cao SRTM, bờ biển, sông Đà Rằng, Núi Nhạn, đường sắt Bắc–Nam với tàu con thoi); `index.js` liệt kê chúng; `data/` là dữ liệu bản đồ (`tuyhoa.json`). Mở thẳng một world bằng `?world=<id>` |
 | `src/world/geo.js`, `geodata.js`, `rivers.js` | Bản đồ thật: đổi kinh độ/vĩ độ ↔ (x, z); định dạng file dữ liệu world (kiểm tra + chiếu vào sa bàn); sông (hàm `riverX` hay đường gấp khúc có bề rộng) |
+| `src/landmarks/` | Công trình nổi tiếng cho world bản đồ thật: `nghinh-phong.js` (Tháp Nghinh Phong + quảng trường, LED ban đêm), `thap-nhan.js` (Tháp Nhạn); `index.js` đăng ký; feature `landmarks` dựng, phím V bay tới |
+| `src/world/landcover.js` | Lớp phủ đất (biển, bãi cát, phi lao ven biển, phố, rừng, ruộng, cỏ) từ độ cao + khoảng cách tới biển: màu đất và mật độ cây |
 | `tools/import/` | Dựng file dữ liệu world: `build.mjs` (độ cao SRTM + sông/ray/địa danh từ file công thức hoặc OpenStreetMap), `srtm.mjs`, `osm.mjs`, công thức `tuyhoa.vectors.json` |
 | `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3) — vòng khép kín hoặc tuyến hai đầu (có ụ chắn cuối tuyến), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |

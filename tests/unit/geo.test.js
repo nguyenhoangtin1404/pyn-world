@@ -142,7 +142,76 @@ describe('placing a map railway on the diorama', () => {
     expect(out[1]).toEqual([0, 0]);
   });
 
+  it('clipToSquare keeps a segment that passes right through, both ends outside', () => {
+    const out = clipToSquare([[0, -300], [0, 300]], 100);
+    expect(out).toHaveLength(2);
+    expect(out[0][1]).toBeCloseTo(-100);
+    expect(out[1][1]).toBeCloseTo(100);
+    expect(clipToSquare([[500, 0], [600, 0]], 100)).toEqual([]);
+  });
+
   it('fractionAlong finds where a place is along the line', () => {
     expect(fractionAlong([[0, 0], [0, 100]], [5, 25])).toBeCloseTo(0.25);
+  });
+});
+
+describe('land cover (world/landcover.js)', () => {
+  it('reads the sea, the coast, the hills, the low fields and the town from the data', async () => {
+    const { createLandCover } = await import('../../src/world/landcover.js');
+    // A made-up strip: sea east of x = 100, a hill round x = -100, low land between.
+    const data = {
+      elevationAt: (x) => (x > 100 ? -10 : x < -80 ? 40 : 3),
+      seaDistanceAt: (x) => Math.max(0, (100 - x) * 9),
+    };
+    const cover = createLandCover(data, { town: [{ p: [0, 200], r: 30 }] });
+    expect(cover(150, 0)).toBe('sea');
+    expect(cover(95, 0)).toBe('beach'); // 45 m from the sea
+    expect(cover(60, 0)).toBe('coastal'); // 360 m
+    expect(cover(0, 0)).toBe('field'); // low and inland
+    expect(cover(-120, 0)).toBe('forest');
+    expect(cover(0, 200)).toBe('town');
+  });
+});
+
+describe('the sun at a real latitude (world/sky.js)', () => {
+  it('rises in the east, stands high at noon near the tropics, sets in the west', async () => {
+    const { sunDirection } = await import('../../src/world/sky.js');
+    const morning = sunDirection(7, 13), noon = sunDirection(12, 13), evening = sunDirection(17, 13), night = sunDirection(0, 13);
+    expect(morning.x).toBeGreaterThan(0.5); // east is +x
+    expect(evening.x).toBeLessThan(-0.5);
+    expect(noon.y).toBeGreaterThan(0.95); // 77° up at the equinox, 13° N
+    expect(noon.z).toBeGreaterThan(0); // …a little to the south (+z)
+    expect(night.y).toBeLessThan(0);
+    // Further north, the noon sun is lower.
+    expect(sunDirection(12, 50).y).toBeLessThan(noon.y);
+  });
+});
+
+describe('worlds from map data: landmarks and pads (defineGeoWorld)', () => {
+  it('puts a landmark on the highest ground near its place, on a flat pad, and knows the land cover', async () => {
+    const { defineGeoWorld } = await import('../../src/worlds/define.js');
+    const data = await build(recipe, { elevationAt: fakeElevation });
+    data.places.push({ id: 'hill', name: 'Đồi', kind: 'peak', at: [10.0008, 106.0008] }); // just off the hilltop
+    const cfg = defineGeoWorld({
+      id: 'tiny', name: 'TINY', seed: 1, size: 200, data: async () => data,
+      stops: [{ id: 'ga', place: 'ga', name: 'GA' }],
+      landmarks: [{ model: 'thap-nhan', place: 'hill', peak: 20 }],
+      features: ['station', 'train'],
+    });
+    await cfg.load();
+    const [lm] = cfg.landmarks;
+    expect(lm.name).toBe('Đồi');
+    expect(Math.hypot(lm.p[0], lm.p[1])).toBeLessThan(3); // moved onto the top (the origin)
+    expect(cfg.pads).toEqual([{ x: lm.p[0], z: lm.p[1], r: 5, h: lm.h }]);
+    expect(cfg.landcover(90, 0)).toBe('sea');
+    expect(cfg.latitude).toBe(10);
+  });
+
+  it('says which landmark or place is missing', async () => {
+    const { defineGeoWorld } = await import('../../src/worlds/define.js');
+    const data = await build(recipe, { elevationAt: fakeElevation });
+    const make = (landmarks) => defineGeoWorld({ id: 'tiny', name: 'T', seed: 1, size: 200, data: async () => data, stops: [], landmarks, features: [] });
+    await expect(make([{ model: 'eiffel', place: 'ga' }]).load()).rejects.toThrow(/không có công trình "eiffel"/);
+    await expect(make([{ model: 'thap-nhan', place: 'nowhere' }]).load()).rejects.toThrow(/cần nơi "nowhere"/);
   });
 });

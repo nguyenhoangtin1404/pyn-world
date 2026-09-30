@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { lerp } from '../utils.js';
+import { lerp, smoothstep } from '../utils.js';
 
 // `hour` is where each button jumps the clock to.
 export const TIME_PRESETS = [
@@ -71,9 +71,28 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+/**
+ * Where the sun is at `hour` (local solar time) on day `day` of the year, at latitude `lat`
+ * (degrees): a unit vector in world axes (x east, y up, z south).
+ * @param {number} hour @param {number} lat @param {number} [day]
+ */
+export function sunDirection(hour, lat, day = 80) {
+  const RAD = Math.PI / 180;
+  const decl = 23.44 * RAD * Math.sin(((2 * Math.PI) / 365) * (day - 81));
+  const H = (hour - 12) * 15 * RAD, phi = lat * RAD;
+  const east = -Math.cos(decl) * Math.sin(H);
+  const north = Math.cos(phi) * Math.sin(decl) - Math.sin(phi) * Math.cos(decl) * Math.cos(H);
+  const up = Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.cos(H);
+  return new THREE.Vector3(east, up, -north).normalize();
+}
+
 export class Sky {
-  constructor(scene) {
+  // `latitude` (degrees, worlds from map data): the sun crosses the sky as it does there (on day
+  // `day` of the year); without it, the sun follows the time-of-day presets.
+  constructor(scene, { latitude = null, day = 80 } = {}) {
     this.scene = scene;
+    this.latitude = latitude;
+    this.day = day;
     this.presetId = 'day';
     this.cur = toParams(PRESETS.day);
     this.tgt = toParams(PRESETS.day);
@@ -154,6 +173,11 @@ export class Sky {
     tg.lights = lerp(pa.lights, pb.lights, t);
     tg.stars = lerp(pa.stars, pb.stars, t);
     tg.sunDir.copy(pa.sunDir).lerp(pb.sunDir, t).normalize();
+    if (this.latitude !== null) {
+      // The real sun while it is up; the presets' moonlight once it has set.
+      const real = sunDirection(h, this.latitude, this.day);
+      tg.sunDir.lerp(real, smoothstep(-0.03, 0.12, real.y)).normalize();
+    }
     this.presetId = presetAtHour(h);
     if (instant) {
       for (const k of COLOR_KEYS) this.cur[k].copy(tg[k]);

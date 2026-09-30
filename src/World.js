@@ -60,6 +60,8 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
+    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number }[]} famous buildings (features/landmarks.js), key V */
+    this.landmarks = [];
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[] }} keys 6, 7 and 8 */
     this.followables = { people: [], birds: [], vehicles: [] };
     /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
@@ -192,7 +194,7 @@ export class World {
         });
       }),
       step('Đang pha màu bầu trời', () => {
-        this.sky = new Sky(scene);
+        this.sky = new Sky(scene, { latitude: cfg.latitude ?? null, day: cfg.sunDay ?? 80 });
         const weather = (this.weather = new Weather(scene));
         // Last: everything else reads last frame's rain, as it was when the frame started.
         this.add({ update: (f) => weather.update(f.dt, f.raw, f.camera) });

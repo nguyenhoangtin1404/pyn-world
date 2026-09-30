@@ -3,15 +3,19 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { fbm } from '../world/terrain.js';
 import { lam } from '../world/lowpoly.js';
+import { TREE_COVER } from '../world/landcover.js';
 
 // Trees (pines higher up), flowers and rocks: one InstancedMesh per kind of part. Trees and rocks
 // are colliders people walk around, and can be cleared away later (site.clearAround, hiking trails).
+// In a world from map data the land cover decides (cfg.landcover): woods on the hills, a casuarina
+// belt behind the beach, next to none in the rice fields or the town, none on the sand.
 // Options: count (trees, 1300), flowers (900), rocks (160).
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang trồng cây',
   build(world, { rng, count = 1300, flowers: flowerCount = 900, rocks: rockCount = 160 }) {
     const { site, size } = world;
+    const cover = world.cfg.landcover ?? null;
     const group = new THREE.Group();
       const trees = [];
       for (let tries = 0; trees.length < count && tries < 24000; tries++) {
@@ -19,6 +23,12 @@ export default {
         if (fbm(x, z, 3, 0.012, 21.7) < -0.05 && rng() > 0.12) continue;
         const h = site.spotOK(x, z, 7);
         if (h === null) continue;
+        if (cover) {
+          const c = TREE_COVER[cover(x, z)];
+          if (rng() >= c.keep) continue;
+          trees.push({ x, z, h, pine: rng() < c.pine, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2 });
+          continue;
+        }
         trees.push({ x, z, h, pine: h > 12 ? rng() < 0.85 : rng() < 0.45, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2 });
       }
       const dummy = new THREE.Object3D();
