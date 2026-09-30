@@ -91,6 +91,30 @@ function flagTexture() {
   return t;
 }
 
+// The letters on the sea: bold Arial, red with a white edge to stand out from the water.
+function seaTextTexture() {
+  const c = document.createElement('canvas');
+  c.width = 2048;
+  c.height = 256;
+  const g = c.getContext('2d');
+  const text = 'HOÀNG SA, TRƯỜNG SA LÀ CỦA VIỆT NAM';
+  g.font = 'bold 120px Arial, Helvetica, sans-serif'; // (all on one line: shrunk to fit if need be)
+  const size = Math.min(120, (120 * 1960) / g.measureText(text).width);
+  g.font = `bold ${size}px Arial, Helvetica, sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  g.lineWidth = size * 0.13;
+  g.strokeStyle = '#ffffff';
+  g.fillStyle = '#e60012';
+  g.strokeText(text, 1024, 128);
+  g.fillText(text, 1024, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
 /** @type {import('./common.js').Landmark} */
 export default {
   name: 'Tháp Nghinh Phong',
@@ -262,6 +286,27 @@ export default {
     flag.castShadow = true;
     halos.push([fx, fy + poleH - fh / 2, fz]);
 
+    // Out at sea, off the tower: the islands' claim in big red letters on the water, readable from the
+    // square looking seaward (its baseline along local z, its top away from the shore).
+    /** @type {THREE.Mesh | null} */
+    let seaText = null;
+    /** @type {number[] | null} */
+    let sea = null;
+    for (let d = 60; d <= 600 && !sea; d += 10) {
+      const [ex, , ez] = L(d * map, 0);
+      if (ground(ex, ez) < WATER_Y - 1) sea = [d + 45];
+    }
+    if (sea) {
+      const [tx, , tz] = L(sea[0] * map, 0), tw = 320 * map, th = tw * 0.125;
+      const tg = new THREE.PlaneGeometry(tw, th).rotateX(-Math.PI / 2);
+      const tm = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ map: seaTextTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      tm.position.set(tx, WATER_Y + 0.35, tz);
+      tm.rotation.y = site.ry - Math.PI / 2;
+      tm.renderOrder = 3;
+      tm.castShadow = tm.receiveShadow = false;
+      seaText = tm;
+    }
+
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
     worldSite.solids.push({ x: sx, z: sz, r: 5.5 * cell, y0: base0, y1: base0 + peak });
@@ -287,7 +332,7 @@ export default {
         return H(dx * c - dz * s, dx * s + dz * c);
       },
       system: {
-        group: new THREE.Group().add(glow, beam, flag),
+        group: new THREE.Group().add(glow, beam, flag, ...(seaText ? [seaText] : [])),
         lateUpdate({ lights, t }) {
           flagTime.value = t;
           flagMat.emissiveIntensity = Math.max(0, Math.min(1.1, (lights - 0.15) * 2.2));
