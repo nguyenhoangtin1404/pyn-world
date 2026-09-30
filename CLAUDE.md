@@ -191,6 +191,13 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     cách đá ballast ray ≥ 1, không có chỗ thì bỏ cột (vạch dừng vẫn có). **Mọi pha đều phải `update`**, kể
     cả pha không có cột đèn nào — từng quên: pha đứng đỏ mãi, xe kẹt 263 s. Phố chính không có xe cũng có
     đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s.
+    **Vạch sang đường** ở mỗi nhánh ngã tư có đèn: ngay chỗ vỉa hè của phố kia cắt qua (lùi nửa bề rộng phố
+    kia + nửa vỉa hè, chia sin góc giữa hai phố — ngã tư chéo lùi xa hơn), sâu 3 m × props, sọc trắng cách
+    1 m × props, vẽ trên mặt phố cao nhất chỗ đó; vạch dừng lùi sau nó 1 m × props. Vạch trùng vạch khác
+    (phố cắt chéo, hai ngã tư sát nhau, `overlaps` — trừ hai đầu, vì vạch hai nhánh gặp nhau ở góc) thì bỏ. Mỗi vạch vào `world.crosswalks` `{ x, z, h, half, depth,
+    signal }`; người đi dạo (`strollers`, `crosswalkAt`) tới mép thì chờ (`walker.waiting`) tới khi xe trên
+    phố đó đỏ **đủ lâu để qua hết** (`signal.walk(bề rộng / tốc độ + 1)`). E2E: không ai bước lên vạch khi
+    xe chưa đỏ, có người chờ, có người qua. Tuy Hòa: 106 vạch (≈ 20 trùng vạch khác bị bỏ — một phố có thể là nhiều đoạn trong `world.streets`).
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
@@ -208,7 +215,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
   ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
   world có `cfg.roads`), không san chỗ nước (cầu).
-- Chưa làm: người đi bộ theo đèn ở ngã tư thật (vạch sang đường), xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+- Chưa làm: đèn đi bộ ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
   (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)

@@ -48,6 +48,13 @@ for (const { id } of WORLDS) {
         expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
         expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }
+      if (life.zebra) {
+        const f = life.zebra;
+        const why = (what) => `${what} — ${JSON.stringify(f)}`;
+        expect(f.notOnRed, why('nobody steps onto a crossroads crosswalk unless its traffic has red')).toBe(0);
+        expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
+        expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
+      }
       expect(page.errors).toEqual([]);
     });
   });

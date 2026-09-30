@@ -10,7 +10,8 @@ import { PAVEMENT } from './streets.js';
 // strolling round the landmarks' squares. Drawn at world.scale (figures, pace and the way they
 // walk × k); umbrellas up in the rain. They don't take the train, so they are world.pedestrians
 // (the traffic stops for them where they cross a street), not world.people; the person camera
-// (key 6) follows them too. Options: count (on the streets, 24), square (at each landmark, 4).
+// (key 6) follows them too. At a lit crossroads (world.crosswalks, features/citytraffic.js) they
+// wait at the kerb until the street they cross has red for long enough to get over. Options: count (on the streets, 24), square (at each landmark, 4).
 
 /** @type {import('../types').Feature} */
 export default {
@@ -22,7 +23,7 @@ export default {
     world.need('phố từ dữ liệu bản đồ (world.streets)', 'strollers', streets.length);
     const group = new THREE.Group();
     const ground = world.terrain.meshHeightAt;
-    /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number }[]} */
+    /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number, zebra?: number[] }[]} */
     const walkers = [];
     const add = (/** @type {THREE.Vector3[]} */ route, /** @type {(x: number, z: number) => number} */ heightAt, /** @type {string} */ label) => {
       const w = new Walker(rng, heightAt, { speed: 1.3 * k });
@@ -81,18 +82,42 @@ export default {
             w.idle(t);
             continue;
           }
-          if (w.step(s.route[s.i], dt, t)) {
-            const next = s.i + s.dir;
-            if (next < 0 || next >= s.route.length) {
-              s.dir = -s.dir; // the end of the street: a look round, and back
-              w.pause = 1 + rng() * 4;
-            } else s.i = next;
+          if (!w.waiting && !w.step(s.route[s.i], dt, t)) continue;
+          const next = s.i + s.dir;
+          if (next < 0 || next >= s.route.length) {
+            s.dir = -s.dir; // the end of the street: a look round, and back
+            w.pause = 1 + rng() * 4;
+            continue;
           }
+          // At the kerb of a crossroads' zebra crossing: over while that street's traffic has red
+          // for long enough to get to the other side, else wait.
+          const zebra = (s.zebra ??= s.route.map((p) => crosswalkAt(world.crosswalks, p.x, p.z)));
+          if (zebra[next] >= 0 && zebra[next] !== zebra[s.i]) {
+            const cw = world.crosswalks[zebra[next]];
+            w.waiting = !cw.signal.walk((2 * cw.half + PAVEMENT * k) / w.speed + 1);
+            if (w.waiting) {
+              w.idle(t);
+              continue;
+            }
+          }
+          s.i = next;
         }
       },
     };
   },
 };
+
+/**
+ * The crosswalk (index in `crosswalks`) that (x, z) is on, -1 for none: on the carriageway it
+ * crosses, within half a unit of its stripes along the street.
+ * @param {import('../World.js').World['crosswalks']} crosswalks @param {number} x @param {number} z
+ */
+export function crosswalkAt(crosswalks, x, z) {
+  return crosswalks.findIndex((c) => {
+    const dx = x - c.x, dz = z - c.z;
+    return Math.abs(dx * Math.sin(c.h) + dz * Math.cos(c.h)) < c.depth / 2 + 0.5 && Math.abs(dx * Math.cos(c.h) - dz * Math.sin(c.h)) < c.half;
+  });
+}
 
 /**
  * A walk along one side of a street, `off` from its middle (the middle of the pavement): points

@@ -21,6 +21,7 @@ export class Walker {
     this.gait = 0; // walk-cycle phase, advanced by distance actually covered
     this.pause = 0;
     this.waving = false;
+    this.waiting = false; // at the kerb for the lights
   }
 
   place(p) {

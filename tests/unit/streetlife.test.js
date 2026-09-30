@@ -3,8 +3,8 @@ import { createRivers } from '../../src/world/rivers.js';
 import { Site, CLAIM } from '../../src/world/site.js';
 import { createGrade } from '../../src/world/grade.js';
 import { fitOffStreets } from '../../src/features/buildings.js';
-import { pavementRoute } from '../../src/features/strollers.js';
-import { findJunctions, passes } from '../../src/features/citytraffic.js';
+import { crosswalkAt, pavementRoute } from '../../src/features/strollers.js';
+import { findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
 import { LoopPath } from '../../src/world/vehicles/path.js';
 
 // A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
@@ -124,5 +124,34 @@ describe('crossroads for traffic lights (findJunctions, passes)', () => {
     expect(path.pointAt(at[0])[1]).toBeCloseTo(-1);
     expect(path.pointAt(at[1])[1]).toBeCloseTo(1);
     expect(passes(path, [20, 10], 2)).toEqual([]);
+  });
+});
+
+describe('crosswalks at a crossroads (crosswalkAt)', () => {
+  // A street along z (heading 0), 4 wide; a crosswalk across it at z = 10, 1 deep.
+  const crosswalks = [{ x: 0, z: 10, h: 0, half: 2, depth: 1, signal: null }];
+  it('is on the crosswalk on the carriageway, not on the pavement beside it or further along', () => {
+    expect(crosswalkAt(crosswalks, 0, 10)).toBe(0);
+    expect(crosswalkAt(crosswalks, -1.9, 10.8)).toBe(0); // at the kerb, within half a unit of the stripes
+    expect(crosswalkAt(crosswalks, 2.5, 10)).toBe(-1); // on the pavement
+    expect(crosswalkAt(crosswalks, 0, 12)).toBe(-1); // along the street
+  });
+  it('turns with the street', () => {
+    const across = [{ ...crosswalks[0], h: Math.PI / 2 }]; // a street along x: the crosswalk runs along z
+    expect(crosswalkAt(across, 0, 11.9)).toBe(0);
+    expect(crosswalkAt(across, 1.5, 10)).toBe(-1);
+  });
+});
+
+describe('crosswalks that would lie on each other (overlaps)', () => {
+  const a = { x: 0, z: 0, h: 0, half: 2, depth: 1 };
+  it('tells side-by-side crosswalks at a crossroads from ones on top of each other', () => {
+    // The next arm round, turned a quarter: its crosswalk beside this one, not on it.
+    expect(overlaps({ x: 3.2, z: 3.2, h: Math.PI / 2, half: 2, depth: 1 }, a)).toBe(false);
+    expect(overlaps(a, { x: 3.2, z: 3.2, h: Math.PI / 2, half: 2, depth: 1 })).toBe(false);
+    // A street meeting at a sharp angle: its crosswalk across this one.
+    expect(overlaps({ x: 0.5, z: 0.3, h: 0.5, half: 2, depth: 1 }, a)).toBe(true);
+    // A small one inside a big one: seen from the small one.
+    expect(overlaps({ x: 0, z: 0, h: 0, half: 0.5, depth: 0.2 }, a)).toBe(true);
   });
 });
