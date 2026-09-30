@@ -148,6 +148,13 @@ features: [
     vòng xoay, vạch sang đường. Tất cả (cả mặt nhựa, đảo giữa vòng xoay) là tam giác tô màu theo đỉnh
     (`world/roads/paint.js`) gộp vào `world.batch` → không tốn draw call riêng; bóng đèn sáng và thanh
     chắn là 2 Instancer (`world/roads/props.js`), bật/tắt đèn bằng `anchor.visible`.
+  - **Mỗi thành phần một file** trong `world/roads/parts/`: `ring.js` (đường vòng), `roundabout.js` (vòng xoay +
+    nhường), `branch.js` (nhánh, tìm chỗ cắt ray, chắn tàu), `junction.js` (phố + ngã tư có đèn), `zebra.js`
+    (vạch sang đường có đèn), `circles.js` (vòng quay đầu, đảo, vạch viền), `sidewalks.js` (vỉa hè). Chúng
+    dùng chung một `RoadBuilder` (`world/roads/builder.js`: paint, props, `WalkMap`, độ cao từng lớp `b.h`,
+    `check`, `stopLine`, `crosswalk`, `trafficLight`, và `finish()` trả system chạy đèn/thanh chắn).
+    `features/road.js` chỉ đọc tùy chọn rồi gọi các phần **theo đúng thứ tự** — thứ tự vẽ và thứ tự lấy số
+    ngẫu nhiên; đổi thứ tự là golden của MAPLE đổi. Thành phần mới: thêm một file trong `parts/`.
   - Bố cục (`world/roads/network.js`, thuần, có test) cho ra các **tuyến** (route): mỗi tuyến là một
     `LoopPath` một làn, kèm các điểm dừng `{ s, blocked(car, d, cars) }` (đèn đỏ, chắn tàu, nhường vòng
     xoay). Logic đèn/chắn tàu ở `world/roads/signals.js` (thuần, có test).
