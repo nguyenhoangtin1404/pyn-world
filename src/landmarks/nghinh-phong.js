@@ -24,6 +24,7 @@ const BACK_M = 48; // metres from the tower landward to the square's straight si
 const CELL_M = 2.5; // metres, a column across its flats: 6 of them make the slot's 15 m
 const SLOT_M = 2; // metres, the slot's width
 const TOWER = 1.5; // the tower drawn this many times the map scale
+const SPIRE = 1.4; // the two spires drawn this much taller than their measure, so they stand out over the steps
 const STONE = ['#7c8791', '#86919b', '#727d87', '#8e99a2'];
 const RELIEF = '#66707a';
 const PAVE = '#c9c7c1', TILE = '#8f969c', STEP = '#e8e6e0', WALL = '#b3aea4', FASCIA = '#f1efe9', RAIL = '#d9d7d0';
@@ -155,7 +156,7 @@ export default {
     const led = [];
     let peak = 0;
     for (const { i, j, side, h, spire } of cols) {
-      const w = cell * (spire ? 0.78 : 0.97), hy = h * k, r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
+      const w = cell * (spire ? 0.78 : 0.97), hy = h * k * (spire ? SPIRE : 1), r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
       const [x, z0] = at(i, j, side), z = j === 0 ? z0 - side * (cell - w) * 0.58 : z0; // (the slot's edge kept straight)
       // (Down a little below the paving, where it slopes away under the foot.)
       batch.add(cyl(r, r, hy + 0.6, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2 - 0.3, z], {}, 6));
@@ -165,7 +166,13 @@ export default {
         batch.add(box(w * 0.8, rh, 0.04, RELIEF, [x, rh / 2 + 0.3 * k, side * (slot / 2 - 0.02)]));
       }
       // At night: the lower columns in colours, the spires' tips red.
-      if (!spire && h <= 14) led.push(cyl(r * 1.03, r * 1.03, hy * 0.7, LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length], [x, hy * 0.35, z], {}, 6));
+      // The stone's faces glow, not the column: a band round the top of each column, where its faces
+      // catch the light, and the top face itself, in the colour of its column.
+      if (!spire) {
+        const colour = LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length], band = Math.min(0.9 * k, hy * 0.4);
+        led.push(cyl(r * 1.025, r * 1.025, band, colour, [x, hy - band / 2, z], {}, 6));
+        led.push(cyl(r * 0.94, r * 0.94, 0.03, colour, [x, hy + 0.015, z], {}, 6));
+      }
       if (spire) led.push(cyl(r * 1.06, r * 1.06, 0.6 * k, '#ff2b2b', [x, hy - 0.4 * k, z], {}, 6));
       const [cx, , cz] = W(x, z);
       worldSite.colliders.push({ x: cx, z: cz, r: cell * 0.7 });
@@ -180,7 +187,7 @@ export default {
     for (const c of cols.filter((c) => c.spire)) {
       const [x, z] = at(c.i, c.j, c.side);
       const [hx0, , hz0] = W(x, z);
-      halos.push([hx0, base0 + c.h * k, hz0]);
+      halos.push([hx0, base0 + c.h * k * SPIRE, hz0]);
     }
 
     // Lamp posts along the straight side and inside the railing.
