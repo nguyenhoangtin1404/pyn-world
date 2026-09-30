@@ -314,20 +314,20 @@ describe('the shore brought in (growSea)', () => {
 });
 
 describe('Tháp Nghinh Phong (columns)', () => {
-  it('two halves, each stepping up to its spire at the slot between them: 40 m and 33 m', () => {
+  it('two towers of 50 columns, stepping up to spires of 35 m and 30 m at the slot between them', () => {
     const cols = columns();
+    for (const side of [1, -1]) expect(cols.filter((c) => c.side === side)).toHaveLength(50);
     const spires = cols.filter((c) => c.spire);
-    expect(spires.map((c) => c.h).sort((a, b) => b - a)).toEqual([40, 33]);
-    expect(new Set(spires.map((c) => c.side)).size).toBe(2); // one in each half
+    expect(spires.map((c) => c.h).sort((a, b) => b - a)).toEqual([35, 30]);
+    expect(spires.find((c) => c.h === 30).side).toBe(1); // the lower on the right, seen from the land
     for (const c of spires) expect(c.j).toBe(0); // at the slot
-    for (const side of [1, -1]) {
-      const half = cols.filter((c) => c.side === side && !c.spire);
-      const mean = (j) => half.filter((c) => c.j === j).reduce((s, c) => s + c.h, 0) / half.filter((c) => c.j === j).length;
-      expect(mean(0)).toBeGreaterThan(mean(2)); // stepping down away from the slot
+    for (const s of spires) {
+      const half = cols.filter((c) => c.side === s.side && !c.spire);
+      expect(Math.max(...half.map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
+      const mean = (j) => half.filter((c) => c.j === j).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j).length;
+      expect(mean(0)).toBeGreaterThan(mean(4)); // stepping down away from the slot
+      expect(Math.min(...half.map((c) => c.h))).toBeLessThanOrEqual(2.4); // low steps at the edge
     }
-    const rest = cols.filter((c) => !c.spire);
-    for (const s of spires) expect(Math.max(...rest.filter((c) => c.side === s.side).map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
-    expect(Math.min(...rest.map((c) => c.h))).toBeLessThanOrEqual(3); // steps at the bottom
-    expect(rest.length).toBeGreaterThan(20);
+    expect(new Set(cols.map((c) => c.i)).size).toBe(6); // 6 columns of 2.5 m: the slot's 15 m
   });
 });

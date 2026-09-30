@@ -16,7 +16,7 @@ export default {
       const model = LANDMARKS[lm.model];
       if (!model) throw new Error(`Không có công trình "${lm.model}" (src/landmarks/index.js)`);
       const built = model.build({ world, x: lm.p[0], y: lm.h, z: lm.p[1], ry: lm.rotation, rng });
-      world.landmarks.push({ id: lm.id, name: lm.name, spot: built.spot, view: built.view, ring: built.ring });
+      world.landmarks.push({ id: lm.id, name: lm.name, spot: built.spot, view: built.view, walk: built.walk });
       if (built.system) systems.push(built.system);
     }
     const group = new THREE.Group();
