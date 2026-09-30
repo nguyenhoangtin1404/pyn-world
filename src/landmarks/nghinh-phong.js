@@ -30,27 +30,25 @@ const LED = ['#ff3b5c', '#ffb830', '#3bff7a', '#33c2ff', '#8a5bff', '#ff5bd6'];
 
 /**
  * The tower's columns. Two halves either side of the slot, which runs from the land to the sea: `i`
- * along it (6 columns, towards the sea), `j` out from it (0 at the slot, 9 columns), `side` which
- * half (+1 on the right seen from the land). Each half is 50 columns — its 6 × 9 less the four
- * outermost corners — stepping up towards the slot and towards the sea, where its spire stands near the seaward end with a
- * shorter column beside it, and down to low steps at the land side (the front); heights in metres.
+ * along it (6 rows, the first the land side), `j` out from it (0 at the slot), `side` which half (+1
+ * on the right seen from the land). Each half is 50 columns in a wedge: the front (land side) a
+ * narrow prow of a few low columns standing out from the rest, every row further back wider and
+ * higher, up to the spire at the seaward end with a shorter column beside it; heights in metres.
  * @returns {{ i: number, j: number, side: 1 | -1, h: number, spire: boolean }[]}
  */
 export function columns() {
   const out = [];
+  const width = [4, 6, 8, 10, 11, 11]; // columns out from the slot in each row: 50
   for (const side of /** @type {const} */ ([1, -1])) {
     const top = side > 0 ? 30 : 35; // seen from the land: Âu Cơ on the right, Lạc Long Quân on the left
     for (let i = 0; i < 6; i++) {
-      for (let j = 0; j < 9; j++) {
-        if (j >= 7 && (i === 0 || i === 5)) continue; // the corners stepped off (50 a half)
-        // Steps down from the spire in every direction across the tower, and all the way down to the
-        // land side, its front: from high to low, one step a column, no two in a row alike.
-        const drop = 2.4 * j + 3.1 * Math.max(0, 4 - i) + 2.0 * Math.max(0, i - 4);
-        let h = 0.62 * top - drop + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
+      for (let j = 0; j < width[i]; j++) {
+        // From the prow up to the spire: each row a step higher, and each column out from the slot a step lower.
+        let h = top * (0.1 + 0.14 * i) - 2.4 * j + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
         h = Math.max(1.2, Math.round(h / 1.2) * 1.2);
-        const spire = i === 4 && j === 0;
+        const spire = i === 5 && j === 0;
         if (spire) h = top;
-        else if (i === 3 && j === 0) h = Math.round((top * 0.72) / 1.2) * 1.2; // the column beside the spire
+        else if (i === 4 && j === 0) h = Math.round((top * 0.72) / 1.2) * 1.2; // the column beside the spire
         out.push({ i, j, side, h, spire });
       }
     }
@@ -167,7 +165,7 @@ export default {
 
     // Lamp posts along the straight side and inside the railing.
     const post = (/** @type {number} */ lx, /** @type {number} */ lz) => {
-      if (Math.abs(lx) < 3.5 * cell + 1 && Math.abs(lz) < slot / 2 + 8.5 * cell + 1) return; // not in the tower's steps
+      if (Math.abs(lx) < 3.5 * cell + 1 && Math.abs(lz) < slot / 2 + 10.5 * cell + 1) return; // not in the tower's steps
       const [px, , pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
       batch.at(px, top, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
       batch.add(box(0.72 * k, 0.2, 0.72 * k, '#fff4d6', [0, hy - 0.12, 0]), lampMat);
@@ -184,7 +182,7 @@ export default {
     worldSite.obstacles.push([px, pz, R]);
 
     // People walk round the tower on the square: a rounded box round it, inside the railing.
-    const hx2 = 3 * cell + 3 * map, hz = slot / 2 + 9 * cell + 3 * map;
+    const hx2 = 3 * cell + 3 * map, hz = slot / 2 + 10.5 * cell + 3 * map;
     const walk = Array.from({ length: 32 }, (_, i) => {
       const a = (i / 32) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
       const lx = Math.sign(c) * Math.abs(c) ** 0.4 * hx2, lz = Math.sign(s) * Math.abs(s) ** 0.4 * hz;

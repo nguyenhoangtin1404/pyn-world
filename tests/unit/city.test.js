@@ -314,7 +314,7 @@ describe('the shore brought in (growSea)', () => {
 });
 
 describe('Tháp Nghinh Phong (columns)', () => {
-  it('two towers of 50 columns, stepping up to spires of 35 m and 30 m at the slot between them', () => {
+  it('two towers of 50 hexagonal columns in a wedge: a low prow at the front, rising row by row to spires of 35 m and 30 m', () => {
     const cols = columns();
     for (const side of [1, -1]) expect(cols.filter((c) => c.side === side)).toHaveLength(50);
     const spires = cols.filter((c) => c.spire);
@@ -322,15 +322,19 @@ describe('Tháp Nghinh Phong (columns)', () => {
     expect(spires.find((c) => c.h === 30).side).toBe(1); // the lower on the right, seen from the land
     for (const c of spires) expect(c.j).toBe(0); // at the slot
     for (const s of spires) {
-      const half = cols.filter((c) => c.side === s.side && !c.spire);
-      expect(Math.max(...half.map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
-      const mean = (j) => half.filter((c) => c.j === j).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j).length;
+      const half = cols.filter((c) => c.side === s.side);
+      const rest = half.filter((c) => !c.spire);
+      expect(Math.max(...rest.map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
+      const row = (i) => half.filter((c) => c.i === i);
+      // The prow: the front row narrow and low; every row further back wider, and higher at the slot.
+      expect(row(0).length).toBeLessThan(row(5).length);
+      for (let i = 1; i < 6; i++) {
+        expect(row(i).length).toBeGreaterThanOrEqual(row(i - 1).length);
+        expect(Math.max(...row(i).map((c) => c.h))).toBeGreaterThan(Math.max(...row(i - 1).map((c) => c.h)));
+      }
+      expect(Math.max(...row(0).map((c) => c.h))).toBeLessThan(s.h * 0.2); // the nose at ground level
+      const mean = (j) => half.filter((c) => c.j === j && !c.spire).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j && !c.spire).length;
       expect(mean(0)).toBeGreaterThan(mean(4)); // stepping down away from the slot
-      // Down the land side, the front: from the spire's row to the first, each row lower.
-      const row = (i) => half.filter((c) => c.i === i).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.i === i).length;
-      for (const i of [4, 3, 2, 1]) expect(row(i)).toBeGreaterThan(row(i - 1));
-      expect(Math.min(...half.filter((c) => c.i === 0 && c.j === 0).map((c) => c.h))).toBeLessThan(s.h * 0.4);
-      expect(Math.min(...half.map((c) => c.h))).toBeLessThanOrEqual(2.4); // low steps at the edge
     }
     expect(new Set(cols.map((c) => c.i)).size).toBe(6); // 6 columns of 2.5 m: the slot's 15 m
   });
