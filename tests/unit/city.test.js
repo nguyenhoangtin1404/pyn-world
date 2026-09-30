@@ -4,7 +4,7 @@ import { builtUp, createLandCover } from '../../src/world/landcover.js';
 import { createRivers } from '../../src/world/rivers.js';
 import { Site } from '../../src/world/site.js';
 import { likelyFloors } from '../../src/features/buildings.js';
-import { build, heightGrid, inWater } from '../../tools/import/build.mjs';
+import { build, checkPlaces, despike, heightGrid, inWater } from '../../tools/import/build.mjs';
 import { clipToBox, footprintRect, joinLines, osmToVectors, simplify } from '../../tools/import/osm.mjs';
 
 // Phase 2 of worlds from map data: streets, buildings and water areas from OpenStreetMap / Overture.
@@ -227,3 +227,39 @@ describe('floors a building likely has', () => {
   });
 });
 
+
+describe('hand-placed places against the map (checkPlaces)', () => {
+  const osm = {
+    elements: [
+      { type: 'node', id: 1, lat: 13.11632, lon: 109.30756, tags: { name: 'Tháp Nghinh Phong Tuy Hòa' } },
+      { type: 'node', id: 2, lat: 13.10532, lon: 109.31508, tags: { name: 'Tháp Nghinh Phong - Phú Yên' } }, // a shop, further off
+      { type: 'node', id: 3, lat: 13.08226, lon: 109.30162, tags: { name: 'Tháp Nhạn Phú Yên' } },
+    ],
+  };
+  it('says which places are off the map’s, by how much and where, by name or part of it', () => {
+    const out = checkPlaces([
+      { id: 'np', name: 'Tháp Nghinh Phong', at: [13.0917, 109.3262] }, // where it was first put: ~3 km off
+      { id: 'tn', name: 'Núi Nhạn – Tháp Nhạn', at: [13.0823, 109.3018] }, // right
+      { id: 'x', name: 'Đồi Không Tên', at: [13.1, 109.3] },
+    ], osm);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatch(/"np".*Tháp Nghinh Phong - Phú Yên/); // the nearest same-named one
+    expect(out[1]).toMatch(/"x".*không có/);
+    expect(checkPlaces([{ id: 'np', name: 'Tháp Nghinh Phong', at: [13.1163, 109.3076] }], osm)).toEqual([]);
+  });
+});
+
+describe('elevation spikes (despike)', () => {
+  it('brings down a lone spike, two points wide too, and leaves a real summit', () => {
+    const n = 9;
+    const h = new Int16Array(n * n).fill(4);
+    h[2 * n + 2] = 65; // a glitch…
+    h[2 * n + 3] = 33; // …and its shoulder
+    // A hill: summit 57 with neighbours close below it.
+    for (const [r, c, v] of [[6, 6, 57], [5, 6, 50], [7, 6, 48], [6, 5, 49], [6, 7, 51], [5, 5, 45], [7, 7, 44], [5, 7, 46], [7, 5, 43]]) h[r * n + c] = v;
+    despike(h, n);
+    expect(h[2 * n + 2]).toBe(4);
+    expect(h[2 * n + 3]).toBe(4);
+    expect(h[6 * n + 6]).toBe(57);
+  });
+});

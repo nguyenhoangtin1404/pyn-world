@@ -121,7 +121,14 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   (overpass-api.de, geofabrik) nhưng vào được **Overture Maps** trên S3 (dữ liệu OSM đóng gói lại):
   `pip install pyarrow shapely` rồi `python3 tools/import/overture.py tools/import/tuyhoa.vectors.json >
   .cache/overture/tuyhoa.json` (chỉ đọc phần trong hộp, ~40 s) → `--osm .cache/overture/tuyhoa.json`.
-  Bản trích ghi đúng dạng Overpass (thẻ OSM) nên OSM thật dùng y như vậy. Ghi nguồn ODbL (`sources.map`,
+  Bản trích ghi đúng dạng Overpass (thẻ OSM) nên OSM thật dùng y như vậy.
+  **Địa danh đặt tay phải khớp bản đồ**: `build.mjs` so từng `places` của công thức với địa danh có tên
+  trong bản trích (`checkPlaces`, theo tên hoặc một phần tên "Núi Nhạn – Tháp Nhạn") và cảnh báo nếu lệch
+  > 200 m — Tháp Nghinh Phong từng bị đặt lệch 3 km (13.0917, 109.3262 thay vì 13.1163, 109.3076, nằm ngoài
+  khung cũ); đối chiếu thêm với Google Maps khi thêm địa danh. Overture có danh sách địa danh nhưng phân
+  loại lỏng (quán cà phê gắn "di tích") nên chỉ dùng để kiểm tra, không đưa vào file dữ liệu.
+  **Gai độ cao** (một điểm SRTM cao hơn mọi điểm quanh > 12 m — nhiễu radar, nhà cao tầng) bị hạ về
+  trung vị các điểm quanh (`despike`); đỉnh núi thật luôn có điểm quanh gần bằng nên giữ nguyên. Ghi nguồn ODbL (`sources.map`,
   README).
 - **Mặt nước dạng vùng** (sông Đà Rằng có cồn bãi, hồ): điểm lưới độ cao nằm trong vùng (trừ đảo) thành
   −4 m → nước tự hiện, `rivers` bỏ trống (sông vẽ tay rộng 1 km từng đè lên cả làng trên bãi bồi).
@@ -169,16 +176,31 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   `TREE_COVER` (giữ bao nhiêu, bao nhiêu thông). World không có `landcover` (PYN/MAPLE) không đổi gì.
 - **Mặt trời theo vĩ độ** (`sunDirection(giờ, vĩ độ, ngày)` trong `sky.js`, `cfg.latitude`, `cfg.sunDay`
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
-- Chưa làm: xe chạy trên phố thật, người đi bộ trong phố, nhà theo đúng hình móng (chữ L…), tàu không
-  bắt buộc, sa bàn chữ nhật.
+- **Xe, người, chim trên phố thật** (`streets` để lại `world.streets`: từng đoạn phố đã vẽ — điểm, bề rộng,
+  số làn, mặt đường `heightAt`):
+  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải chạy
+    lên xuống các phố chính dài nhất (`routes`, mặc định 10): làn bên phải, quay đầu ở cuối phố. `Vehicle`
+    nhận `k` — đường đi, tốc độ và luật giao thông (`updateTraffic`) chạy **trong đơn vị mô hình** như lịch
+    tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một
+    đường lên rồi xuống) bị cắt (`untangle`) — không thì làn về chồng lên nhau. Xe dừng cho người đi bộ
+    (`world.pedestrians`); ở ngã tư không đèn, hai xe cùng thấy nhau thì xe trước trong danh sách đi trước.
+  - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
+    và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
+    đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
+  - `birds` thêm `gulls` (đàn hải âu trên bãi biển), `egrets` (cò trắng bay thấp trên ruộng) — tâm đàn
+    chọn theo lớp phủ đất (`Flock` nhận `center`).
+  E2E tua 300 s với Tuy Hòa: không xe nào chồng nhau (hình chữ nhật × `v.k`), không xe nào kẹt, đèn phanh
+  và đèn pha có bật.
+- Chưa làm: đèn giao thông ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+  (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)
 
 Kích thước vẽ ra hỏi `world.scale`, **đừng viết số đơn vị cứng** cho thứ có kích thước ngoài đời. Hai tỉ lệ
 (như sa bàn mô hình): `scale.map` — đơn vị mỗi mét cho **vị trí** (địa hình, sông, bố cục phố, móng nhà;
-1 cho PYN/MAPLE, 1/9 cho Tuy Hòa) — và `scale.props` — cỡ **đồ vật** (người, xe, cây, tàu, tầng nhà, làn
+1 cho PYN/MAPLE, 1/10 cho Tuy Hòa) — và `scale.props` — cỡ **đồ vật** (người, xe, cây, tàu, tầng nhà, làn
 xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì đồ vật to hơn bản đồ `exaggerate` (3) lần:
-`props = min(1, 3 × map)` (Tuy Hòa 1/3); world đặt thẳng được `cfg.scale = { props, exaggerate }`.
+`props = min(1, 3 × map)` (Tuy Hòa 0,3); world đặt thẳng được `cfg.scale = { props, exaggerate }`.
 - `scale.m(mét)` theo bản đồ, `scale.prop(mét)` theo đồ vật, `scale.fit(mét)` cho thứ trên bản đồ mà đồ vật
   phải vừa (làn đường, tầng nhà) = lớn hơn trong hai tỉ lệ; `scale.want(loại)` = `SIZES[loại] × props`.
 - **Kiểm tra tỉ lệ**: feature ghi cỡ đã vẽ `scale.note('storey' | 'lane' | 'person' | 'car' | 'tree' |
@@ -193,8 +215,9 @@ xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì �
   co theo, bánh xe/tiếng xình xịch vẫn đúng; bên ngoài đọc `train.s`, `train.v`, `train.length` (đơn vị thế
   giới). Sân ga (`buildPlatform`: dài/rộng/cao × k, tính bằng frame ≈ 1 đơn vị), nhà ga, mái che trạm, bồ
   câu (`Pigeon` `size`), khói tàu (`Smoke` `size`), sân ga san phẳng/dọn trống, chắn tàu, camera phím 2 — đều
-  × k. **Chưa**: người (`Person`, tốc độ đi), xe (`KINDS`, `traffic`), đường `road`, nhà làng (`houses`),
-  phố của trạm `halt` — hiện chỉ PYN/MAPLE dùng (k = 1). Chuyển tiếp: nhân kích thước/tốc độ/khoảng cách
+  × k; xe trên phố thật (`Vehicle({ k })`) và người đi dạo (`strollers`) cũng vậy. **Chưa**: dân làng
+  (`villagers`), đường `road` + `traffic`, nhà làng (`houses`), phố của trạm `halt` — hiện chỉ PYN/MAPLE dùng
+  (k = 1). Chuyển tiếp: nhân kích thước/tốc độ/khoảng cách
   với `scale.props` (viết `số * k` để k = 1 ra đúng từng bit như cũ — golden PYN/MAPLE giữ nguyên), `note`
   cỡ đã vẽ, kiểm tra bằng `scale.spec.js`.
 

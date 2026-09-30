@@ -32,6 +32,7 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/world/scale.js` | Tỉ lệ của world: tỉ lệ bản đồ + tỉ lệ đồ vật, kích thước chuẩn (`SIZES`), kiểm tra tỉ lệ (`audit`) |
 | `src/world/landcover.js` | Lớp phủ đất (biển, bãi cát, phi lao ven biển, phố, rừng, ruộng, cỏ) từ độ cao + khoảng cách tới biển + mật độ nhà: màu đất và mật độ cây |
 | `src/features/streets.js`, `buildings.js` | Phố và nhà thật của world bản đồ (`cfg.roads`, `cfg.buildings`): đường vẽ lên mặt đất (cầu + trụ khi qua sông, nâng lên khi qua ray), nhà là khối InstancedMesh theo hình chữ nhật của móng, mái ngói cho nhà thấp, cửa sổ sáng ban đêm |
+| `src/features/citytraffic.js`, `strollers.js` | Xe cộ (xe máy, xe đạp, ô tô, xe tải) chạy trên phố chính thật, người đi bộ trên vỉa hè và quanh quảng trường — vẽ theo `world.scale` |
 | `tools/import/` | Dựng file dữ liệu world: `build.mjs` (độ cao SRTM + sông/ray/địa danh từ file công thức, hoặc ray/phố/nhà/mặt nước từ bản trích OpenStreetMap), `srtm.mjs`, `osm.mjs`, `overture.py` (tải bản trích từ Overture Maps trên AWS khi không vào được OSM), công thức `tuyhoa.vectors.json` |
 | `src/config.js` | Hằng số chung cho mọi world (độ cao đường ray, mặt nước, khổ ray) |
 | `src/world/track.js` | Đường ray (CatmullRomCurve3) — vòng khép kín hoặc tuyến hai đầu (có ụ chắn cuối tuyến), sweep profile → ballast, ray, cầu, trụ cầu, tà vẹt (InstancedMesh) |

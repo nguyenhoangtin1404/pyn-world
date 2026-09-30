@@ -230,5 +230,7 @@ export function osmToVectors(osm, { defaultWidth = 60, box = null } = {}) {
       kind: n.tags.railway === 'station' ? 'station' : n.tags.natural === 'peak' ? 'peak' : 'landmark',
       at: latlon(n),
     }));
-  return { rivers, rails, roads, buildings, water, places: places.filter((p) => inBox(p.at)) };
+  const seen = new Set(); // one place per id (the first)
+  const unique = places.filter((p) => inBox(p.at) && !seen.has(p.id) && seen.add(p.id));
+  return { rivers, rails, roads, buildings, water, places: unique };
 }

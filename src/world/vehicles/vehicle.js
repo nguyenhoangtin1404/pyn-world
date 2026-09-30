@@ -8,6 +8,9 @@ const G = 9.8; // how far bikes lean and planes bank in a turn: tan(angle) = v²
 // air. Wheels turn by the distance covered, bikes lean into the turns and their riders pedal,
 // planes bank and climb and dive gently. Speed: towards `cruise`, but never over the `limit` the
 // traffic gives it each frame (the car ahead, someone crossing).
+// `k`: drawn k times the size it was built at (world.scale.props). Its path, speeds and the traffic
+// rules then all work in the model's own units (world / k), like the train's schedule; only where
+// it is drawn is multiplied back by k.
 export class Vehicle {
   /**
    * @param {object} o
@@ -19,9 +22,11 @@ export class Vehicle {
    * @param {(x: number, z: number) => number} [o.heightAt] ground under it (road vehicles)
    * @param {number} [o.altitude] flying height (planes), ±amplitude as it goes round
    * @param {number} [o.amplitude]
+   * @param {number} [o.k] size (path and speeds in model units = world / k)
    */
-  constructor({ kind, fleet, path, s, rng, heightAt, altitude = 90, amplitude = 8 }) {
+  constructor({ kind, fleet, path, s, rng, heightAt, altitude = 90, amplitude = 8, k = 1 }) {
     this.kind = kind;
+    this.k = k;
     this.spec = KINDS[kind];
     this.path = path;
     this.s = path.wrap(s);
@@ -38,6 +43,7 @@ export class Vehicle {
     this.lamps = lamps; // head/tail light anchors and the pool of light ahead (fleet.js), or null
     this.braking = false;
     this.group = group; // the anchor the fleet draws the body at (in the scene)
+    group.scale.setScalar(k);
     this.wheels = wheels;
     this.prop = prop;
     this.crank = 0;
@@ -80,8 +86,9 @@ export class Vehicle {
   }
 
   place() {
-    const { path, group, spec } = this;
-    const [x, z] = path.pointAt(this.s);
+    const { path, group, spec, k } = this;
+    const [mx, mz] = path.pointAt(this.s);
+    const x = mx * k, z = mz * k;
     const heading = path.headingAt(this.s);
     const turn = Math.atan((this.v * this.v * path.curvatureAt(this.s)) / G);
     if (spec.flies) {

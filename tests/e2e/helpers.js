@@ -79,8 +79,8 @@ export function simulate() {
   // axis test on their four edge directions. (In here: only this function is sent to the page.)
   function overlap(a, b) {
     const box = (v) => {
-      const h = v.group.rotation.y, w = v.length < 2.5 ? 0.35 : 0.95;
-      return { x: v.group.position.x, z: v.group.position.z, f: [Math.sin(h), Math.cos(h)], l: [Math.cos(h), -Math.sin(h)], hl: v.length / 2, hw: w };
+      const h = v.group.rotation.y, w = v.length < 2.5 ? 0.35 : 0.95, k = v.k ?? 1; // (drawn k times its size)
+      return { x: v.group.position.x, z: v.group.position.z, f: [Math.sin(h), Math.cos(h)], l: [Math.cos(h), -Math.sin(h)], hl: (v.length / 2) * k, hw: w * k };
     };
     const A = box(a), B = box(b);
     const dx = B.x - A.x, dz = B.z - A.z;
