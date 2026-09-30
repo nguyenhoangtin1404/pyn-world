@@ -20,7 +20,7 @@ export default defineGeoWorld({
   features: [
     'landmarks', 'streets', 'buildings', 'trees', 'clouds',
     'strollers', // people on the pavements and round the square
-    { id: 'citytraffic', min: 40 }, // the main streets here are shorter
+    { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
   ],
 });

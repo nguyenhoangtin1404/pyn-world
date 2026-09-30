@@ -43,7 +43,9 @@ export function passes(path, [x, z], near) {
 // the pavements cross it (world.crosswalks: people go over while that street's traffic has red —
 // features/strollers.js), a stop line before it in each lane and a light on the pavement beside it. Head lights at dusk and in the rain,
 // brake lights when braking; key 8 follows them. Options: vehicles ({ kind: count }), routes (how
-// many streets, 10), min (shortest street, 60 units), lights (traffic lights, true).
+// many streets, 10), min (shortest street, 60 units), lights (traffic lights: true where two main
+// streets cross, 'all' also where the side streets meet the ones with traffic, false none).
+const SIDE = new Set(['residential', 'living_street', 'road']); // side streets, lit with lights: 'all'
 const CROSSWALK = 3; // metres deep, along the street (at the props scale)
 const MAIN = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified']);
 
@@ -245,7 +247,9 @@ export default {
     const signals = [];
     // Where a street with traffic crosses any main street (lights on that one too, though nothing
     // drives it: it's the town's crossroads that have lights).
-    const others = world.streets.filter((s) => MAIN.has(s.kind) && s.length >= 10 && !streets.some((r) => r.points[0] === s.points[0]));
+    // ('all': the side streets too, but not service lanes, tracks and footpaths.)
+    const lit = lights === 'all' ? (/** @type {string} */ kind) => MAIN.has(kind) || SIDE.has(kind) : (/** @type {string} */ kind) => MAIN.has(kind);
+    const others = world.streets.filter((s) => lit(s.kind) && s.length >= 10 && !streets.some((r) => r.points[0] === s.points[0]));
     const all = [...streets, ...others];
     const junctions = lights ? findJunctions(all).filter((j) => j.streets.some((si) => si < streets.length)) : [];
     const headingNear = (/** @type {[number, number][]} */ pts, /** @type {[number, number]} */ p) => {

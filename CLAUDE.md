@@ -190,7 +190,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     kia (nửa bề rộng + vỉa hè), cột đèn trên vỉa hè bên phải — dời ra tối đa 1 đơn vị cho khỏi lòng đường,
     cách đá ballast ray ≥ 1, không có chỗ thì bỏ cột (vạch dừng vẫn có). **Mọi pha đều phải `update`**, kể
     cả pha không có cột đèn nào — từng quên: pha đứng đỏ mãi, xe kẹt 263 s. Phố chính không có xe cũng có
-    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s.
+    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s. `lights: 'all'` (NGHINH
+    PHONG) có đèn cả chỗ phố nhỏ (`residential`, `living_street`, `road`) gặp phố có xe: 29 → 79 cột đèn, 38 → 79 vạch.
+    **Xe cắt ngang ở góc tù vẫn phải thấy nhau**: `gapTo` (`vehicles/traffic.js`) chỉ bỏ qua xe gần như ngược chiều hẳn
+    (`cos < −0,7`, làn bên kia của phố hai chiều); trước là mọi xe lệch > 100° (`cos < −0,2`) — xe tải quay đầu ở cuối
+    phố (ngay ngã tư) cắt ngang xe máy ở góc 110° mà hai xe không thấy nhau.
     **Vạch sang đường** ở mỗi nhánh ngã tư có đèn: ngay chỗ vỉa hè của phố kia cắt qua (lùi nửa bề rộng phố
     kia + nửa vỉa hè, chia sin góc giữa hai phố — ngã tư chéo lùi xa hơn), sâu 3 m × props, sọc trắng cách
     1 m × props, vẽ trên mặt phố cao nhất chỗ đó; vạch dừng lùi sau nó 1 m × props. Vạch trùng vạch khác

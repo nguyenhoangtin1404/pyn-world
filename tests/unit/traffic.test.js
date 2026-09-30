@@ -96,4 +96,21 @@ describe('traffic', () => {
     drive([a, b], [], 3);
     expect(a.v).toBeGreaterThan(6); // never braked for b
   });
+
+  it('stops for a car turning across its lane at a wide angle (a U-turn in a crossroads)', () => {
+    // A lorry standing in our lane 16 ahead, on a route crossing it at 110° (more than a right
+    // angle: not traffic coming the other way).
+    // (Our lane straight along +x, so the angle is the same all the way up to it.)
+    const lane = new LoopPath([...Array.from({ length: 101 }, (_, i) => [i, 0]), [100, 40], [0, 40]]);
+    const [px, pz] = lane.pointAt(16), h = lane.headingAt(16) + 1.92;
+    const fx = Math.sin(h), fz = Math.cos(h);
+    const pts = [];
+    for (let d = -10; d <= 10; d++) pts.push([px + fx * d, pz + fz * d]);
+    pts.push([px + fx * 10 - fz * 30, pz + fz * 10 + fx * 30], [px - fx * 10 - fz * 30, pz - fz * 10 + fx * 30]);
+    const across = new LoopPath(pts);
+    const lorry = car(across.nearest(px, pz).s, 0, 8, across), a = car(0, 10, 4.2, lane);
+    drive([a, lorry], [], 8);
+    expect(a.v).toBeLessThan(0.5);
+    expect(a.s).toBeLessThan(16 - 4); // stopped short of it
+  });
 });
