@@ -8,7 +8,7 @@ import { CLAIM } from '../world/site.js';
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
 // is drawn (terrain.meshHeightAt), a little wider than life so the small ones still show, busier
 // ones darker and over the quieter ones where they meet, a dashed centre line on the main roads
-// (not across another street).
+// (stopping short of the streets across it).
 // Where a street crosses the river it runs on a deck at bridge height, on piers; where it crosses
 // the railway it rises to the rails. Streets stop short of the station yards and the landmarks'
 // squares. All of it is vertex-coloured triangles in the world's batch: no draw call of its own.
@@ -138,15 +138,20 @@ export default {
         }
       }
     });
-    // (Across it: a street alongside — the other half of a dual carriageway — keeps its line.)
+    // The centre line stops short of a street across it, far enough back to leave room for a zebra
+    // crossing and a stop line (features/citytraffic.js: the other street's half width, its pavement,
+    // 3 m of crossing and 2 m more at the props scale; measured square to that street, so further
+    // along one meeting it at an angle, as the crossings are). A street alongside — the other half of
+    // a dual carriageway — keeps its line.
+    const clearance = pavement + 5 * world.scale.props;
     const onOther = (/** @type {number} */ id, /** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ h) => {
-      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
         for (const g of grid.get(cell(x + dx * CELL, z + dz * CELL)) ?? []) {
           if (g.id === id) continue;
           const ux = g.bx - g.ax, uz = g.bz - g.az, len2 = ux * ux + uz * uz || 1;
           if (Math.abs(Math.sin(h - Math.atan2(ux, uz))) < 0.5) continue;
           const t = Math.max(0, Math.min(1, ((x - g.ax) * ux + (z - g.az) * uz) / len2));
-          if (Math.hypot(g.ax + ux * t - x, g.az + uz * t - z) < g.hw + 0.3) return true;
+          if (Math.hypot(g.ax + ux * t - x, g.az + uz * t - z) < g.hw + clearance) return true;
         }
       }
       return false;
