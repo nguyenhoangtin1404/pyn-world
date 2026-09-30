@@ -137,3 +137,39 @@ function line([ax, az], [bx, bz]) {
   const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az)));
   return Array.from({ length: n + 1 }, (_, i) => /** @type {[number, number]} */ ([ax + ((bx - ax) * i) / n, az + ((bz - az) * i) / n]));
 }
+
+/**
+ * A two-way street straight across the ring at c, `back` units inward and `ahead` units outward
+ * (along `dir`) to a turning circle at each end. Its route goes out along the right-hand lane, round
+ * the outer circle, back across the ring in the other lane, round the inner circle and out again:
+ * through the crossroads both ways.
+ * @param {object} o
+ * @param {string} o.id
+ * @param {[number, number]} o.c where it crosses the ring
+ * @param {[number, number]} o.dir unit direction, outward
+ * @param {number} o.back to the inner turning circle's centre
+ * @param {number} o.ahead to the outer one's
+ * @param {number} [o.lane] lanes this far either side of the centre line (1.5)
+ * @param {number} [o.turn] radius cars turn round at (5)
+ */
+export function layoutStreet({ id, c, dir, back, ahead, lane = 1.5, turn = 5 }) {
+  /** @type {[number, number]} */
+  const right = [-dir[1], dir[0]];
+  /** @type {(k: number, side: number) => [number, number]} */
+  const at = (k, side) => [c[0] + dir[0] * k + right[0] * lane * side, c[1] + dir[1] * k + right[1] * lane * side];
+  /** @type {[number, number]} */
+  const Tin = [c[0] - dir[0] * back, c[1] - dir[1] * back];
+  /** @type {[number, number]} */
+  const Tout = [c[0] + dir[0] * ahead, c[1] + dir[1] * ahead];
+  const k = Math.sqrt(turn * turn - lane * lane);
+  const outStart = at(-back + k, 1), outEnd = at(ahead - k, 1);
+  const inStart = at(ahead - k, -1), inEnd = at(-back + k, -1);
+  const path = new LoopPath(smoothLoop([
+    ...line(outStart, outEnd),
+    ...arc(Tout, turn, angleOf(Tout, outEnd), angleOf(Tout, inStart)),
+    ...line(inStart, inEnd),
+    ...arc(Tin, turn, angleOf(Tin, inEnd), angleOf(Tin, outStart)),
+  ]));
+  const outer = turn + lane + 1.5;
+  return { route: { id, path, entries: [] }, from: Tin, to: Tout, dir, right, lane, width: lane * 2 + 3, turn: { radius: turn, outer } };
+}

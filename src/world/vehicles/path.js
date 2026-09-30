@@ -122,6 +122,15 @@ export class OpenPath {
   }
 
   /**
+   * The given point nearest (x, z): its distance along the path and how far it is.
+   * @param {number} x
+   * @param {number} z
+   */
+  nearest(x, z) {
+    return LoopPath.prototype.nearest.call(this, x, z);
+  }
+
+  /**
    * @param {number} s
    * @param {number} [span]
    */

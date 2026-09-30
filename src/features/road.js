@@ -1,10 +1,10 @@
 // @ts-check
 import { RAIL_TOP, WATER_Y } from '../config.js';
 import { LoopPath, OpenPath, roundedRect } from '../world/vehicles/path.js';
-import { angleOf, layoutRoads, wrapAngle } from '../world/roads/network.js';
+import { angleOf, layoutRoads, layoutStreet, wrapAngle } from '../world/roads/network.js';
 import { Paint } from '../world/roads/paint.js';
 import { ARM_OPEN, SignalProps } from '../world/roads/props.js';
-import { CrossingGate, SignalCycle, trainNear } from '../world/roads/signals.js';
+import { CrossingGate, SignalCycle, crossroads, trainNear } from '../world/roads/signals.js';
 import { smoothstep } from '../utils.js';
 
 const RAIL_CLEAR = 6; // road edge to the middle of the track: clear of the ballast and the trains
@@ -28,15 +28,20 @@ const SIDES = { a0: [-1, 0], a1: [1, 0], b0: [0, -1], b1: [0, 1] };
 //   the zone to a turning circle `length` from the roundabout's centre. Where it crosses the railway
 //   it gets a level crossing: barriers that come down, and lamps that flash, when a train is near
 // - lights: [{ side, at }] (or just sides): a zebra crossing on the ring with traffic lights
+// - junctions: [{ side, at, in, out, cycle }] (or just sides): a crossroads with traffic lights — a
+//   two-way street straight across that side of the ring, `in` units (18) into the zone and `out`
+//   (16) out of it to a turning circle at each end. The lights let the ring and the street go in turn
+//   (cycle: { green 12, yellow 3, clear 2 } seconds, `clear` = red both ways in between)
 //
-// Registers in world.roads: { id, width, heightAt, routes: [{ id, path, stops }], shared, signals,
-// gates } — each route a lane vehicles drive round (the ring; the ring out along the branch and
-// back), with the places to stop at when told to; the first `shared` units of every route are the
-// same road.
+// Registers in world.roads: { id, width, heightAt, routes: [{ id, path, stops, group, start }], shared,
+// signals, gates, junctions } — each route a lane vehicles drive round (the ring; the ring out along
+// the branch and back; a street across the ring and back), with the places to stop at when told to.
+// Routes in the same `group` run on the same road for their first `start` units (`shared`, for the
+// ring's): vehicles start spread out along it.
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang làm đường',
-  build(world, { rng, stop: stopId, margin = 6, inset = {}, width = 5, id = `road ${world.roads.length + 1}`, roundabout, branch, lights = [] }) {
+  build(world, { rng, stop: stopId, margin = 6, inset = {}, width = 5, id = `road ${world.roads.length + 1}`, roundabout, branch, lights = [], junctions = [] }) {
     const { terrain, site, batch, track } = world;
     const stop = stopId ? world.stop(stopId, 'road') : world.stops.find((s) => terrain.zones[s.id]);
     const zone = stop && terrain.zones[stop.id];
@@ -65,6 +70,12 @@ export default {
       branch: typeof branch === 'number' ? { length: branch } : branch,
     });
     const half = width / 2;
+    // Streets across the ring, with lights where they cross it.
+    const streets = junctions.map((j, i) => {
+      const o = typeof j === 'string' ? { side: j } : j;
+      const { p, out } = onSide(o);
+      return { p, cycle: o.cycle, ...layoutStreet({ id: `street ${i + 1}`, c: p, dir: out, back: o.in ?? 18, ahead: o.out ?? 16 }) };
+    });
 
     // Level crossings: wherever the branch runs over the railway.
     /** @type {{ s: number, p: [number, number], at: number, gate: CrossingGate, posts: ReturnType<SignalProps['crossingPost']>[] }[]} */
@@ -116,6 +127,14 @@ export default {
 
     const paint = new Paint();
     const props = new SignalProps(batch);
+    // A turning circle at the end of a road that comes from the direction of `from`.
+    const turningCircle = (/** @type {[number, number]} */ T, /** @type {number} */ outer, /** @type {[number, number]} */ from) => {
+      for (let t = 0; t < Math.PI * 2; t += 0.1) check(T[0] + Math.sin(t) * outer, T[1] + Math.cos(t) * outer);
+      paint.ring(T, 0, outer, 0, 0, circleH, ASPHALT);
+      edgeWithGaps(paint, T, outer, [angleOf(T, from)], circleMark);
+      island(paint, props, T, 2.4, islandH, circleH);
+      site.obstacles.push([T[0], T[1], outer + 3]);
+    };
 
     // The ring: asphalt, edge lines, dashed centre line (not across a zebra).
     const ringLine = net.ring.closed ? new LoopPath(net.ring.points) : new OpenPath(net.ring.points);
@@ -126,11 +145,18 @@ export default {
       check(x - Math.cos(h) * half, z + Math.sin(h) * half);
     }
     paint.strip(ringLine, 0, L, -half, half, ringH, ASPHALT);
-    paint.strip(ringLine, 0, L, half - 0.35, half - 0.2, ringMark, LINE);
-    paint.strip(ringLine, 0, L, -half + 0.2, -half + 0.35, ringMark, LINE);
+    // Edge lines broken where a street crosses (its asphalt lies over the ring's there).
+    const crossed = streets.flatMap((st) => {
+      const s = ringLine.nearest(st.p[0], st.p[1]).s, h = st.width / 2 + 0.3;
+      return [-L, 0, L].map((k) => [s - h + k, s + h + k]);
+    });
+    for (const [f, t] of spans(0, L, crossed)) {
+      paint.strip(ringLine, f, t, half - 0.35, half - 0.2, ringMark, LINE);
+      paint.strip(ringLine, f, t, -half + 0.2, -half + 0.35, ringMark, LINE);
+    }
     const zebras = lights.map((l) => onSide(typeof l === 'string' ? { side: l } : l).p);
-    const nearZebra = (/** @type {[number, number]} */ [x, z], r = 4) => zebras.some((p) => Math.hypot(x - p[0], z - p[1]) < r);
-    paint.dashes(ringLine, net.ring.closed ? 0 : 2, L - 2, -0.08, 0.08, ringMark, CENTRE, 2.4, 6, (s) => nearZebra(ringLine.pointAt(s + 1.2), 5));
+    const near = (/** @type {[number, number]} */ [x, z]) => [...zebras, ...streets.map((st) => st.p)].some((p) => Math.hypot(x - p[0], z - p[1]) < 5.5);
+    paint.dashes(ringLine, net.ring.closed ? 0 : 2, L - 2, -0.08, 0.08, ringMark, CENTRE, 2.4, 6, (s) => near(ringLine.pointAt(s + 1.2)));
     for (let s = 0; s < L; s += 6) {
       const [x, z] = ringLine.pointAt(s);
       site.obstacles.push([x, z, half + 4]); // keep houses and trees off the road
@@ -171,16 +197,38 @@ export default {
         for (const [f2, t2] of spans(f, t, solid)) paint.dashes(branchLine, f2, t2, -0.08, 0.08, branchMark, CENTRE, 2.4, 6);
         for (const [f2, t2] of solid) if (t2 > f && f2 < t) paint.strip(branchLine, Math.max(f, f2), Math.min(t, t2), -0.08, 0.08, branchMark, CENTRE);
       }
-      const T = turnaround.c;
-      for (let t = 0; t < Math.PI * 2; t += 0.1) check(T[0] + Math.sin(t) * turnaround.outer, T[1] + Math.cos(t) * turnaround.outer);
-      paint.ring(T, 0, turnaround.outer, 0, 0, circleH, ASPHALT);
-      edgeWithGaps(paint, T, turnaround.outer, [angleOf(T, net.branch.from)], circleMark);
-      island(paint, props, T, 2.4, islandH, circleH);
-      site.obstacles.push([T[0], T[1], turnaround.outer + 3]);
+      turningCircle(turnaround.c, turnaround.outer, net.branch.from);
+    }
+
+    // The streets: two lanes across the ring, a turning circle at each end.
+    for (const st of streets) {
+      const line = new OpenPath([st.from, st.to]);
+      const W = st.width / 2, len = line.length, mid = Math.hypot(st.p[0] - st.from[0], st.p[1] - st.from[1]);
+      for (let s = 0; s <= len; s += 1) {
+        const [x, z] = line.pointAt(s), h = line.headingAt(s);
+        check(x + Math.cos(h) * W, z - Math.sin(h) * W);
+        check(x - Math.cos(h) * W, z + Math.sin(h) * W);
+        if (s % 4 === 0) site.obstacles.push([x, z, W + 4]);
+      }
+      paint.strip(line, 0, len, -W, W, branchH, ASPHALT);
+      // Markings: none across the ring; the centre line solid coming up to the lights.
+      const solid = [mid - 10, mid + 10];
+      for (const [f, t] of spans(st.turn.outer - 0.2, len - st.turn.outer + 0.2, [[mid - half - 0.3, mid + half + 0.3]])) {
+        paint.strip(line, f, t, W - 0.35, W - 0.2, branchMark, LINE);
+        paint.strip(line, f, t, -W + 0.2, -W + 0.35, branchMark, LINE);
+        for (const [f2, t2] of spans(f, t, [solid])) paint.dashes(line, f2, t2, -0.08, 0.08, branchMark, CENTRE, 2.4, 6);
+        if (solid[1] > f && solid[0] < t) paint.strip(line, Math.max(f, solid[0]), Math.min(t, solid[1]), -0.08, 0.08, branchMark, CENTRE);
+      }
+      turningCircle(st.from, st.turn.outer, st.to);
+      turningCircle(st.to, st.turn.outer, st.from);
     }
 
     // What stops the traffic, and where on each route.
-    const routes = net.routes.map((r) => ({ id: r.id, path: r.path, stops: /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ ([]) }));
+    const shared = sharedLength(net.routes);
+    const routes = [
+      ...net.routes.map((r) => ({ id: r.id, path: r.path, group: 'ring', start: shared })),
+      ...streets.map(({ route: r }) => ({ id: r.id, path: r.path, group: r.id, start: r.path.length })),
+    ].map((r) => ({ ...r, stops: /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ ([]) }));
     /**
      * A stop line at p (a lane `hl` either side of it), on every route through it; returns the
      * heading there, or null if no route goes through.
@@ -219,6 +267,31 @@ export default {
         return props.trafficLight(x, ground(x, z), z, h);
       });
       signals.push({ signal, heads });
+    }
+
+    // Crossroads: the ring and the street go in turn. Lights at the stop lines, on the right (and on
+    // the left of the one-way ring too).
+    const crossroadsAt = [];
+    for (const st of streets) {
+      const [ringSignal, streetSignal] = crossroads({ ...st.cycle, offset: rng() * 34 });
+      const ringHeads = [], streetHeads = [];
+      const light = (/** @type {[number, number]} */ [x, z], /** @type {number} */ h, /** @type {any[]} */ heads) => {
+        site.colliders.push({ x, z, r: 0.3 });
+        heads.push(props.trafficLight(x, ground(x, z), z, h));
+      };
+      const r0 = routes[0].path, sc = r0.nearest(st.p[0], st.p[1]).s;
+      const at = r0.pointAt(sc - 4.5);
+      const h = stopLine(at, half, (car, d) => ringSignal.stops(d, car.v));
+      if (h !== null) for (const side of [1, -1]) light([at[0] + Math.cos(h) * (half + 0.8) * side, at[1] - Math.sin(h) * (half + 0.8) * side], h, ringHeads);
+      const { dir, right, lane } = st, W = st.width / 2;
+      for (const way of [1, -1]) {
+        /** @type {(k: number, side: number) => [number, number]} */
+        const pt = (k, side) => [st.p[0] + dir[0] * k * way + right[0] * side * way, st.p[1] + dir[1] * k * way + right[1] * side * way];
+        const hs = stopLine(pt(-3.5, lane), lane, (car, d) => streetSignal.stops(d, car.v));
+        light(pt(-3.5, W + 0.8), hs ?? Math.atan2(dir[0] * way, dir[1] * way), streetHeads);
+      }
+      signals.push({ signal: ringSignal, heads: ringHeads }, { signal: streetSignal, heads: streetHeads });
+      crossroadsAt.push({ p: st.p, signals: [ringSignal, streetSignal] });
     }
 
     // Level crossings: a stop line and a post with a half barrier for each lane coming up to it.
@@ -264,7 +337,7 @@ export default {
     batch.at(0, 0, 0, 0).add(paint.geometry() ?? []);
     const group = props.build();
     const trainLength = () => (world.train ? world.train.cars.at(-1).offset + 6 : 0);
-    world.roads.push({ id, width, heightAt: circleH, routes, shared: sharedLength(routes), signals: signals.map((x) => x.signal), gates: crossings.map((x) => x.gate) });
+    world.roads.push({ id, width, heightAt: circleH, routes, shared, signals: signals.map((x) => x.signal), gates: crossings.map((x) => x.gate), junctions: crossroadsAt });
 
     return {
       group,

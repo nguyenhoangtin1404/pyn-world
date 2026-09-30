@@ -90,7 +90,14 @@ export function simulate() {
     }
     return true;
   }
-  const road = { gates: gates.length, signals: signals.length, branches: W.roads.reduce((n, r) => n + r.routes.length - 1, 0), gateClosings: 0, carsAtGate: 0, carsAtRed: 0, carsOnBranch: 0, overlaps: 0, longestStop: 0 };
+  const junctions = W.roads.flatMap((r) => r.junctions ?? []);
+  const groupOf = (c) => W.roads.flatMap((r) => r.routes).find((rt) => rt.path === c.path)?.group;
+  const crossedJunction = new Set();
+  const road = {
+    gates: gates.length, signals: signals.length, junctions: junctions.length,
+    branches: W.roads.reduce((n, r) => n + r.routes.filter((rt) => rt.id === 'branch').length, 0),
+    gateClosings: 0, carsAtGate: 0, carsAtRed: 0, carsOnBranch: 0, overlaps: 0, longestStop: 0, boxConflicts: 0, junctionCrossings: 0,
+  };
   const wasDown = gates.map(() => false);
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
@@ -105,13 +112,19 @@ export function simulate() {
       still[k] = c.v < 0.05 ? still[k] + 0.1 : 0;
       road.longestStop = Math.max(road.longestStop, still[k]);
       // Out past the roundabout: routes after the first leave the ring there, after `shared` units.
-      for (const r of W.roads) if (r.routes.slice(1).some((rt) => rt.path === c.path) && c.s > r.shared + 15 && c.s < c.path.length - 15) onBranch.add(c);
+      for (const r of W.roads) if (r.routes.some((rt) => rt.id === 'branch' && rt.path === c.path) && c.s > r.shared + 15 && c.s < c.path.length - 15) onBranch.add(c);
       for (let j = 0; j < k; j++) if (overlap(c, cars[j])) road.overlaps++;
       if (c.v < 0.05 && c.limit === 0) {
         if (gates.some((g) => g.active)) road.carsAtGate++;
         else if (signals.some((sg) => sg.state === 'red')) road.carsAtRed++;
       }
     });
+    // Crossroads: never someone from the ring and someone from the street in the middle at once.
+    for (const j of junctions) {
+      const inside = cars.filter((c) => Math.hypot(c.group.position.x - j.p[0], c.group.position.z - j.p[1]) < 3.2);
+      if (new Set(inside.map(groupOf)).size > 1) road.boxConflicts++;
+      for (const c of inside) if (groupOf(c) !== 'ring') crossedJunction.add(c);
+    }
     for (const w of W.people) {
       if (w.mode === 'boarding') s.boarding++;
       if (w.mode === 'alighting') s.alighting++;
@@ -130,6 +143,7 @@ export function simulate() {
   s.vehicles = W.vehicles.length;
   s.vehiclesMoved = W.vehicles.filter((v, i) => v.group.position.distanceTo(vehicleStart[i]) > 5).length;
   road.carsOnBranch = onBranch.size;
+  road.junctionCrossings = crossedJunction.size;
   road.longestStop = Math.round(road.longestStop);
   if (cars.length) s.road = road;
   W.weather.set('clear');

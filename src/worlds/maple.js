@@ -41,8 +41,9 @@ export default defineWorld({
   features: [
     'station',
     // Off the river (far side) and the railway (ends); a roundabout at one end with a road out over
-    // the railway (a level crossing) to a turning circle; lights at the zebra by the station.
-    { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, roundabout: 'b1', branch: 46, lights: ['a0'] },
+    // the railway (a level crossing) to a turning circle; lights at the zebra by the station, and a
+    // crossroads with lights further along that side.
+    { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, roundabout: 'b1', branch: 46, lights: ['a0'], junctions: [{ side: 'a0', at: 0.25 }] },
     { id: 'village', count: 10 },
     'traffic',
     'halt',

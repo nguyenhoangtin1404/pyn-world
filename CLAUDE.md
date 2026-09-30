@@ -130,6 +130,11 @@ features: [
     tàu còn trên đường) thì đèn nháy, 2,5 s sau thanh chắn hạ; xe chờ tới khi thanh chắn lên hẳn.
   - `lights: ['a0']` (hoặc `{ side, at }`): vạch sang đường + đèn giao thông hai bên (xanh 14 s / vàng 3 s
     / đỏ 9 s); đèn vàng chỉ dừng xe còn kịp phanh.
+  - `junctions: ['a0']` (hoặc `{ side, at, in, out, cycle }`): **ngã tư có đèn** — một phố hai chiều cắt
+    thẳng qua cạnh đó của đường vòng, `in` (18) vào trong zone và `out` (16) ra ngoài, mỗi đầu một vòng
+    quay đầu. Đèn hai pha (`crossroads()` trong `signals.js`): đường vòng xanh thì phố đỏ và ngược lại,
+    giữa hai pha đỏ cả hai hướng `clear` giây (mặc định xanh 12 / vàng 3 / clear 2). Xe trên phố chạy
+    tuyến riêng (qua ngã tư cả hai chiều); vạch dừng lùi đủ xa để xe chờ không chắn làn kia.
   - Vạch kẻ: viền trắng hai mép, vạch giữa đứt (liền gần chắn tàu), vạch dừng, vạch nhường ở lối vào
     vòng xoay, vạch sang đường. Tất cả (cả mặt nhựa, đảo giữa vòng xoay) là tam giác tô màu theo đỉnh
     (`world/roads/paint.js`) gộp vào `world.batch` → không tốn draw call riêng; bóng đèn sáng và thanh
@@ -141,8 +146,10 @@ features: [
   giữ khoảng cách với **bất kỳ phần nào** của xe phía trước trên làn mình — kể cả xe tuyến khác đi chung
   đoạn đường (xe tải dài đang vòng xoay có đuôi chắn lối ra) — dừng khi có người đi bộ phía trước và ở
   các điểm dừng (`vehicles/traffic.js`, logic thuần có test). Camera phím **8** đi theo xe.
+  Xe xuất phát rải đều trên đoạn đường chung của nhóm tuyến, tránh vạch dừng và ô ngã tư.
   E2E tua 300 s kiểm tra: không hai xe nào chồng lên nhau (hình chữ nhật thân xe), không xe nào đứng
-  ≥ 60 s (kẹt), thanh chắn hạ, xe chờ ở chắn tàu và đèn đỏ, xe đi ra nhánh.
+  ≥ 60 s (kẹt), thanh chắn hạ, xe chờ ở chắn tàu và đèn đỏ, xe đi ra nhánh, xe trên phố qua ngã tư,
+  và không bao giờ có xe đường vòng lẫn xe trên phố cùng ở giữa ngã tư.
 - `aircraft`: máy bay bay vòng trên cao (110 m trở lên, trên khinh khí cầu), nghiêng cánh khi rẽ, đèn
   đầu cánh không phụ thuộc ánh sáng. Camera phím 7.
 - **Thêm loại xe mới**: một mục trong `KINDS` (`vehicles/kinds.js`): `body()` (phần sơn dùng `PAINT` →
