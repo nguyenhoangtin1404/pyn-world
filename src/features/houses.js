@@ -21,6 +21,8 @@ function createHouses(world) {
   const roofs = ['#c8453a', '#8e3b35', '#4f6d8f', '#6b4e3a', '#b0603a'];
   const WOOD_DARK = '#6b4a33', STONE = '#9a9084';
   const STOREY = 3.0; // floor-to-floor height
+  // (Not drawn at world.scale yet: the village houses are one size — see CLAUDE.md.)
+  world.scale.note('storey', STOREY, 'houses');
   const T = 0.2; // wall thickness
   const FLOOR = 0.12; // floor top above the ground outside
   const DOOR_W = 1.8, DOOR_H = 2.3;

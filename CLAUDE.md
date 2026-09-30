@@ -130,12 +130,12 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Phố + nhà** (định dạng: `roads` [{kind, name?, points}], `buildings` {count, data} — 7 số Int16 mỗi
   nhà: tâm dm đông/bắc của `frame.center`, dài, rộng dm, hướng 0,01°, số tầng, loại; `encodeBuildings` /
   `decodeBuildings`). Mỗi nhà là **hình chữ nhật nhỏ nhất bao móng** (`footprintRect`). Feature
-  `streets` (`features/streets.js`): vẽ bằng `Paint` vào `world.batch` theo `meshHeightAt`, rộng ×`widen`
-  (1,5, tối thiểu 0,7), đường lớn đè đường nhỏ, vạch giữa đứt; qua nước thành cầu (mặt cầu ngang bờ,
+  `streets` (`features/streets.js`): vẽ bằng `Paint` vào `world.batch` theo `meshHeightAt`, rộng bằng
+  bề rộng thật hoặc số làn × `scale.fit(làn)` nếu rộng hơn, đường lớn đè đường nhỏ, vạch giữa đứt; qua nước thành cầu (mặt cầu ngang bờ,
   thành cầu, trụ), qua ray thì dốc lên đỉnh ray; tránh sân ga, pad công trình. Feature `buildings`
   (`features/buildings.js`): 3 InstancedMesh (khối nhà, mái ngói chóp cho nhà thấp < 220 m², dải cửa sổ
-  dùng `lamps(world).windowMat` → sáng ban đêm); cao = số tầng (bản đồ hoặc `likelyFloors`) × 3,3 m ×
-  `tall` (1,5); bỏ nhà trên phố, dưới nước, sát ray, trong sân ga/pad. Cả hai **claim** mặt đất
+  dùng `lamps(world).windowMat` → sáng ban đêm); cao = số tầng (bản đồ hoặc `likelyFloors`) ×
+  `scale.fit(tầng)`; bỏ nhà trên phố, dưới nước, sát ray, trong sân ga/pad. Cả hai **claim** mặt đất
   (`site.claimRect`, lưới ô 0,5 → `spotOK` từ chối) để cây không mọc lên phố/nhà — nhiều nghìn vật,
   không dùng `obstacles` (quét tuyến tính). Thứ tự: `'station', 'landmarks', 'streets', 'buildings',
   'trees', …`. Lớp phủ `town` giờ tính từ **mật độ nhà** (`builtUp`, ô 5 đơn vị, > 5 % mặt đất có mái),
@@ -171,6 +171,27 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
 - Chưa làm: xe chạy trên phố thật, người đi bộ trong phố, nhà theo đúng hình móng (chữ L…), tàu không
   bắt buộc, sa bàn chữ nhật.
+
+## Tỉ lệ (`world.scale`, `world/scale.js`)
+
+Kích thước vẽ ra hỏi `world.scale`, **đừng viết số đơn vị cứng** cho thứ có kích thước ngoài đời. Hai tỉ lệ
+(như sa bàn mô hình): `scale.map` — đơn vị mỗi mét cho **vị trí** (địa hình, sông, bố cục phố, móng nhà;
+1 cho PYN/MAPLE, 1/9 cho Tuy Hòa) — và `scale.props` — cỡ **đồ vật** (người, xe, cây, tàu, tầng nhà, làn
+xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì đồ vật to hơn bản đồ `exaggerate` (3) lần:
+`props = min(1, 3 × map)` (Tuy Hòa 1/3); world đặt thẳng được `cfg.scale = { props, exaggerate }`.
+- `scale.m(mét)` theo bản đồ, `scale.prop(mét)` theo đồ vật, `scale.fit(mét)` cho thứ trên bản đồ mà đồ vật
+  phải vừa (làn đường, tầng nhà) = lớn hơn trong hai tỉ lệ; `scale.want(loại)` = `SIZES[loại] × props`.
+- **Kiểm tra tỉ lệ**: feature ghi cỡ đã vẽ `scale.note('storey' | 'lane' | 'person' | 'car' | 'tree' |
+  'gauge' | 'carriage', đơn vị, tên)`; `scale.audit()` liệt kê thứ lệch quá `TOLERANCE` (1,5 lần) so với
+  `SIZES` (mét, quy ước của sa bàn — toa tàu 9 m như mô hình). `tests/e2e/scale.spec.js` chạy cho mọi world;
+  `PENDING` liệt kê thứ biết là lệch — **chỉ được bớt, không thêm** để cho qua. Loại vật mới: thêm vào `SIZES`
+  và `note` ở feature vẽ nó.
+- Đã theo `world.scale`: cây/hoa/đá (`trees`), nhà + phố từ bản đồ. **Chưa** (vẫn cỡ cố định, chỉ `note`):
+  đường ray + tàu + sân ga/ga (`GAUGE`, `PLAT_TOP`, `RAIL_TOP`, `train/cars.js`, toa cách 8,1), người
+  (`Person`, tốc độ đi), xe (`KINDS`, `traffic`), đường `road`, nhà làng (`houses`). Với PYN/MAPLE
+  `props = 1` nên nhân vào không đổi một số nào (golden giữ nguyên) — chuyển dần từng feature: nhân kích
+  thước/tốc độ/khoảng cách với `scale.props`, rồi bớt nó khỏi `PENDING`. Tuy Hòa hiện: đường ray gấp 3,1
+  lần, toa 2,7 lần cỡ đúng.
 
 ## Phương tiện (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay)
 

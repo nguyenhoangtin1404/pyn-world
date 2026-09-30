@@ -16,6 +16,7 @@ export default {
   build(world, { rng, count = 1300, flowers: flowerCount = 900, rocks: rockCount = 160 }) {
     const { site, size } = world;
     const cover = world.cfg.landcover ?? null;
+    const P = world.scale.props; // (1 but for worlds drawn smaller, see world/scale.js)
     const group = new THREE.Group();
       const trees = [];
       for (let tries = 0; trees.length < count && tries < 24000; tries++) {
@@ -26,17 +27,17 @@ export default {
         if (cover) {
           const c = TREE_COVER[cover(x, z)];
           if (rng() >= c.keep) continue;
-          trees.push({ x, z, h, pine: rng() < c.pine, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2 });
+          trees.push({ x, z, h, pine: rng() < c.pine, s: (0.7 + rng() * 0.7) * P, r: rng() * Math.PI * 2 });
           continue;
         }
-        trees.push({ x, z, h, pine: h > 12 ? rng() < 0.85 : rng() < 0.45, s: 0.7 + rng() * 0.7, r: rng() * Math.PI * 2 });
+        trees.push({ x, z, h, pine: h > 12 ? rng() < 0.85 : rng() < 0.45, s: (0.7 + rng() * 0.7) * P, r: rng() * Math.PI * 2 });
       }
       const dummy = new THREE.Object3D();
       function instanced(geo, mat, items, colors) {
         const mesh = new THREE.InstancedMesh(geo, mat, items.length);
         const c = new THREE.Color();
         items.forEach((it, i) => {
-          dummy.position.set(it.x, it.h - 0.15, it.z);
+          dummy.position.set(it.x, it.h - 0.15 * P, it.z);
           dummy.rotation.set(it.rx || 0, it.r, 0);
           dummy.scale.setScalar(it.s);
           dummy.updateMatrix();
@@ -65,7 +66,7 @@ export default {
         const x = (rng() - 0.5) * (size * 2 / 3), z = (rng() - 0.5) * (size * 2 / 3);
         const h = site.spotOK(x, z, 5);
         if (h === null || h > 18) continue;
-        flowers.push({ x, z, h: h + 0.25, s: 0.7 + rng() * 0.6, r: rng() * 6 });
+        flowers.push({ x, z, h: h + 0.25 * P, s: (0.7 + rng() * 0.6) * P, r: rng() * 6 });
       }
       instanced(new THREE.IcosahedronGeometry(0.2, 0), lam('#ffffff'), flowers, ['#ff8fb1', '#ffd36e', '#ffffff', '#b69cff', '#ff9a5a']).castShadow = false;
       const rocks = [];
@@ -73,9 +74,11 @@ export default {
         const x = (rng() - 0.5) * (size - 40), z = (rng() - 0.5) * (size - 40);
         const h = site.spotOK(x, z, 6);
         if (h === null) continue;
-        rocks.push({ x, z, h: h + 0.1, s: 0.5 + rng() * 1.6, r: rng() * 6, rx: rng() });
+        rocks.push({ x, z, h: h + 0.1 * P, s: (0.5 + rng() * 1.6) * P, r: rng() * 6, rx: rng() });
       }
       instanced(new THREE.DodecahedronGeometry(1, 0), lam('#ffffff'), rocks, ['#a79d90', '#978d80', '#b6ab9c']);
+      // Model heights: the round crown's top 5.0, the pine's 5.6, at s = 1.
+      if (trees.length) world.scale.note('tree', trees.reduce((sum, t) => sum + t.s * (t.pine ? 5.6 : 5.0), 0) / trees.length, 'trees');
       // Low branches and boulders block people too (radius scaled by the instance size).
       for (const t of trees) site.colliders.push({ x: t.x, z: t.z, r: (t.pine ? 1.1 : 0.8) * t.s, item: t });
       for (const r of rocks) site.colliders.push({ x: r.x, z: r.z, r: 0.95 * r.s, item: r });

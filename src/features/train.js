@@ -9,6 +9,8 @@ export default {
   build(world) {
     const train = (world.train = new Train(world.track));
     train.tunnel = world.tunnel;
+    // (Not drawn at world.scale yet: the track, the train and the platforms are one size — see CLAUDE.md.)
+    world.scale.note('carriage', train.cars[1].offset - train.cars[0].offset, 'train');
     // Without stops it just stops by the first frame of the track now and then.
     if (world.stations.length) train.setStops(world.stations.map((st) => ({ s: st.frame.s + 14, out: st.out })));
     return {

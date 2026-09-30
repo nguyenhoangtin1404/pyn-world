@@ -3,19 +3,19 @@ import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 import { lam } from '../world/lowpoly.js';
 import { lamps } from './lamps.js';
+import { SIZES } from '../world/scale.js';
 
 // A town's real buildings (cfg.buildings, from the map data): each footprint's rectangle as a
 // block standing on the ground, as tall as its floors (from the map, or a likely number for a
-// Vietnamese town: narrow tube houses of 2–4 floors, big sheds and schools lower), about 3.3 m a
-// floor × `tall`. Walls in the pale colours of the street, schools yellow; some of the low houses
+// Vietnamese town: narrow tube houses of 2–4 floors, big sheds and schools lower), each storey as
+// tall as the people and props are drawn (world.scale.fit: taller than the map scale on a small map,
+// or a storey would be shorter than a person). Walls in the pale colours of the street, schools yellow; some of the low houses
 // get a tiled hip roof, the rest the flat roof terrace. A band of windows on the taller ones glows
 // after dark (lamps(world).windowMat). Every building of a kind shares an InstancedMesh: 3 draw
 // calls (and their shadows) for the whole town. Buildings on a street, in the water, on the
 // railway, in a station yard or a landmark's square are left out; the ground under the rest is
 // claimed (site.claimRect) so trees keep off it.
-// Options: tall (1.5, × the real height), roofs (0.35, the share of low houses with a tiled roof).
-
-const FLOOR = 3.3; // metres
+// Options: roofs (0.35, the share of low houses with a tiled roof).
 const WALLS = ['#f3ead8', '#efe2c4', '#f4d9a8', '#e6ecee', '#f2cdbb', '#dfe8d6', '#f7f2e8', '#d6dde4', '#f0e0a8'];
 const KIND_WALLS = { school: ['#f2cf5b', '#efc84e'], public: ['#ece6da', '#e3ddd0'], commercial: ['#d3dae0', '#c9d1d8', '#e9ecee'], shelter: ['#a3aaae'] };
 const ROOFS = ['#b5563a', '#a84c33', '#c0663f', '#9a4a36'];
@@ -23,11 +23,13 @@ const ROOFS = ['#b5563a', '#a84c33', '#c0663f', '#9a4a36'];
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang xây nhà',
-  build(world, { rng, tall = 1.5, roofs: roofShare = 0.35 }) {
+  build(world, { rng, roofs: roofShare = 0.35 }) {
     const { cfg, site, terrain, track } = world;
     world.need('nhà từ dữ liệu bản đồ (cfg.buildings)', 'buildings', cfg.buildings?.length);
     const all = /** @type {NonNullable<typeof cfg.buildings>} */ (cfg.buildings);
     const mpu = cfg.metersPerUnit ?? 1;
+    const storey = world.scale.fit(SIZES.storey), parapet = world.scale.fit(0.6), shed = world.scale.fit(4.5);
+    world.scale.note('storey', storey, 'buildings');
     const half = world.size / 2 - 2;
     const pads = cfg.pads ?? [];
     const ground = terrain.meshHeightAt;
@@ -51,7 +53,7 @@ export default {
       }
       if (foot < WATER_Y + 0.5) continue;
       const floors = b.floors || likelyFloors(b.kind, length * width * mpu * mpu, rng);
-      const height = b.kind === 'shelter' ? 4.5 / mpu : ((floors * FLOOR + 0.6) / mpu) * tall;
+      const height = b.kind === 'shelter' ? shed : floors * storey + parapet;
       kept.push({ b, foot: foot - 0.1, height: height + (head - foot), floors });
       site.claimRect(x, z, length, width, angle, 0.4);
     }

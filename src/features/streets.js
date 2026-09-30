@@ -2,6 +2,7 @@
 import { RAIL_TOP, WATER_Y } from '../config.js';
 import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
+import { SIZES } from '../world/scale.js';
 
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
 // is drawn (terrain.meshHeightAt), a little wider than life so the small ones still show, busier
@@ -10,9 +11,12 @@ import { Paint } from '../world/roads/paint.js';
 // the railway it rises to the rails. Streets stop short of the station yards and the landmarks'
 // squares. All of it is vertex-coloured triangles in the world's batch: no draw call of its own.
 // The ground under the streets is claimed (site.claimRect) so houses and trees keep off it.
-// Options: widen (1.5, × the real width), min (0.7 units, the narrowest drawn).
+// Wide enough for the traffic drawn at world.scale: the real width, or its lanes at the props
+// scale if that is wider (on a small map, a real street would be narrower than a car).
 
 const RANK = ['track', 'service', 'pedestrian', 'living_street', 'residential', 'unclassified', 'road', 'tertiary', 'secondary', 'primary', 'trunk', 'motorway'];
+/** Traffic lanes by kind (alleys: one and a half — room to pass a motorbike). */
+const LANES = { motorway: 4, trunk: 4, primary: 4, secondary: 2, tertiary: 2, unclassified: 2, road: 2, residential: 1.5, living_street: 1, pedestrian: 1, service: 1, track: 1 };
 const MAIN = new Set(['secondary', 'primary', 'trunk', 'motorway']);
 /** @param {string} kind */
 const colorOf = (kind) => (kind === 'track' ? '#a48d6a' : MAIN.has(kind) ? '#55575c' : kind === 'tertiary' ? '#65676b' : '#8e8b85');
@@ -56,7 +60,7 @@ function openLine(pts) {
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang trải đường phố',
-  build(world, { widen = 1.5, min = 0.7 }) {
+  build(world) {
     const { cfg, site, terrain, track, batch } = world;
     world.need('đường phố từ dữ liệu bản đồ (cfg.roads)', 'streets', cfg.roads?.length);
     const roads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
@@ -69,10 +73,13 @@ export default {
       Math.abs(x) > half || Math.abs(z) > half || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
     const paint = new Paint();
     const piers = [];
+    const lane = world.scale.fit(SIZES.lane);
     const ordered = [...roads].sort((a, b) => RANK.indexOf(a.kind) - RANK.indexOf(b.kind));
     for (const road of ordered) {
       const rank = Math.max(0, RANK.indexOf(road.kind));
-      const w = Math.max(min, road.width * widen), hw = w / 2;
+      const lanes = LANES[road.kind] ?? 2;
+      const w = Math.max(road.width, lanes * lane), hw = w / 2;
+      if (lanes === 2) world.scale.note('lane', w / 2, 'streets');
       // Over the rails: up to the rail tops, ramping down either side (like a level crossing).
       const surface = (/** @type {number} */ lift) => (/** @type {number} */ x, /** @type {number} */ z) => {
         let h = Math.max(ground(x, z), deck);

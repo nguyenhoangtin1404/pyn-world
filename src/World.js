@@ -7,6 +7,9 @@ import { Sky } from './world/sky.js';
 import { Weather } from './world/weather.js';
 import { Site } from './world/site.js';
 import { createRivers } from './world/rivers.js';
+import { createScale } from './world/scale.js';
+import { PERSON_HEIGHT } from './world/people.js';
+import { GAUGE } from './config.js';
 import { StaticBatch, isShared } from './world/lowpoly.js';
 import { mulberry32 } from './utils.js';
 import { FEATURES } from './features/index.js';
@@ -32,6 +35,8 @@ export class World {
   constructor(cfg) {
     this.cfg = cfg;
     this.size = cfg.size;
+    /** How big things are drawn here: map and props scales, the size audit (world/scale.js). */
+    this.scale = createScale(cfg);
     /** Where the rivers are (world/rivers.js): distance(x, z), riverX for the one-river worlds. */
     this.rivers = createRivers(cfg);
     // Built by steps() — core:
@@ -181,6 +186,7 @@ export class World {
       step('Đang dựng cầu và tà vẹt', () => {
         const rails = buildTrackMeshes(this.track, this.heightAt, this.rivers.distance);
         this.bridges = rails.bridges;
+        this.scale.note('gauge', GAUGE, 'track');
         this.add({ group: rails.group });
         const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
         this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards, rivers: this.rivers });
@@ -201,6 +207,10 @@ export class World {
       }),
       step('Đang hoàn thiện', () => {
         for (const s of this.systems) s.finish?.();
+        for (const p of this.people) {
+          const person = /** @type {import('./world/people.js').Person} */ ('person' in p ? p.person : p);
+          if (!person.child) this.scale.note('person', PERSON_HEIGHT * person.group.scale.y, 'people'); // (not drawn at world.scale yet)
+        }
         scene.add(this.batch.build());
       }),
     ];

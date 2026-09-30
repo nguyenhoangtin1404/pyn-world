@@ -103,8 +103,10 @@ export interface WorldConfig {
   /** Worlds from map data, after load(): the streets (real width in units) and the buildings. */
   roads?: { kind: string; name: string; width: number; points: [number, number][] }[];
   buildings?: import('./world/geodata.js').Building[];
-  /** Worlds from map data: metres in one world unit. */
+  /** Worlds from map data: metres in one world unit (the map scale; 1 if absent). */
   metersPerUnit?: number;
+  /** How big the props are drawn (world/scale.js): outright, or `exaggerate` × the map scale. */
+  scale?: { props?: number; exaggerate?: number };
   /** Worlds from map data: fetch, check and project the data; the app awaits it before building. */
   load?(): Promise<void>;
   /** Worlds from map data, after load(): flat ground under the landmarks, and the landmarks. */
