@@ -32,28 +32,33 @@ const LED = ['#ff3b5c', '#ffb830', '#3bff7a', '#33c2ff', '#8a5bff', '#ff5bd6'];
 
 /**
  * The tower's columns. Two halves either side of the slot, which runs from the land to the sea: `i`
- * along it (6 rows, the first the land side), `j` out from it (0 at the slot), `side` which half (+1
- * on the right seen from the land). Each half is 50 columns in a wedge: the front (land side) a
- * narrow prow of a few low columns standing out from the rest, every row further back wider and
- * higher, up to the spire at the seaward end with three or four columns rising in steps beside it;
- * heights in metres.
+ * along it (8 rows, the first the land side), `j` out from it (0 at the slot), `side` which half (+1
+ * on the right seen from the land). Each half is 50 columns, its footprint a long wedge with a prow at
+ * both ends: at the front (land side) a narrow one of a few low columns standing out from the rest,
+ * every row behind it wider and higher, up to the spire (in the seventh row, at the slot); and behind
+ * the spire the tower does not stop but steps down again in two rows, a shorter prow at its back.
+ * Three or four columns round the spire rise in steps up to it; heights in metres.
  * @returns {{ i: number, j: number, side: 1 | -1, h: number, spire: boolean, near: number }[]} `near`: for the
  *   columns round a spire, how many columns away (1 to 4), else 0
  */
 export function columns() {
   const out = [];
-  const width = [4, 6, 8, 10, 11, 11]; // columns out from the slot in each row: 50
+  const width = [3, 5, 7, 8, 9, 10, 5, 3]; // columns out from the slot in each row: 50 (widest just before the spire's row)
+  const SPIRE_ROW = 6;
   for (const side of /** @type {const} */ ([1, -1])) {
     const top = side > 0 ? 30 : 35; // seen from the land: Âu Cơ on the right, Lạc Long Quân on the left
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < width.length; i++) {
       for (let j = 0; j < width[i]; j++) {
-        // From the prow up to the spire: each row a step higher, and each column out from the slot a step lower.
-        let h = top * (0.1 + 0.14 * i) - 2.4 * j + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
-        h = Math.max(1.2, Math.round(h / 1.2) * 1.2);
-        const spire = i === 5 && j === 0;
+        // From the front prow up to the spire a step higher each row, and down again behind it; each
+        // column out from the slot a step lower.
+        const row = i <= SPIRE_ROW ? 0.1 + 0.1 * i : 0.55 - 0.18 * (i - SPIRE_ROW - 1);
+        let h = top * row - 2.4 * j + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
+        h = Math.max(1.2, Math.min(Math.round(h / 1.2) * 1.2, Math.floor((top * 0.72) / 1.2) * 1.2)); // (none as high as the spire)
+        const spire = i === SPIRE_ROW && j === 0;
         // The columns round the spire rise in steps up to it: those a column away (along the slot or
         // out from it) at two thirds of its height, each further one (to four away) a step lower.
-        const near = spire ? 0 : 5 - i + j <= 4 ? 5 - i + j : 0;
+        const d = Math.abs(i - SPIRE_ROW) + j;
+        const near = spire ? 0 : d <= 4 ? d : 0;
         if (spire) h = top;
         else if (near) h = Math.max(h, Math.round((top * (0.68 - 0.12 * (near - 1))) / 1.2) * 1.2);
         out.push({ i, j, side, h, spire, near });
@@ -123,7 +128,7 @@ export default {
       }
     }
     // A band of steps across the square on the slant, from the foot of the tower towards its landward corner.
-    const A = [-3.5 * cell, 4 * cell], E = [-B + 1, R * 0.75];
+    const A = [-4.5 * cell, 4 * cell], E = [-B + 1, R * 0.75];
     const len = Math.hypot(E[0] - A[0], E[1] - A[1]), ux = (E[0] - A[0]) / len, uz = (E[1] - A[1]) / len, bw = 6 * map;
     for (let s = 0, i = 0; s + 1.2 * map < len; s += 2.4 * map, i++) {
       const q = (/** @type {number} */ t, /** @type {number} */ w) => W(A[0] + ux * t - uz * w, A[1] + uz * t + ux * w, 0.02);
@@ -156,7 +161,7 @@ export default {
     const cols = columns();
     // A honeycomb: rows along the slot, each row out from it offset by half a column and 0.87 of one
     // further out (hexagons, their flats towards their neighbours in the row, a corner to the slot).
-    const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 2.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
+    const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 3.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
     batch.at(site.x, base0, site.z, site.ry);
     const led = [];
     let peak = 0;
@@ -197,7 +202,7 @@ export default {
 
     // Lamp posts along the straight side and inside the railing.
     const post = (/** @type {number} */ lx, /** @type {number} */ lz) => {
-      if (Math.abs(lx) < 3.5 * cell + 1 && Math.abs(lz) < slot / 2 + 10.5 * cell + 1) return; // not in the tower's steps
+      if (Math.abs(lx) < 4.5 * cell + 1 && Math.abs(lz) < slot / 2 + 10.5 * cell + 1) return; // not in the tower's steps
       const [px, py, pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
       batch.at(px, py, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
       batch.add(box(0.72 * k, 0.2, 0.72 * k, '#fff4d6', [0, hy - 0.12, 0]), lampMat);
@@ -209,12 +214,12 @@ export default {
 
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
-    worldSite.solids.push({ x: sx, z: sz, r: 4.5 * cell, y0: base0, y1: base0 + peak });
+    worldSite.solids.push({ x: sx, z: sz, r: 5.5 * cell, y0: base0, y1: base0 + peak });
     const [px, , pz] = W(-B / 2, 0);
     worldSite.obstacles.push([px, pz, R]);
 
     // People walk round the tower on the square: a rounded box round it, inside the railing.
-    const hx2 = 3 * cell + 3 * map, hz = slot / 2 + 10.5 * cell + 3 * map;
+    const hx2 = 4.5 * cell + 3 * map, hz = slot / 2 + 10.5 * cell + 3 * map;
     const walk = Array.from({ length: 32 }, (_, i) => {
       const a = (i / 32) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
       const lx = Math.sign(c) * Math.abs(c) ** 0.4 * hx2, lz = Math.sign(s) * Math.abs(s) ** 0.4 * hz;

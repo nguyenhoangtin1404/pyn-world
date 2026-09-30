@@ -328,8 +328,8 @@ describe('Tháp Nghinh Phong (columns)', () => {
       const row = (i) => half.filter((c) => c.i === i);
       // The prow: the front row narrow and low; every row further back wider, and higher at the slot.
       expect(row(0).length).toBeLessThan(row(5).length);
-      for (let i = 1; i < 6; i++) {
-        expect(row(i).length).toBeGreaterThanOrEqual(row(i - 1).length);
+      for (let i = 1; i <= 6; i++) {
+        if (i <= 5) expect(row(i).length).toBeGreaterThanOrEqual(row(i - 1).length); // wider each row up to the spire's
         expect(Math.max(...row(i).map((c) => c.h))).toBeGreaterThan(Math.max(...row(i - 1).map((c) => c.h)));
       }
       expect(Math.max(...row(0).map((c) => c.h))).toBeLessThan(s.h * 0.2); // the nose at ground level
@@ -341,6 +341,13 @@ describe('Tháp Nghinh Phong (columns)', () => {
       expect(at(1)).toBeGreaterThan(s.h * 0.6);
       expect(half.filter((c) => c.near === 1).length).toBeGreaterThanOrEqual(2); // beside it on both sides
     }
-    expect(new Set(cols.map((c) => c.i)).size).toBe(6); // 6 columns of 2.5 m: the slot's 15 m
+    expect(new Set(cols.map((c) => c.i)).size).toBe(8); // 8 rows of 2.5 m: 6 of them the slot's 15 m, the prows beyond
+    // Behind the spire the tower steps down again, a short prow at its back, lower than the spire's row.
+    for (const s of spires) {
+      const back = cols.filter((c) => c.side === s.side && c.i === 7);
+      expect(back.length).toBeGreaterThan(0);
+      expect(Math.max(...back.map((c) => c.h))).toBeLessThan(s.h * 0.75);
+      expect(back.length).toBeLessThan(cols.filter((c) => c.side === s.side && c.i === 6).length);
+    }
   });
 });
