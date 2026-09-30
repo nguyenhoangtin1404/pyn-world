@@ -4,8 +4,11 @@ import { Site, CLAIM } from '../../src/world/site.js';
 import { createGrade } from '../../src/world/grade.js';
 import { fitOffStreets } from '../../src/features/buildings.js';
 import { pavementRoute } from '../../src/features/strollers.js';
+import { findJunctions, passes } from '../../src/features/citytraffic.js';
+import { LoopPath } from '../../src/world/vehicles/path.js';
 
-// A town's houses off its streets, people on its pavements, its streets graded smooth.
+// A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
+// they cross.
 
 describe('claimed ground by kind (Site)', () => {
   const cfg = { size: 100, riverX: () => 500 };
@@ -92,5 +95,34 @@ describe('streets graded smooth (createGrade)', () => {
     expect(grade(0, 20, ground(0, 20))).toBe(ground(0, 20));
     expect(grade(0, 0, -3)).toBe(-3);
     expect(createGrade([], ground, { size: 100, dry: -1 })).toBeNull();
+  });
+});
+
+describe('crossroads for traffic lights (findJunctions, passes)', () => {
+  const line = (x0, z0, x1, z1, n = 20) => Array.from({ length: n + 1 }, (_, i) => [x0 + ((x1 - x0) * i) / n, z0 + ((z1 - z0) * i) / n]);
+  it('finds where streets cross, not where they run side by side', () => {
+    const streets = [
+      { points: line(-50, 0, 50, 0) }, // along x
+      { points: line(10, -30, 10, 30) }, // across it at x = 10
+      { points: line(-50, 2, 50, 2.5) }, // alongside the first: no crossing with it
+      { points: line(11, -30, 12, 30) }, // across both, a unit or two from the second: the same crossing
+    ];
+    const found = findJunctions(streets);
+    expect(found).toHaveLength(1);
+    const [j] = found;
+    expect(j.p[0]).toBeCloseTo(10, 0);
+    expect(Math.abs(j.p[1])).toBeLessThan(5);
+    expect([...j.streets].sort()).toEqual([0, 1, 2, 3]);
+    expect(findJunctions([streets[0], streets[2]])).toEqual([]);
+  });
+  it('finds each lane of a street loop going past a crossing', () => {
+    // A street along x from 0 to 40, as its loop: out on one side (z = -1), back on the other (z = 1).
+    const path = new LoopPath([...line(0, -1, 40, -1), ...line(40, 1, 0, 1)]);
+    const at = passes(path, [20, 0], 2);
+    expect(at).toHaveLength(2);
+    expect(path.pointAt(at[0])[0]).toBeCloseTo(20);
+    expect(path.pointAt(at[0])[1]).toBeCloseTo(-1);
+    expect(path.pointAt(at[1])[1]).toBeCloseTo(1);
+    expect(passes(path, [20, 10], 2)).toEqual([]);
   });
 });

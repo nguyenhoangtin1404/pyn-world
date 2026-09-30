@@ -18,9 +18,11 @@ export const ARM_OPEN = 1.45; // radians up from level: the arm stands (nearly) 
 export class SignalProps {
   /**
    * @param {import('../lowpoly.js').StaticBatch} batch
+   * @param {number} [size] drawn this many times as big (world.scale.props)
    */
-  constructor(batch) {
+  constructor(batch, size = 1) {
     this.batch = batch;
+    this.size = size;
     this.group = new THREE.Group();
     /** @type {[THREE.Object3D, string][]} */
     this.lamps = [];
@@ -34,8 +36,9 @@ export class SignalProps {
     const o = new THREE.Object3D();
     o.position.set(x, y, z);
     o.rotation.y = h + Math.PI;
+    if (this.size !== 1) o.scale.setScalar(this.size);
     this.group.add(o);
-    this.batch.at(x, y, z, h + Math.PI);
+    this.batch.at(x, y, z, h + Math.PI, this.size);
     return o;
   }
 

@@ -184,6 +184,13 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một
     đường lên rồi xuống) bị cắt (`untangle`) — không thì làn về chồng lên nhau. Xe dừng cho người đi bộ
     (`world.pedestrians`); ở ngã tư không đèn, hai xe cùng thấy nhau thì xe trước trong danh sách đi trước.
+    **Đèn giao thông ở ngã tư thật** (`lights: true`): `findJunctions` tìm chỗ hai phố chính cắt nhau (góc
+    đủ lớn, gộp trong 5 đơn vị), ít nhất một phố có xe chạy. Mỗi ngã tư một `crossroads()` hai pha, lệch pha
+    ngẫu nhiên với ngã tư khác; mỗi làn qua ngã tư (`passes`) có điểm dừng + vạch dừng trắng lùi trước phố
+    kia (nửa bề rộng + vỉa hè), cột đèn trên vỉa hè bên phải — dời ra tối đa 1 đơn vị cho khỏi lòng đường,
+    cách đá ballast ray ≥ 1, không có chỗ thì bỏ cột (vạch dừng vẫn có). **Mọi pha đều phải `update`**, kể
+    cả pha không có cột đèn nào — từng quên: pha đứng đỏ mãi, xe kẹt 263 s. Phố chính không có xe cũng có
+    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
@@ -196,12 +203,12 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   = 1,5 m × props mỗi bên, vẽ màu xám nhạt ở lượt đầu, thấp hơn mọi lòng đường nên lòng phố cắt ngang
   che vỉa hè ở miệng phố). Nhà (`fitOffStreets`): thử 15 điểm trên móng, chạm vỉa hè/lòng đường thì cắt
   bớt phía giáp phố (còn 75 % / 55 % chiều dài hoặc rộng), không được thì bỏ. Người đi dạo
-  (`pavementRoute`): đi giữa vỉa hè, điểm rơi vào lòng phố khác thì đẩy ra ≤ 0,5, không được thì là chỗ
+  (`pavementRoute`): đi giữa vỉa hè, điểm rơi vào lòng phố khác thì đẩy ra ≤ 0,8, không được thì là chỗ
   băng qua đường (giữ), trừ ở hai đầu — không bắt đầu/kết thúc giữa lòng đường. **San mặt đường**
   (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
   ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
   world có `cfg.roads`), không san chỗ nước (cầu).
-- Chưa làm: đèn giao thông ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+- Chưa làm: người đi bộ theo đèn ở ngã tư thật (vạch sang đường), xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
   (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)

@@ -6,6 +6,31 @@ import { Vehicle } from '../world/vehicles/vehicle.js';
 import { KINDS } from '../world/vehicles/kinds.js';
 import { updateTraffic } from '../world/vehicles/traffic.js';
 import { SIZES } from '../world/scale.js';
+import { SignalProps } from '../world/roads/props.js';
+import { crossroads } from '../world/roads/signals.js';
+import { PAVEMENT } from './streets.js';
+import { CLAIM } from '../world/site.js';
+import { box } from '../world/lowpoly.js';
+
+/**
+ * Where a loop path goes past point p (within `near`): the distance along it of the nearest point
+ * of each pass (a street's loop passes a crossing twice, once in each lane).
+ * @param {LoopPath} path @param {[number, number]} p @param {number} near
+ * @returns {number[]}
+ */
+export function passes(path, [x, z], near) {
+  const pts = path.points, out = [];
+  let best = Infinity, at = -1;
+  for (let i = 0; i <= pts.length; i++) {
+    const d = i < pts.length ? Math.hypot(pts[i][0] - x, pts[i][1] - z) : Infinity;
+    if (d < near && d < best) [best, at] = [d, i];
+    else if (d >= near && at >= 0) {
+      out.push(path.at[at]);
+      [best, at] = [Infinity, -1];
+    }
+  }
+  return out;
+}
 
 // Traffic on a town's real streets (world.streets, from features/streets.js): motorbikes above all
 // (it's Vietnam), bicycles, cars, pickups and lorries, each up and down one of the longer main
@@ -13,9 +38,11 @@ import { SIZES } from '../world/scale.js';
 // vehicles are k times their size and live in the model's units (world / k), so the traffic rules
 // (world/vehicles/traffic.js — keeping their distance, the first of two at a crossing goes) and
 // their speeds are the same as anywhere. They stop for people on foot in the street
-// (world.pedestrians). Lights at dusk and in the rain, brake lights when braking; key 8 follows
-// them. Options: vehicles ({ kind: count }), routes (how many streets, 10), min (shortest street,
-// 60 units).
+// (world.pedestrians), and at red lights: where two of these streets cross (findJunctions) there
+// are traffic lights, two phases (roads/signals.js crossroads), a stop line before the crossing
+// street in each lane and a light on the pavement beside it. Head lights at dusk and in the rain,
+// brake lights when braking; key 8 follows them. Options: vehicles ({ kind: count }), routes (how
+// many streets, 10), min (shortest street, 60 units), lights (traffic lights, true).
 const MAIN = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified']);
 
 /**
@@ -34,11 +61,63 @@ export function untangle(pts, near) {
   return pts;
 }
 
+/**
+ * Where streets cross: every pair of segments of two different streets that cross at a good angle
+ * (not two streets running side by side), those within `merge` of each other taken as one.
+ * @param {{ points: [number, number][] }[]} streets
+ * @param {number} [merge]
+ * @returns {{ p: [number, number], streets: number[] }[]}
+ */
+export function findJunctions(streets, merge = 5) {
+  const CELL = 4;
+  /** @type {Map<string, [number, number][]>} grid cell → [street, segment] */
+  const grid = new Map();
+  const key = (/** @type {number} */ i, /** @type {number} */ j) => `${i},${j}`;
+  streets.forEach((st, a) => {
+    for (let i = 1; i < st.points.length; i++) {
+      const [ax, az] = st.points[i - 1], [bx, bz] = st.points[i];
+      for (let gx = Math.floor(Math.min(ax, bx) / CELL); gx <= Math.floor(Math.max(ax, bx) / CELL); gx++) {
+        for (let gz = Math.floor(Math.min(az, bz) / CELL); gz <= Math.floor(Math.max(az, bz) / CELL); gz++) {
+          const k = key(gx, gz);
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k)?.push([a, i]);
+        }
+      }
+    }
+  });
+  /** @type {{ p: [number, number], streets: number[] }[]} */
+  const found = [];
+  const seen = new Set();
+  for (const list of grid.values()) {
+    for (let m = 0; m < list.length; m++) {
+      for (let n = m + 1; n < list.length; n++) {
+        const [a, i] = list[m], [b, j] = list[n];
+        if (a === b || seen.has(`${a}:${i}:${b}:${j}`)) continue;
+        seen.add(`${a}:${i}:${b}:${j}`);
+        const [p0, p1] = [streets[a].points[i - 1], streets[a].points[i]], [q0, q1] = [streets[b].points[j - 1], streets[b].points[j]];
+        const rx = p1[0] - p0[0], rz = p1[1] - p0[1], sx = q1[0] - q0[0], sz = q1[1] - q0[1];
+        const cross = rx * sz - rz * sx;
+        const lr = Math.hypot(rx, rz), ls = Math.hypot(sx, sz);
+        if (!lr || !ls || Math.abs(cross) / (lr * ls) < 0.6) continue; // (nearly) side by side
+        const t = ((q0[0] - p0[0]) * sz - (q0[1] - p0[1]) * sx) / cross, u = ((q0[0] - p0[0]) * rz - (q0[1] - p0[1]) * rx) / cross;
+        if (t < 0 || t > 1 || u < 0 || u > 1) continue;
+        /** @type {[number, number]} */
+        const p = [p0[0] + rx * t, p0[1] + rz * t];
+        const near = found.find((f) => Math.hypot(f.p[0] - p[0], f.p[1] - p[1]) < merge);
+        if (near) {
+          for (const s of [a, b]) if (!near.streets.includes(s)) near.streets.push(s);
+        } else found.push({ p, streets: [a, b] });
+      }
+    }
+  }
+  return found;
+}
+
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang cho xe ra phố',
   needs: ['streets'],
-  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2 }, routes: routeCount = 10, min = 60 }) {
+  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2 }, routes: routeCount = 10, min = 60, lights = true }) {
     for (const kind of Object.keys(vehicles)) world.need(`loại xe có bánh (không phải "${kind}")`, 'citytraffic', KINDS[kind] && !KINDS[kind].flies);
     const k = world.scale.props;
     const along = (/** @type {[number, number][]} */ p) => p.reduce((sum, q, i) => sum + (i ? Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0), 0);
@@ -73,8 +152,70 @@ export default {
         const [rx, rz] = right(i);
         loop.push([(pts[i][0] - rx * off) / k, (pts[i][1] - rz * off) / k]);
       }
-      return { path: new LoopPath(loop), heightAt: st.heightAt, name: st.name };
+      return { path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
     });
+
+    // Traffic lights where the main streets cross: two phases (roads.signals.crossroads), each
+    // crossing out of step with the next; on each street, a stop line before the crossing street in
+    // both directions and a light on the right-hand pavement.
+    const props = new SignalProps(world.batch, k);
+    /** @type {{ signal: import('../world/roads/signals.js').SignalCycle, heads: import('../world/roads/props.js').LightHead[] }[]} */
+    const signals = [];
+    // Where a street with traffic crosses any main street (lights on that one too, though nothing
+    // drives it: it's the town's crossroads that have lights).
+    const others = world.streets.filter((s) => MAIN.has(s.kind) && s.length >= 10 && !streets.some((r) => r.points[0] === s.points[0]));
+    const all = [...streets, ...others];
+    const junctions = lights ? findJunctions(all).filter((j) => j.streets.some((si) => si < streets.length)) : [];
+    const headingNear = (/** @type {[number, number][]} */ pts, /** @type {[number, number]} */ p) => {
+      let best = Infinity, h = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const d = Math.hypot((pts[i][0] + pts[i - 1][0]) / 2 - p[0], (pts[i][1] + pts[i - 1][1]) / 2 - p[1]);
+        if (d < best) [best, h] = [d, Math.atan2(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])];
+      }
+      return h;
+    };
+    for (const j of junctions) {
+      const phases = crossroads({ offset: rng() * 40 }).map((signal) => ({ signal, heads: /** @type {import('../world/roads/props.js').LightHead[]} */ ([]) }));
+      // A light on the pavement at (x, z) facing traffic along h, moved out (up to a unit) off any
+      // carriageway or the railway there; left out if there's no room (the stop line still works).
+      const light = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ h, /** @type {typeof all[number]} */ st, /** @type {typeof phases[number]} */ phase) => {
+        const clearOf = (/** @type {number} */ px, /** @type {number} */ pz) => world.site.claimAt(px, pz) !== CLAIM.CARRIAGEWAY && world.track.distanceTo(px, pz, 6) > 3.6 * world.track.k + 1;
+        for (let d = 0; d <= 1; d += 0.25) {
+          const px = x - Math.cos(h) * d, pz = z + Math.sin(h) * d;
+          if (!clearOf(px, pz)) continue;
+          phase.heads.push(props.trafficLight(px, st.pavementAt(px, pz), pz, h));
+          return;
+        }
+      };
+      const h0 = headingNear(all[j.streets[0]].points, j.p);
+      for (const si of j.streets) {
+        const st = all[si], route = routes[si];
+        const hs = headingNear(st.points, j.p);
+        const phase = Math.abs(Math.cos(hs - h0)) > 0.7 ? phases[0] : phases[1];
+        const across = Math.max(...j.streets.filter((o) => o !== si).map((o) => all[o].width)) / 2 + PAVEMENT * k + 0.3; // stop short of the other street
+        if (!route) {
+          // A street without traffic: its lights, either way into the crossing.
+          for (const dir of [1, -1]) {
+            const h = hs + (dir < 0 ? Math.PI : 0), out = st.width / 4 + (PAVEMENT * k) / 2 + st.width / 4;
+            const sx = j.p[0] - Math.sin(h) * across, sz = j.p[1] - Math.cos(h) * across;
+            const x = sx - Math.cos(h) * out, z = sz + Math.sin(h) * out;
+            light(x, z, h, st, phase);
+          }
+          continue;
+        }
+        for (const s of passes(route.path, [j.p[0] / k, j.p[1] / k], (st.width / 2 + 0.5) / k)) {
+          const stop = route.path.wrap(s - across / k);
+          route.stops.push({ s: stop, blocked: (car, d) => phase.signal.stops(d, car.v) });
+          const [mx, mz] = route.path.pointAt(stop), h = route.path.headingAt(stop);
+          // The stop line across the lane.
+          world.batch.at(mx * k, st.heightAt(mx * k, mz * k) + 0.012, mz * k, h).add([box(st.width / 2 - 0.05, 0.02, 0.4 * k, '#f2f1ea')]);
+          const out = st.width / 4 + (PAVEMENT * k) / 2; // from the lane to the middle of the pavement, on the right
+          const x = mx * k - Math.cos(h) * out, z = mz * k + Math.sin(h) * out;
+          light(x, z, h, st, phase);
+        }
+      }
+      signals.push(...phases); // every phase runs, lit or not (a stop line with no room for its light still changes)
+    }
 
     const group = new THREE.Group();
     const fleet = new Fleet(vehicles);
@@ -91,9 +232,12 @@ export default {
       return { kind, r, n: onRoute[r]++ };
     });
     const cars = picks.map(({ kind, r, n }) => {
-      const { path, heightAt } = routes[r];
-      return new Vehicle({ kind, fleet, path, s: ((n + rng() * 0.5) / onRoute[r]) * path.length, rng, heightAt, k });
+      const { path, heightAt, stops } = routes[r];
+      const car = new Vehicle({ kind, fleet, path, s: ((n + rng() * 0.5) / onRoute[r]) * path.length, rng, heightAt, k });
+      car.stops = stops;
+      return car;
     });
+    group.add(props.build());
     for (const c of cars) group.add(c.group);
     world.vehicles.push(...cars);
     const count = {};
@@ -108,6 +252,11 @@ export default {
     return {
       group,
       update({ dt }) {
+        for (const { signal, heads } of signals) {
+          signal.update(dt);
+          const st = signal.state;
+          for (const head of heads) for (const c of /** @type {const} */ (['red', 'yellow', 'green'])) head[c].visible = st === c;
+        }
         people.length = 0;
         for (const w of world.pedestrians) people.push({ x: w.pos.x / k, z: w.pos.z / k });
         updateTraffic(cars, people, SIZES.lane / 2);
