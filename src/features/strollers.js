@@ -68,7 +68,7 @@ export default {
       if (lm.walk) {
         route = [...lm.walk, lm.walk[0]]; // its own loop, on its own paving
         const y = lm.walk[0].y;
-        floor = () => y;
+        floor = lm.walkHeight ?? (() => y);
       }
       else {
         if (!pad || pad.r < 10) continue; // a square to walk round, not a hilltop

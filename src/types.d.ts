@@ -71,8 +71,8 @@ export interface GeoRecipe {
   rail?: string | null;
   stops: GeoStopConfig[];
   /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
-  /** rotation: radians, or 'sea' — its front (local +x) facing the sea. */
-  landmarks?: { model: string; place: string; rotation?: number | 'sea'; peak?: number }[];
+  /** rotation: radians, 'sea' — its front (local +x) facing the sea, or 'street' — its straight side along the nearest street. */
+  landmarks?: { model: string; place: string; rotation?: number | 'sea' | 'street'; peak?: number }[];
   /** Land cover from the data: extra town circles (the town is also wherever the data's buildings
    *  stand close together; the rest follows height and the coast). */
   /** town: circles of town besides where the buildings stand close; fields: false — low open land is

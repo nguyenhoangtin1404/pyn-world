@@ -3,7 +3,10 @@ import { prepareWorldData } from '../world/geodata.js';
 import { NO_RIVER_GLSL } from '../world/rivers.js';
 import { createLandCover } from '../world/landcover.js';
 import { LANDMARKS } from '../landmarks/index.js';
-import { createScale } from '../world/scale.js';
+import { createScale, SIZES } from '../world/scale.js';
+import { PAVEMENT } from '../features/streets.js';
+
+const STREETS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'road']); // streets a landmark can lie along
 
 // A WorldConfig is the recipe for one world: everything that differs between worlds (layout,
 // names, seed). The builders in src/world/ read it instead of module constants, so a new world is
@@ -86,12 +89,23 @@ export function defineGeoWorld(recipe) {
             if (dx * dx + dz * dz <= peak * peak && d.heightAt(pl.p[0] + dx, pl.p[1] + dz) > d.heightAt(p[0], p[1])) p = [pl.p[0] + dx, pl.p[1] + dz];
           }
         }
+        const { radius, back = 0 } = LANDMARKS[model];
+        // 'street': its straight side (local −x, `back` from its centre) along the nearest street, flush
+        // with its pavement, its front (local +x) away from the street.
+        let rotation = 0;
+        const frame = turn === 'street' ? streetFrame(d.roads ?? [], p, STREETS) : null;
+        if (frame) {
+          const lane = Math.max(frame.half, scale.fit(SIZES.lane)); // (streets.js: at least two lanes wide)
+          const edge = lane + 0.4 * PAVEMENT * scale.props; // its side over the outer part of the pavement: no gap, the kerb still shows
+          p = [frame.q[0] + frame.n[0] * (edge + back * scale.map), frame.q[1] + frame.n[1] * (edge + back * scale.map)];
+          rotation = Math.atan2(-frame.n[1], frame.n[0]);
+        }
         const h = d.heightAt(p[0], p[1]);
-        const { radius } = LANDMARKS[model];
         cfg.pads.push({ x: p[0], z: p[1], r: typeof radius === 'function' ? radius(scale) : radius, h });
         // 'sea': its front (local +x) to the sea — down the slope of the distance to it.
         const s = 10, gx = d.seaDistanceAt(p[0] + s, p[1]) - d.seaDistanceAt(p[0] - s, p[1]), gz = d.seaDistanceAt(p[0], p[1] + s) - d.seaDistanceAt(p[0], p[1] - s);
-        const rotation = turn === 'sea' ? (Number.isFinite(gx + gz) ? Math.atan2(gz, -gx) : 0) : turn;
+        if (turn === 'sea') rotation = Number.isFinite(gx + gz) ? Math.atan2(gz, -gx) : 0;
+        else if (turn !== 'street') rotation = turn;
         return { id: place, name: pl.name, model, p, h, rotation };
       });
       const town = (recipe.landcover?.town ?? []).map(({ at, radius }) => ({ p: d.projection.toWorld(at[0], at[1]), r: d.projection.length(radius) }));
@@ -101,6 +115,36 @@ export function defineGeoWorld(recipe) {
     },
   };
   return cfg;
+}
+
+/**
+ * The street nearest p, and how a landmark with a straight side lies along it: where the street
+ * passes nearest (q), the unit normal from it towards p (n, away from the street), the street's
+ * half width. The tangent is taken over a few points round q, so a bend doesn't turn the landmark.
+ * @param {{ kind: string, width: number, points: [number, number][] }[]} roads @param {[number, number]} p
+ * @param {Set<string>} kinds the kinds of street that count
+ * @returns {{ q: [number, number], n: [number, number], half: number } | null}
+ */
+export function streetFrame(roads, p, kinds) {
+  let best = Infinity, found = null;
+  for (const r of roads) {
+    if (!kinds.has(r.kind)) continue;
+    for (let i = 1; i < r.points.length; i++) {
+      const [ax, az] = r.points[i - 1], [bx, bz] = r.points[i];
+      const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - az) * dz) / len2));
+      const q = /** @type {[number, number]} */ ([ax + dx * t, az + dz * t]);
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (d < best) [best, found] = [d, { r, i, q }];
+    }
+  }
+  if (!found) return null;
+  const { r, i, q } = found, pts = r.points;
+  const [ax, az] = pts[Math.max(0, i - 4)], [bx, bz] = pts[Math.min(pts.length - 1, i + 3)];
+  const len = Math.hypot(bx - ax, bz - az) || 1;
+  let nx = -(bz - az) / len, nz = (bx - ax) / len;
+  if (nx * (p[0] - q[0]) + nz * (p[1] - q[1]) < 0) [nx, nz] = [-nx, -nz];
+  return { q, n: [nx, nz], half: r.width / 2 };
 }
 
 /**

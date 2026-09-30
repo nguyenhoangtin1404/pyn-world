@@ -4,6 +4,7 @@ import { box, cyl, segment } from '../world/lowpoly.js';
 import { lamps } from '../features/lamps.js';
 import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
+import { WATER_Y } from '../config.js';
 import { toWorld } from './common.js';
 
 // Tháp Nghinh Phong, Tuy Hòa (HUNI architectes, 2021), after Gành Đá Đĩa's basalt columns and the
@@ -59,6 +60,7 @@ export function columns() {
 /** @type {import('./common.js').Landmark} */
 export default {
   name: 'Tháp Nghinh Phong',
+  back: BACK_M,
   // The flat ground under the tower and the seaward part of the square (the rest of it is laid on
   // the ground as it is, a wall where that falls away).
   radius: ({ map }) => 36 * map,
@@ -73,14 +75,29 @@ export default {
     // The half circle: centre on its straight side, B landward of the tower; round side to the sea.
     const n = 72;
     const arc = Array.from({ length: n + 1 }, (_, i) => -Math.PI / 2 + (Math.PI * i) / n).map((a) => [-B + R * Math.cos(a), R * Math.sin(a)]);
-    // Level with the highest ground under it (the ground never shows through the paving).
-    let top = site.y;
-    for (const [x, z] of [...arc, [-B, 0], [-B, R * 0.5], [-B, -R * 0.5], [0, 0], [-B / 2, R * 0.5], [-B / 2, -R * 0.5]]) {
-      const [wx, , wz] = L(x, z);
-      top = Math.max(top, ground(wx, wz));
+    // The paving, flush with the street's pavement along the straight side (a landmark along a
+    // street lies with local z along it): a plane through the pavement's level at points along that
+    // side, so it runs on from the street's own slope instead of standing a step above it. Where the
+    // ground is higher under the square, it is lifted (a little) so the ground doesn't show through.
+    const deck = WATER_Y + 0.9; // (streets.js: the level a street has where the ground is lower)
+    const edgeAt = (/** @type {number} */ lz) => { const [wx, , wz] = L(-B - 0.6, lz); return Math.max(ground(wx, wz), deck) + 0.05; };
+    // (A least-squares line through the pavement's level at 9 points along the side.)
+    let nz = 0, sumZ = 0, sumY = 0, sumZZ = 0, sumZY = 0;
+    for (let f = -0.9; f <= 0.91; f += 0.225) {
+      const lz = f * R, y = edgeAt(lz);
+      nz++, sumZ += lz, sumY += y, sumZZ += lz * lz, sumZY += lz * y;
     }
-    top += 0.12;
-    const W = (/** @type {number} */ lx, /** @type {number} */ lz, y = top) => /** @type {[number, number, number]} */ (toWorld(site, lx, y - site.y, lz));
+    const slope = (nz * sumZY - sumZ * sumY) / (nz * sumZZ - sumZ * sumZ);
+    let top0 = (sumY - slope * sumZ) / nz;
+    const H = (/** @type {number} */ lx, /** @type {number} */ lz) => top0 + slope * lz;
+    let lift = 0;
+    for (const [x, z] of [...arc, [-B / 2, 0], [0, 0], [-B / 2, R * 0.5], [-B / 2, -R * 0.5]]) {
+      const [wx, , wz] = L(x, z);
+      lift = Math.max(lift, ground(wx, wz) - H(x, z) - 0.03);
+    }
+    top0 += Math.min(0.25, lift);
+    const base0 = H(0, 0); // the tower's foot
+    const W = (/** @type {number} */ lx, /** @type {number} */ lz, dy = 0) => /** @type {[number, number, number]} */ (toWorld(site, lx, H(lx, lz) + dy - site.y, lz));
     const outward = (/** @type {number} */ ox, /** @type {number} */ oz) => /** @type {[number, number, number]} */ ([Math.cos(site.ry) * ox + Math.sin(site.ry) * oz, 0, -Math.sin(site.ry) * ox + Math.cos(site.ry) * oz]);
     const paint = new Paint();
 
@@ -91,10 +108,10 @@ export default {
     for (let row = 0, z = -R; z <= R; z += sp * 0.87, row++) {
       for (let x = -B + sp / 2 + (row % 2) * sp * 0.5; x < R - B; x += sp) {
         if (Math.hypot(x + B, z) > R - sp * 0.8) continue;
-        const c = W(x, z, top + 0.01);
+        const c = W(x, z, 0.01);
         for (let s = 0; s < 6; s++) {
           const a0 = (s / 6) * Math.PI * 2, a1 = ((s + 1) / 6) * Math.PI * 2;
-          paint.tri(c, W(x + Math.cos(a0) * hr, z + Math.sin(a0) * hr, top + 0.01), W(x + Math.cos(a1) * hr, z + Math.sin(a1) * hr, top + 0.01), TILE);
+          paint.tri(c, W(x + Math.cos(a0) * hr, z + Math.sin(a0) * hr, 0.01), W(x + Math.cos(a1) * hr, z + Math.sin(a1) * hr, 0.01), TILE);
         }
       }
     }
@@ -102,7 +119,7 @@ export default {
     const A = [-3.5 * cell, 4 * cell], E = [-B + 1, R * 0.75];
     const len = Math.hypot(E[0] - A[0], E[1] - A[1]), ux = (E[0] - A[0]) / len, uz = (E[1] - A[1]) / len, bw = 6 * map;
     for (let s = 0, i = 0; s + 1.2 * map < len; s += 2.4 * map, i++) {
-      const q = (/** @type {number} */ t, /** @type {number} */ w) => W(A[0] + ux * t - uz * w, A[1] + uz * t + ux * w, top + 0.02);
+      const q = (/** @type {number} */ t, /** @type {number} */ w) => W(A[0] + ux * t - uz * w, A[1] + uz * t + ux * w, 0.02);
       paint.quad(q(s, -bw / 2), q(s + 1.2 * map, -bw / 2), q(s + 1.2 * map, bw / 2), q(s, bw / 2), i % 2 ? STEP : TILE);
     }
     // Edges: a wall down to the ground wherever the ground falls away, a white band along the top,
@@ -110,11 +127,11 @@ export default {
     const edge = (/** @type {number[]} */ [ax, az], /** @type {number[]} */ [bx, bz], /** @type {[number, number, number]} */ want, rail = false) => {
       const a = W(ax, az), b = W(bx, bz);
       const ga = ground(a[0], a[2]) - 0.3, gb = ground(b[0], b[2]) - 0.3;
-      paint.quad([a[0], top - 0.12, a[2]], [b[0], top - 0.12, b[2]], [b[0], Math.min(gb, top - 0.12), b[2]], [a[0], Math.min(ga, top - 0.12), a[2]], WALL, want);
-      paint.quad([a[0], top + 0.04, a[2]], [b[0], top + 0.04, b[2]], [b[0], top - 0.12, b[2]], [a[0], top - 0.12, a[2]], FASCIA, want);
+      paint.quad([a[0], a[1] - 0.12, a[2]], [b[0], b[1] - 0.12, b[2]], [b[0], Math.min(gb, b[1] - 0.12), b[2]], [a[0], Math.min(ga, a[1] - 0.12), a[2]], WALL, want);
+      paint.quad([a[0], a[1] + 0.04, a[2]], [b[0], b[1] + 0.04, b[2]], [b[0], b[1] - 0.12, b[2]], [a[0], a[1] - 0.12, a[2]], FASCIA, want);
       if (!rail) return;
       const ang = Math.atan2(bx - ax, bz - az) + site.ry, seg = Math.hypot(bx - ax, bz - az), m = Math.max(map, 0.25);
-      batch.at(a[0], top, a[2], ang).add([box(0.1 * m, 2.2 * m, 0.1 * m, RAIL, [0, 1.1 * m, 0]), box(0.12 * m, 0.12 * m, seg, RAIL, [0, 2.2 * m, seg / 2])]);
+      batch.at(a[0], a[1], a[2], ang).add([box(0.1 * m, 2.2 * m, 0.1 * m, RAIL, [0, 1.1 * m, 0]), box(0.12 * m, 0.12 * m, seg, RAIL, [0, 2.2 * m, seg / 2])]);
     };
     for (let i = 0; i < n; i++) edge(arc[i], arc[i + 1], outward((arc[i][0] + arc[i + 1][0]) / 2 + B, (arc[i][1] + arc[i + 1][1]) / 2), true);
     edge(arc[n], arc[0], outward(-1, 0)); // the straight side
@@ -133,13 +150,14 @@ export default {
     // A honeycomb: rows along the slot, each row out from it offset by half a column and 0.87 of one
     // further out (hexagons, their flats towards their neighbours in the row, a corner to the slot).
     const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 2.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
-    batch.at(site.x, top, site.z, site.ry);
+    batch.at(site.x, base0, site.z, site.ry);
     const led = [];
     let peak = 0;
     for (const { i, j, side, h, spire } of cols) {
       const w = cell * (spire ? 0.78 : 0.97), hy = h * k, r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
       const [x, z0] = at(i, j, side), z = j === 0 ? z0 - side * (cell - w) * 0.58 : z0; // (the slot's edge kept straight)
-      batch.add(cyl(r, r, hy, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2, z], {}, 6));
+      // (Down a little below the paving, where it slopes away under the foot.)
+      batch.add(cyl(r, r, hy + 0.6, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2 - 0.3, z], {}, 6));
       peak = Math.max(peak, hy);
       if (j === 0 && !spire) {
         const rh = Math.min(hy, 10 * k) * 0.7;
@@ -155,29 +173,30 @@ export default {
     const ledMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
     const glow = segment(led, ledMat);
     glow.castShadow = false;
-    glow.position.set(site.x, top, site.z);
+    glow.position.set(site.x, base0, site.z);
     glow.rotation.y = site.ry;
     glow.visible = false;
     for (const c of cols.filter((c) => c.spire)) {
       const [x, z] = at(c.i, c.j, c.side);
-      halos.push(W(x, z, top + c.h * k));
+      const [hx0, , hz0] = W(x, z);
+      halos.push([hx0, base0 + c.h * k, hz0]);
     }
 
     // Lamp posts along the straight side and inside the railing.
     const post = (/** @type {number} */ lx, /** @type {number} */ lz) => {
       if (Math.abs(lx) < 3.5 * cell + 1 && Math.abs(lz) < slot / 2 + 10.5 * cell + 1) return; // not in the tower's steps
-      const [px, , pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
-      batch.at(px, top, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
+      const [px, py, pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
+      batch.at(px, py, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
       batch.add(box(0.72 * k, 0.2, 0.72 * k, '#fff4d6', [0, hy - 0.12, 0]), lampMat);
-      halos.push([px, top + hy - 0.12, pz]);
-      pools.push([px, top + 0.05, pz, 8 * k]);
+      halos.push([px, py + hy - 0.12, pz]);
+      pools.push([px, py + 0.05, pz, 8 * k]);
     };
     for (let z = -R * 0.8; z <= R * 0.8 + 0.01; z += (R * 1.6) / 5) post(-B + 1, z);
     for (let a = -1.2; a <= 1.21; a += 0.4) post(-B + (R - 1.5) * Math.cos(a), (R - 1.5) * Math.sin(a));
 
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
-    worldSite.solids.push({ x: sx, z: sz, r: 4.5 * cell, y0: top, y1: top + peak });
+    worldSite.solids.push({ x: sx, z: sz, r: 4.5 * cell, y0: base0, y1: base0 + peak });
     const [px, , pz] = W(-B / 2, 0);
     worldSite.obstacles.push([px, pz, R]);
 
@@ -186,14 +205,19 @@ export default {
     const walk = Array.from({ length: 32 }, (_, i) => {
       const a = (i / 32) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
       const lx = Math.sign(c) * Math.abs(c) ** 0.4 * hx2, lz = Math.sign(s) * Math.abs(s) ** 0.4 * hz;
-      const [wx, , wz] = W(lx, lz);
-      return new THREE.Vector3(wx, top, wz); // (y: the paving they walk on)
+      const [wx, wy, wz] = W(lx, lz);
+      return new THREE.Vector3(wx, wy, wz); // (y: the paving they walk on)
     });
 
     return {
-      spot: new THREE.Vector3(sx, top + peak * 0.4, sz),
+      spot: new THREE.Vector3(sx, base0 + peak * 0.4, sz),
       view: 3.2,
       walk,
+      walkHeight: (/** @type {number} */ x, /** @type {number} */ z) => {
+        // The paving under (x, z): its height by the plane, in the landmark's own frame.
+        const dx = x - site.x, dz = z - site.z, c = Math.cos(site.ry), s = Math.sin(site.ry);
+        return H(dx * c - dz * s, dx * s + dz * c);
+      },
       system: {
         group: new THREE.Group().add(glow),
         lateUpdate({ lights }) {
