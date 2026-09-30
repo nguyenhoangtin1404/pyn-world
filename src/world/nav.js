@@ -64,8 +64,10 @@ export class NavGrid {
    * @param walkHeight (x, z) → ground height people stand on
    * @param colliders circles {x, z, r} and boxes {x, z, w, d, rot}
    * @param radius clearance kept around obstacles (a person's half-width)
+   * @param site if given, its roads: carriageways are off limits, crosswalks are remembered
+   *   (`crossing` per cell, see crossingAt) so walkers can wait for the lights
    */
-  constructor(bounds, walkHeight, colliders, { cell = 1, radius = 0.3 } = {}) {
+  constructor(bounds, walkHeight, colliders, { cell = 1, radius = 0.3, site = null } = {}) {
     this.cell = cell;
     this.minX = bounds.minX;
     this.minZ = bounds.minZ;
@@ -111,6 +113,25 @@ export class NavGrid {
     }
     for (let k = 0; k < n; k++) if (ledge[k]) this.blocked[k] = 1;
     for (const c of colliders) this.rasterize(c, radius);
+    this.crossing = new Int16Array(n).fill(-1);
+    if (site?.walkMaps.length) {
+      for (let k = 0; k < n; k++) {
+        const i = k % this.nx, j = (k - i) / this.nx;
+        // Nine points across the cell (people walk anywhere in it): a cell wholly on a crosswalk is
+        // that crosswalk; otherwise one that touches the carriageway is off limits.
+        let road = false, cross = -2;
+        for (const u of [0.1, 0.5, 0.9]) {
+          for (const v of [0.1, 0.5, 0.9]) {
+            const x = this.minX + (i + u) * cell, z = this.minZ + (j + v) * cell;
+            const c = site.crossingAt(x, z);
+            cross = cross === -2 || cross === c ? c : -1;
+            if (c < 0 && site.roadAt(x, z) === 2) road = true; // CARRIAGEWAY (world/roads/walkmap.js)
+          }
+        }
+        this.crossing[k] = cross;
+        if (road) this.blocked[k] = 1;
+      }
+    }
     this.labelRegions();
   }
 
@@ -181,6 +202,12 @@ export class NavGrid {
     const i = k % this.nx;
     const j = (k - i) / this.nx;
     return out.set(this.minX + (i + 0.5) * this.cell, this.height[k], this.minZ + (j + 0.5) * this.cell);
+  }
+
+  // The crosswalk under (x, z) (index in site.crossings), -1 for none.
+  crossingAt(x, z) {
+    const k = this.index(x, z);
+    return k < 0 ? -1 : this.crossing[k];
   }
 
   isFree(x, z) {

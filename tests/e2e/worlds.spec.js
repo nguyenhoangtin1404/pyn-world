@@ -37,6 +37,16 @@ for (const { id } of WORLDS) {
         if (r.branches) expect(r.carsOnBranch, why('cars take the branch off the roundabout')).toBeGreaterThan(0);
         if (r.junctions) expect(r.boxConflicts, why('the crossroads lights keep the two roads apart')).toBe(0);
         if (r.junctions) expect(r.junctionCrossings, why('cars on the street go across the crossroads')).toBeGreaterThan(0);
+        expect(r.brakeLights, why('brake lights come on')).toBeGreaterThan(0);
+        expect(r.headlightsInRain, why('head lights come on in the rain')).toBeGreaterThan(0);
+      }
+      if (life.feet) {
+        const f = life.feet;
+        const why = (what) => `${what} — ${JSON.stringify(f)}`;
+        expect(f.onCarriageway, why('people keep off the carriageway but for the crosswalks')).toBe(0);
+        expect(f.redCrossings, why('nobody starts across while the lights say wait')).toBe(0);
+        expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
+        expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }
       expect(page.errors).toEqual([]);
     });

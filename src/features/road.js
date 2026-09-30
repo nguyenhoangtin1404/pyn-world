@@ -1,14 +1,17 @@
 // @ts-check
 import { RAIL_TOP, WATER_Y } from '../config.js';
-import { LoopPath, OpenPath, roundedRect } from '../world/vehicles/path.js';
+import { LoopPath, OpenPath, arc, roundedRect } from '../world/vehicles/path.js';
 import { angleOf, layoutRoads, layoutStreet, wrapAngle } from '../world/roads/network.js';
 import { Paint } from '../world/roads/paint.js';
+import { CARRIAGEWAY, CROSSWALK, SIDEWALK, WalkMap } from '../world/roads/walkmap.js';
 import { ARM_OPEN, SignalProps } from '../world/roads/props.js';
 import { CrossingGate, SignalCycle, crossroads, trainNear } from '../world/roads/signals.js';
 import { smoothstep } from '../utils.js';
 
 const RAIL_CLEAR = 6; // road edge to the middle of the track: clear of the ballast and the trains
 const GATE_BACK = 7; // a level crossing's stop lines, from the middle of the track along the road
+const SIDE = 1.6; // sidewalk width
+const PAVEMENT = '#bcb8af', KERB = '#9d988f';
 const ASPHALT = '#5a5c61', LINE = '#eeeeea', CENTRE = '#f2e6c0', GRASS = '#6f9a4a', CURB = '#f1f1ec', RED = '#c8322b';
 /** @type {Record<string, [number, number]>} */
 const SIDES = { a0: [-1, 0], a1: [1, 0], b0: [0, -1], b1: [0, 1] };
@@ -28,6 +31,9 @@ const SIDES = { a0: [-1, 0], a1: [1, 0], b0: [0, -1], b1: [0, 1] };
 //   the zone to a turning circle `length` from the roundabout's centre. Where it crosses the railway
 //   it gets a level crossing: barriers that come down, and lamps that flash, when a train is near
 // - lights: [{ side, at }] (or just sides): a zebra crossing on the ring with traffic lights
+// - sidewalks (SIDE wide, a kerb up from the road) along the ring and the streets and round their
+//   circles, and a walk map (world/roads/walkmap.js) for the people: they keep off the carriageway
+//   except at the crosswalks, which have their own lights (walk while the cars have red)
 // - junctions: [{ side, at, in, out, cycle }] (or just sides): a crossroads with traffic lights — a
 //   two-way street straight across that side of the ring, `in` units (18) into the zone and `out`
 //   (16) out of it to a turning circle at each end. The lights let the ring and the street go in turn
@@ -127,9 +133,51 @@ export default {
 
     const paint = new Paint();
     const props = new SignalProps(batch);
+
+    // Where people may walk: carriageways and sidewalks are marked as each piece is laid,
+    // crosswalks with the lights below.
+    const bounds = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+    const grow = (/** @type {[number, number]} */ [x, z], /** @type {number} */ r) => {
+      bounds.minX = Math.min(bounds.minX, x - r);
+      bounds.maxX = Math.max(bounds.maxX, x + r);
+      bounds.minZ = Math.min(bounds.minZ, z - r);
+      bounds.maxZ = Math.max(bounds.maxZ, z + r);
+    };
+    for (const p of net.ring.points) grow(p, half + SIDE + 1);
+    if (net.circle) grow(net.circle.c, net.circle.outer + SIDE + 1);
+    if (net.branch && net.turnaround) {
+      grow(net.branch.from, 8);
+      grow(net.turnaround.c, net.turnaround.outer + 1);
+    }
+    for (const st of streets) for (const T of [st.from, st.to]) grow(T, st.turn.outer + SIDE + 1);
+    const walk = new WalkMap(bounds);
+    site.walkMaps.push(walk);
+    /** @type {{ walk(): boolean, heads: ReturnType<SignalProps['walkSignal']>[] }[]} */
+    const crosswalks = [];
+    /**
+     * A crosswalk across a road from s0 to s1 along `line` (a lane of `hl` either side of it):
+     * zebra stripes, and a pedestrian light at each end facing across.
+     * @param {{ pointAt(s: number): [number, number], headingAt(s: number): number }} line
+     * @param {number} s0 @param {number} s1 @param {number} hl @param {() => boolean} may
+     */
+    const crosswalk = (line, s0, s1, hl, may) => {
+      const cid = site.crossings.push({ walk: may }) - 1;
+      walk.strip(line, s0 - 0.6, s1 + 0.6, -hl, hl, CROSSWALK, cid); // a little wider than the stripes, so whole nav cells fit
+      for (let off = -hl + 0.55; off < hl - 0.4; off += 1) paint.strip(line, s0, s1, off, off + 0.5, lift(0.14), LINE);
+      const sm = (s0 + s1) / 2, [x, z] = line.pointAt(sm), h = line.headingAt(sm);
+      const lx = Math.cos(h), lz = -Math.sin(h), k = hl + 0.9;
+      const heads = [1, -1].map((side) => {
+        const px = x + lx * k * side, pz = z + lz * k * side;
+        site.colliders.push({ x: px, z: pz, r: 0.2 });
+        return props.walkSignal(px, ground(px, pz), pz, Math.atan2(lx * side, lz * side));
+      });
+      crosswalks.push({ walk: may, heads });
+    };
     // A turning circle at the end of a road that comes from the direction of `from`.
-    const turningCircle = (/** @type {[number, number]} */ T, /** @type {number} */ outer, /** @type {[number, number]} */ from) => {
+    const turningCircle = (/** @type {[number, number]} */ T, /** @type {number} */ outer, /** @type {[number, number]} */ from, pavement = false) => {
       for (let t = 0; t < Math.PI * 2; t += 0.1) check(T[0] + Math.sin(t) * outer, T[1] + Math.cos(t) * outer);
+      walk.ring(T, 0, outer, CARRIAGEWAY);
+      if (pavement) walk.ring(T, outer, outer + SIDE, SIDEWALK);
       paint.ring(T, 0, outer, 0, 0, circleH, ASPHALT);
       edgeWithGaps(paint, T, outer, [angleOf(T, from)], circleMark);
       island(paint, props, T, 2.4, islandH, circleH);
@@ -145,6 +193,9 @@ export default {
       check(x - Math.cos(h) * half, z + Math.sin(h) * half);
     }
     paint.strip(ringLine, 0, L, -half, half, ringH, ASPHALT);
+    walk.strip(ringLine, 0, L, -half, half, CARRIAGEWAY);
+    walk.strip(ringLine, 0, L, half, half + SIDE, SIDEWALK);
+    walk.strip(ringLine, 0, L, -half - SIDE, -half, SIDEWALK);
     // Edge lines broken where a street crosses (its asphalt lies over the ring's there).
     const crossed = streets.flatMap((st) => {
       const s = ringLine.nearest(st.p[0], st.p[1]).s, h = st.width / 2 + 0.3;
@@ -155,7 +206,7 @@ export default {
       paint.strip(ringLine, f, t, -half + 0.2, -half + 0.35, ringMark, LINE);
     }
     const zebras = lights.map((l) => onSide(typeof l === 'string' ? { side: l } : l).p);
-    const near = (/** @type {[number, number]} */ [x, z]) => [...zebras, ...streets.map((st) => st.p)].some((p) => Math.hypot(x - p[0], z - p[1]) < 5.5);
+    const near = (/** @type {[number, number]} */ [x, z]) => [...zebras, ...streets.map((st) => st.p)].some((p) => Math.hypot(x - p[0], z - p[1]) < 7.5);
     paint.dashes(ringLine, net.ring.closed ? 0 : 2, L - 2, -0.08, 0.08, ringMark, CENTRE, 2.4, 6, (s) => near(ringLine.pointAt(s + 1.2)));
     for (let s = 0; s < L; s += 6) {
       const [x, z] = ringLine.pointAt(s);
@@ -168,6 +219,8 @@ export default {
       const { c, inner, outer } = circle;
       for (let t = 0; t < Math.PI * 2; t += 0.1) check(c[0] + Math.sin(t) * outer, c[1] + Math.cos(t) * outer);
       paint.ring(c, inner, outer, 0, 0, circleH, ASPHALT);
+      walk.ring(c, 0, outer, CARRIAGEWAY); // the island too: nobody goes there
+      walk.ring(c, outer, outer + SIDE, SIDEWALK);
       paint.ring(c, inner + 0.2, inner + 0.35, 0, 0, circleMark, LINE);
       edgeWithGaps(paint, c, outer, circle.joins, circleMark);
       island(paint, props, c, inner, islandH, circleH);
@@ -185,6 +238,7 @@ export default {
         if (s % 4 === 0) site.obstacles.push([x, z, W + 4]);
       }
       paint.strip(branchLine, 0, len, -W, W, branchH, ASPHALT);
+      walk.strip(branchLine, 0, len, -W, W, CARRIAGEWAY); // a country road: no sidewalk
       paint.wall(branchLine, 0, len, W, branchH, ground, '#77736b');
       paint.wall(branchLine, 0, len, -W, branchH, ground, '#77736b');
       // Markings stop at the rails, and where the turning circle's asphalt starts.
@@ -211,6 +265,9 @@ export default {
         if (s % 4 === 0) site.obstacles.push([x, z, W + 4]);
       }
       paint.strip(line, 0, len, -W, W, branchH, ASPHALT);
+      walk.strip(line, 0, len, -W, W, CARRIAGEWAY);
+      walk.strip(line, 0, len, W, W + SIDE, SIDEWALK);
+      walk.strip(line, 0, len, -W - SIDE, -W, SIDEWALK);
       // Markings: none across the ring; the centre line solid coming up to the lights.
       const solid = [mid - 10, mid + 10];
       for (const [f, t] of spans(st.turn.outer - 0.2, len - st.turn.outer + 0.2, [[mid - half - 0.3, mid + half + 0.3]])) {
@@ -219,8 +276,8 @@ export default {
         for (const [f2, t2] of spans(f, t, [solid])) paint.dashes(line, f2, t2, -0.08, 0.08, branchMark, CENTRE, 2.4, 6);
         if (solid[1] > f && solid[0] < t) paint.strip(line, Math.max(f, solid[0]), Math.min(t, solid[1]), -0.08, 0.08, branchMark, CENTRE);
       }
-      turningCircle(st.from, st.turn.outer, st.to);
-      turningCircle(st.to, st.turn.outer, st.from);
+      turningCircle(st.from, st.turn.outer, st.to, true);
+      turningCircle(st.to, st.turn.outer, st.from, true);
     }
 
     // What stops the traffic, and where on each route.
@@ -255,8 +312,8 @@ export default {
     const signals = [];
     for (const p of zebras) {
       const r0 = routes[0].path, sz = r0.nearest(p[0], p[1]).s;
-      for (let off = -half + 0.55; off < half - 0.4; off += 1) paint.strip(r0, sz - 1.5, sz + 1.5, off, off + 0.5, lift(0.14), LINE);
       const signal = new SignalCycle({ offset: rng() * 26 });
+      crosswalk(r0, sz - 1.5, sz + 1.5, half, () => signal.walk());
       const at = r0.pointAt(sz - 3.2);
       const h = stopLine(at, half, (car, d) => signal.stops(d, car.v));
       if (h === null) continue;
@@ -279,16 +336,21 @@ export default {
         site.colliders.push({ x, z, r: 0.3 });
         heads.push(props.trafficLight(x, ground(x, z), z, h));
       };
+      // A crosswalk on each of the four arms, between the stop line and the middle: across the ring
+      // while the ring has red, across the street while the street has red.
       const r0 = routes[0].path, sc = r0.nearest(st.p[0], st.p[1]).s;
-      const at = r0.pointAt(sc - 4.5);
+      for (const k of [-1, 1]) crosswalk(r0, sc + (k < 0 ? -5.7 : 3.2), sc + (k < 0 ? -3.2 : 5.7), half, () => ringSignal.walk());
+      const streetLine = new OpenPath([st.from, st.to]), mid = Math.hypot(st.p[0] - st.from[0], st.p[1] - st.from[1]);
+      for (const k of [-1, 1]) crosswalk(streetLine, mid + (k < 0 ? -5.2 : 2.7), mid + (k < 0 ? -2.7 : 5.2), st.width / 2, () => streetSignal.walk());
+      const at = r0.pointAt(sc - 6.4);
       const h = stopLine(at, half, (car, d) => ringSignal.stops(d, car.v));
       if (h !== null) for (const side of [1, -1]) light([at[0] + Math.cos(h) * (half + 0.8) * side, at[1] - Math.sin(h) * (half + 0.8) * side], h, ringHeads);
       const { dir, right, lane } = st, W = st.width / 2;
       for (const way of [1, -1]) {
         /** @type {(k: number, side: number) => [number, number]} */
         const pt = (k, side) => [st.p[0] + dir[0] * k * way + right[0] * side * way, st.p[1] + dir[1] * k * way + right[1] * side * way];
-        const hs = stopLine(pt(-3.5, lane), lane, (car, d) => streetSignal.stops(d, car.v));
-        light(pt(-3.5, W + 0.8), hs ?? Math.atan2(dir[0] * way, dir[1] * way), streetHeads);
+        const hs = stopLine(pt(-5.9, lane), lane, (car, d) => streetSignal.stops(d, car.v));
+        light(pt(-5.9, W + 0.8), hs ?? Math.atan2(dir[0] * way, dir[1] * way), streetHeads);
       }
       signals.push({ signal: ringSignal, heads: ringHeads }, { signal: streetSignal, heads: streetHeads });
       crossroadsAt.push({ p: st.p, signals: [ringSignal, streetSignal] });
@@ -334,6 +396,49 @@ export default {
       }
     }
 
+    // Sidewalks, wherever the walk map still says sidewalk (not where another road crosses): paving
+    // a kerb's height up, with a kerb face on either side.
+    const sideH = lift(0.22);
+    /** @param {{ pointAt(s: number): [number, number], headingAt(s: number): number }} line @param {number} len @param {number} l0 @param {number} l1 */
+    const pave = (line, len, l0, l1) => {
+      for (let s = 0; s < len; s += 1) {
+        const e = Math.min(len, s + 1), [x, z] = line.pointAt((s + e) / 2), h = line.headingAt((s + e) / 2), m = (l0 + l1) / 2;
+        if (walk.at(x + Math.cos(h) * m, z - Math.sin(h) * m) !== SIDEWALK) continue;
+        paint.strip(line, s, e, l0, l1, sideH, PAVEMENT);
+        const [near, far] = Math.abs(l0) < Math.abs(l1) ? [l0, l1] : [l1, l0];
+        paint.wall(line, s, e, near, sideH, ground, KERB, -Math.sign(near));
+        paint.wall(line, s, e, far, sideH, ground, KERB, Math.sign(far));
+      }
+    };
+    /** @param {[number, number]} c @param {number} r */
+    const paveRound = (c, r) => {
+      const n = Math.ceil((Math.PI * 2 * (r + SIDE)) / 1.2);
+      for (let i = 0; i < n; i++) {
+        const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
+        if (walk.at(c[0] + Math.sin(am) * (r + SIDE / 2), c[1] + Math.cos(am) * (r + SIDE / 2)) !== SIDEWALK) continue;
+        paint.ring(c, r, r + SIDE, a0, a1, sideH, PAVEMENT);
+        // Going round the way angles grow, the centre is to the left.
+        const inner = new OpenPath(arc(c, r, a0, a1, 0.3)), outer = new OpenPath(arc(c, r + SIDE, a0, a1, 0.3));
+        paint.wall(inner, 0, inner.length, 0, sideH, ground, KERB, 1);
+        paint.wall(outer, 0, outer.length, 0, sideH, ground, KERB, -1);
+      }
+    };
+    pave(ringLine, L, half, half + SIDE);
+    pave(ringLine, L, -half - SIDE, -half);
+    if (circle) paveRound(circle.c, circle.outer);
+    for (const st of streets) {
+      const line = new OpenPath([st.from, st.to]), W = st.width / 2;
+      pave(line, line.length, W, W + SIDE);
+      pave(line, line.length, -W - SIDE, -W);
+      paveRound(st.from, st.turn.outer);
+      paveRound(st.to, st.turn.outer);
+    }
+    // People stand on the sidewalks and the road, not on the grass under them.
+    site.addSurface((x, z) => {
+      const k = walk.at(x, z);
+      return k === SIDEWALK ? sideH(x, z) : k ? circleH(x, z) : -Infinity;
+    });
+
     batch.at(0, 0, 0, 0).add(paint.geometry() ?? []);
     const group = props.build();
     const trainLength = () => (world.train ? world.train.cars.at(-1).offset + 6 : 0);
@@ -342,6 +447,13 @@ export default {
     return {
       group,
       update({ dt }) {
+        for (const { walk: may, heads } of crosswalks) {
+          const ok = may();
+          for (const head of heads) {
+            head.walk.visible = ok;
+            head.stop.visible = !ok;
+          }
+        }
         for (const { signal, heads } of signals) {
           signal.update(dt);
           const st = signal.state;

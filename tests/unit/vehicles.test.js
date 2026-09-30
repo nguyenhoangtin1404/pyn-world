@@ -42,11 +42,25 @@ describe('vehicle kinds', () => {
 describe('Fleet', () => {
   it('draws each kind with a few instanced meshes, however many vehicles', () => {
     const fleet = new Fleet({ car: 5, bicycle: 2, plane: 1 });
-    // car: body + wheel, bicycle: body + wheel, plane: body + prop + lights
-    expect(fleet.meshes.length).toBe(7);
+    // car: body + wheel, bicycle: body + wheel, plane: body + prop + lights; and for the whole fleet
+    // the road vehicles' lamps and their pools of light.
+    expect(fleet.meshes.length).toBe(9);
     const a = fleet.add('car', '#c8453a');
     expect(a.wheels.length).toBe(4);
     expect(fleet.add('plane', '#ffffff').prop).not.toBeNull();
+    expect(fleet.add('plane', '#ffffff').lamps).toBeNull(); // planes have their own lights
+  });
+
+  it('gives road vehicles head and tail lamps, dark until lit', () => {
+    const fleet = new Fleet({ car: 1, bicycle: 1 });
+    const car = fleet.add('car', '#c8453a').lamps, bike = fleet.add('bicycle', '#c8453a').lamps;
+    expect(car.head).toHaveLength(2);
+    expect(car.tail).toHaveLength(2);
+    expect(bike.head).toHaveLength(1);
+    for (const a of [...car.head, ...car.tail, car.beam]) expect(a.visible).toBe(false);
+    expect(car.head[0].position.z).toBeGreaterThan(0); // at the front (+z)
+    expect(car.tail[0].position.z).toBeLessThan(0);
+    expect(fleet.lamps.mesh.count).toBe(2 + 2 + 1 + 1);
   });
 
   it('refuses kinds it does not know', () => {
@@ -65,6 +79,23 @@ describe('Vehicle', () => {
     const w = car.wheels[0];
     expect(w.rotation.x).toBeCloseTo(car.s / KINDS.car.wheelR, 0);
     expect(car.group.position.y).toBe(1); // on the ground
+  });
+
+  it('lights: head lights when told, brake lights when slowing or held', () => {
+    const car = make('car');
+    for (let i = 0; i < 100; i++) car.update(0.1);
+    car.light(false);
+    expect(car.lamps.head[0].visible).toBe(false);
+    expect(car.lamps.tail[0].visible).toBe(false); // cruising in daylight
+    car.limit = 0;
+    car.update(0.1);
+    car.light(false);
+    expect(car.braking).toBe(true);
+    expect(car.lamps.tail[0].visible).toBe(true); // braking
+    expect(car.lamps.head[0].visible).toBe(false);
+    car.light(true);
+    expect(car.lamps.head[0].visible).toBe(true);
+    expect(car.lamps.beam.visible).toBe(true);
   });
 
   it('never goes over the limit the traffic gives it', () => {

@@ -99,6 +99,11 @@ export function simulate() {
     gateClosings: 0, carsAtGate: 0, carsAtRed: 0, carsOnBranch: 0, overlaps: 0, longestStop: 0, boxConflicts: 0, junctionCrossings: 0,
   };
   const wasDown = gates.map(() => false);
+  // People on foot by the roads: off the carriageway except at crosswalks, onto those only on green.
+  const walkers = W.people.filter((w) => w.area);
+  const onCrossing = walkers.map(() => -1);
+  const feet = { walkers: walkers.length, onCarriageway: 0, redCrossings: 0, crossings: 0, waits: 0 };
+  const lights = { brakeLights: 0, headlightsInRain: 0 };
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
@@ -125,6 +130,25 @@ export function simulate() {
       if (new Set(inside.map(groupOf)).size > 1) road.boxConflicts++;
       for (const c of inside) if (groupOf(c) !== 'ring') crossedJunction.add(c);
     }
+    if (W.site.crossings.length) {
+      walkers.forEach((w, k) => {
+        if (!w.group.visible || w.mode) return;
+        const { x, z } = w.pos;
+        const c = w.area.nav.crossingAt(x, z); // the crosswalk as the walkers see it (whole nav cells)
+        if (W.site.crossingAt(x, z) < 0 && W.site.roadAt(x, z) === 2) feet.onCarriageway++;
+        if (c >= 0 && onCrossing[k] < 0) {
+          feet.crossings++;
+          if (!W.site.crossings[c].walk()) feet.redCrossings++;
+        }
+        onCrossing[k] = c;
+        if (w.waiting) feet.waits++;
+      });
+    }
+    for (const c of cars) {
+      if (!c.lamps) continue;
+      if (i < 1500 && c.lamps.tail[0].visible) lights.brakeLights++;
+      if (i > 1600 && c.lamps.head[0].visible) lights.headlightsInRain++;
+    }
     for (const w of W.people) {
       if (w.mode === 'boarding') s.boarding++;
       if (w.mode === 'alighting') s.alighting++;
@@ -145,7 +169,8 @@ export function simulate() {
   road.carsOnBranch = onBranch.size;
   road.junctionCrossings = crossedJunction.size;
   road.longestStop = Math.round(road.longestStop);
-  if (cars.length) s.road = road;
+  if (cars.length) s.road = { ...road, ...lights };
+  if (W.site.crossings.length) s.feet = feet;
   W.weather.set('clear');
   return s;
 }

@@ -43,6 +43,15 @@ export class SignalCycle {
     const s = this.state;
     return s === 'red' || (s === 'yellow' && d > (v * v) / 12);
   }
+
+  /**
+   * May people start across the road here? While the cars have red, and only while there are still
+   * `margin` seconds of it left to get to the other side.
+   * @param {number} [margin]
+   */
+  walk(margin = 4) {
+    return this.state === 'red' && this.period - this.t > margin;
+  }
 }
 
 /**

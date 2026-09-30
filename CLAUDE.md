@@ -135,6 +135,15 @@ features: [
     quay đầu. Đèn hai pha (`crossroads()` trong `signals.js`): đường vòng xanh thì phố đỏ và ngược lại,
     giữa hai pha đỏ cả hai hướng `clear` giây (mặc định xanh 12 / vàng 3 / clear 2). Xe trên phố chạy
     tuyến riêng (qua ngã tư cả hai chiều); vạch dừng lùi đủ xa để xe chờ không chắn làn kia.
+  - **Vỉa hè** (rộng 1,6, cao hơn mặt đường một bó vỉa) dọc đường vòng, phố và quanh các vòng tròn; nhánh ra
+    chắn tàu là đường quê, không có vỉa hè. Vẽ theo **bản đồ đi bộ** `WalkMap` (`world/roads/walkmap.js`,
+    ô 0,5): vỉa hè / lòng đường / vạch sang đường; chỗ đường khác cắt qua thì không vẽ vỉa hè. Người đứng
+    trên vỉa hè nhờ `site.addSurface`.
+  - **Người đi bộ tuân theo đèn**: `NavGrid` (`world/nav.js`, nhận `{ site }`) chặn mọi ô chạm lòng đường,
+    trừ ô nằm trọn trên vạch sang đường (ô đó nhớ chỉ số trong `site.crossings`). Dân làng sắp bước lên vạch
+    thì hỏi `site.crossings[i].walk()`; chưa được thì đứng chờ ở mép (`w.waiting`, `features/villagers.js`).
+    Đèn đi bộ (đỏ/xanh, `props.walkSignal`) ở hai đầu mỗi vạch; được đi khi xe đang đỏ và đỏ còn > 4 s
+    (`SignalCycle.walk()`). Ngã tư có vạch trên cả 4 nhánh (vạch dừng lùi ra sau vạch sang đường).
   - Vạch kẻ: viền trắng hai mép, vạch giữa đứt (liền gần chắn tàu), vạch dừng, vạch nhường ở lối vào
     vòng xoay, vạch sang đường. Tất cả (cả mặt nhựa, đảo giữa vòng xoay) là tam giác tô màu theo đỉnh
     (`world/roads/paint.js`) gộp vào `world.batch` → không tốn draw call riêng; bóng đèn sáng và thanh
@@ -149,7 +158,13 @@ features: [
   Xe xuất phát rải đều trên đoạn đường chung của nhóm tuyến, tránh vạch dừng và ô ngã tư.
   E2E tua 300 s kiểm tra: không hai xe nào chồng lên nhau (hình chữ nhật thân xe), không xe nào đứng
   ≥ 60 s (kẹt), thanh chắn hạ, xe chờ ở chắn tàu và đèn đỏ, xe đi ra nhánh, xe trên phố qua ngã tư,
-  và không bao giờ có xe đường vòng lẫn xe trên phố cùng ở giữa ngã tư.
+  và không bao giờ có xe đường vòng lẫn xe trên phố cùng ở giữa ngã tư; không ai đứng trên lòng đường
+  (ngoài vạch sang đường), không ai bước lên vạch khi đèn bảo chờ, có người chờ rồi qua; đèn phanh và
+  đèn pha (khi mưa) có bật.
+- **Đèn xe** (`KINDS[kind].lamps: { head, tail }`): đèn pha + đèn hậu sáng khi trời tối (`f.lights > 0,3`)
+  hoặc u ám (mưa/tuyết), đèn hậu sáng cả khi phanh (`vehicle.braking`: giảm tốc mạnh hoặc bị giữ đứng
+  yên). Mỗi xe một vũng sáng trên đường phía trước lúc tối. Cả đội xe chỉ 2 InstancedMesh (mọi bóng đèn,
+  mọi vũng sáng), vũng sáng ẩn cả mesh ban ngày. Không có đèn thật (xem quy tắc render).
 - `aircraft`: máy bay bay vòng trên cao (110 m trở lên, trên khinh khí cầu), nghiêng cánh khi rẽ, đèn
   đầu cánh không phụ thuộc ánh sáng. Camera phím 7.
 - **Thêm loại xe mới**: một mục trong `KINDS` (`vehicles/kinds.js`): `body()` (phần sơn dùng `PAINT` →

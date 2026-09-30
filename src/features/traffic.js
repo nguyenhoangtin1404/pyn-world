@@ -9,7 +9,8 @@ import { updateTraffic } from '../world/vehicles/traffic.js';
 // pedalling), shared out between its routes — round the ring, out along the branch and back, or
 // to and fro along a street across the ring.
 // They keep their distance, stop for people crossing, at red lights and closed level crossings, and
-// give way on the roundabout. Followed by the vehicle camera (key 8). Options: road (id; default
+// give way on the roundabout. Head and tail lights come on at dusk and in bad weather, brake
+// lights whenever they brake. Followed by the vehicle camera (key 8). Options: road (id; default
 // the last road built), vehicles ({ kind: count }, kinds in world/vehicles/kinds.js).
 /** @type {import('../types').Feature} */
 export default {
@@ -69,6 +70,12 @@ export default {
         for (const w of world.people) if (w.group.visible) people.push(w.pos);
         updateTraffic(cars, people, road.width / 2);
         for (const c of cars) c.update(dt);
+      },
+      // Lights on after dusk and in rain or snow; brake lights whenever braking.
+      lateUpdate({ lights, overcast }) {
+        const on = lights > 0.3 || overcast > 0.6;
+        fleet.beamsOn = on;
+        for (const c of cars) c.light(on);
       },
     };
   },

@@ -99,3 +99,16 @@ describe('crossroads', () => {
     expect(new SignalCycle({ green: 10, yellow: 2, red: 5, offset: 17 + 11 }).state).toBe('yellow');
   });
 });
+
+describe('SignalCycle.walk', () => {
+  it('lets people start across only while the cars have red, and not in its last seconds', () => {
+    const s = new SignalCycle({ green: 10, yellow: 2, red: 8 });
+    expect(s.walk()).toBe(false); // green for the cars
+    s.t = 11; // yellow
+    expect(s.walk()).toBe(false);
+    s.t = 13; // red, 7 s left
+    expect(s.walk()).toBe(true);
+    s.t = 17; // red, 3 s left: not enough to get across
+    expect(s.walk()).toBe(false);
+  });
+});
