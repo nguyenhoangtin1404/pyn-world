@@ -13,6 +13,10 @@ import * as THREE from 'three';
  */
 
 const col = new THREE.Color();
+/** @type {Map<string, [number, number, number]>} colour name → linear r, g, b (parsed once) */
+const rgb = new Map();
+/** @type {[number, number, number]} */
+const UP = [0, 1, 0];
 
 export class Paint {
   constructor() {
@@ -28,14 +32,16 @@ export class Paint {
    * @param {string} color
    * @param {[number, number, number]} [want]
    */
-  tri(a, b, c, color, want = [0, 1, 0]) {
+  tri(a, b, c, color, want = UP) {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
     const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    if (nx * want[0] + ny * want[1] + nz * want[2] < 0) [b, c] = [c, b];
-    this.pos.push(...a, ...b, ...c);
-    col.set(color);
-    for (let i = 0; i < 3; i++) this.col.push(col.r, col.g, col.b);
+    const flip = nx * want[0] + ny * want[1] + nz * want[2] < 0;
+    const p = flip ? c : b, q = flip ? b : c;
+    this.pos.push(a[0], a[1], a[2], p[0], p[1], p[2], q[0], q[1], q[2]);
+    let v = rgb.get(color);
+    if (!v) rgb.set(color, (v = [col.set(color).r, col.g, col.b]));
+    this.col.push(v[0], v[1], v[2], v[0], v[1], v[2], v[0], v[1], v[2]);
   }
 
   /**

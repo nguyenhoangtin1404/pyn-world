@@ -14,6 +14,10 @@ const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0); // instance matrix of a c
 // - surfaces: extra ground to walk on — (x, z) → height, or -Infinity (platforms, house floors)
 // - walkMaps: sidewalks, carriageways (people keep off) and crosswalks by the roads
 //   (world/roads/walkmap.js); crossings: each crosswalk's { walk() } — may people start across?
+// - claimed ground (claimRect / claimed): a raster of half-unit cells taken by things too many to
+//   keep as obstacles — a town's streets and thousands of houses (features/streets.js, buildings.js)
+const CLAIM_CELL = 0.5;
+
 export class Site {
   // `yards`: points kept clear around the stops with a yard (cfg.stops[].yard).
   constructor({ cfg, track, heightAt, tunnel, yards, rivers }) {
@@ -31,6 +35,36 @@ export class Site {
     this.walkMaps = [];
     /** @type {{ walk(): boolean }[]} */
     this.crossings = [];
+    /** @type {Uint8Array | null} made on the first claim */
+    this.claims = null;
+  }
+
+  /**
+   * Take the ground under a rectangle (centre, length along `angle` — a rotation.y — and width),
+   * grown by `margin` all round: nothing else is put there (spotOK).
+   * @param {number} x @param {number} z @param {number} length @param {number} width @param {number} angle @param {number} [margin]
+   */
+  claimRect(x, z, length, width, angle, margin = 0) {
+    const n = Math.ceil(this.size / CLAIM_CELL);
+    this.claims ??= new Uint8Array(n * n);
+    const c = Math.cos(angle), s = Math.sin(angle), hl = length / 2 + margin, hw = width / 2 + margin;
+    const ex = Math.abs(c) * hl + Math.abs(s) * hw, ez = Math.abs(s) * hl + Math.abs(c) * hw;
+    const cell = (v) => Math.floor((v + this.size / 2) / CLAIM_CELL);
+    for (let i = Math.max(0, cell(z - ez)); i <= Math.min(n - 1, cell(z + ez)); i++) {
+      for (let j = Math.max(0, cell(x - ex)); j <= Math.min(n - 1, cell(x + ex)); j++) {
+        const dx = (j + 0.5) * CLAIM_CELL - this.size / 2 - x, dz = (i + 0.5) * CLAIM_CELL - this.size / 2 - z;
+        // Local axes: length along (cos, -sin) in (x, z), width across it.
+        if (Math.abs(dx * c - dz * s) <= hl && Math.abs(dx * s + dz * c) <= hw) this.claims[i * n + j] = 1;
+      }
+    }
+  }
+
+  /** Is (x, z) claimed ground? @param {number} x @param {number} z */
+  claimed(x, z) {
+    if (!this.claims) return false;
+    const n = Math.ceil(this.size / CLAIM_CELL);
+    const i = Math.floor((z + this.size / 2) / CLAIM_CELL), j = Math.floor((x + this.size / 2) / CLAIM_CELL);
+    return i >= 0 && j >= 0 && i < n && j < n && this.claims[i * n + j] === 1;
   }
 
   // What the roads make of (x, z) for someone on foot: 0, SIDEWALK, CARRIAGEWAY or CROSSWALK.
@@ -61,6 +95,7 @@ export class Site {
     if (track.distanceTo(x, z, clearTrack) < clearTrack) return null;
     if (this.rivers.distance(x, z) < 17) return null;
     for (const p of yards) if (Math.hypot(x - p.x, z - p.z) < 30) return null;
+    if (this.claimed(x, z)) return null;
     for (const [ox, oz, r] of this.obstacles) if (Math.hypot(x - ox, z - oz) < r) return null;
     return h;
   }

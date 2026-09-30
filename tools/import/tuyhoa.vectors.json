@@ -9,7 +9,7 @@
   "sea": ["east"],
   "sources": {
     "elevation": "SRTM 1 arc-second (NASA/USGS, public domain) via AWS Terrain Tiles",
-    "vectors": "traced by hand from the elevation data (approximate: replace with OpenStreetMap when it can be fetched)"
+    "vectors": "places traced by hand, checked against the street map; railway, streets, buildings, rivers and lakes from the map extract (--osm) — the hand-traced river and railway here are used only without one"
   },
   "rivers": [
     {
@@ -21,15 +21,15 @@
   ],
   "rails": [
     {
-      "id": "bac-nam",
+      "id": "duong-sat-bac-nam",
       "name": "Đường sắt Bắc – Nam",
       "points": [[13.1150, 109.2878], [13.1050, 109.2922], [13.0980, 109.2948], [13.0930, 109.2963], [13.0870, 109.2972], [13.0820, 109.2975], [13.0760, 109.2978], [13.0700, 109.2982], [13.0610, 109.2986]]
     }
   ],
   "places": [
-    { "id": "nghinh-phong", "name": "Tháp Nghinh Phong", "kind": "landmark", "at": [13.0963, 109.3270] },
+    { "id": "nghinh-phong", "name": "Tháp Nghinh Phong", "kind": "landmark", "at": [13.0917, 109.3262] },
     { "id": "thap-nhan", "name": "Núi Nhạn – Tháp Nhạn", "kind": "landmark", "at": [13.0819, 109.3014] },
-    { "id": "ga-tuy-hoa", "name": "Ga Tuy Hòa", "kind": "station", "at": [13.0930, 109.2963] },
+    { "id": "ga-tuy-hoa", "name": "Ga Tuy Hòa", "kind": "station", "at": [13.0882, 109.2973] },
     { "id": "chop-chai", "name": "Núi Chóp Chài", "kind": "peak", "at": [13.1133, 109.2725] }
   ]
 }

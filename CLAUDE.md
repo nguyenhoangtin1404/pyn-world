@@ -102,7 +102,7 @@ sách feature**).
   PYN ↔ MAPLE nhiều vòng, số geometry/texture/shader trên GPU không tăng, heap JS gần như phẳng
   (~0,2 MB mỗi lần đổi).
 
-## Thế giới từ bản đồ thật (giai đoạn 0–1)
+## Thế giới từ bản đồ thật (giai đoạn 0–2)
 
 World dựng từ dữ liệu thật (`src/worlds/tuyhoa.js`: Tuy Hòa, Phú Yên) dùng `defineGeoWorld()` thay cho
 `defineWorld()`: công thức chỉ nêu file dữ liệu, đường ray nào, các điểm dừng (đặt theo **tên địa danh**
@@ -115,10 +115,35 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   `rivers` (đường gấp khúc + bề rộng mét), `rails`, `places`. `checkWorldData()` liệt kê **từng** lỗi.
 - **Dựng file**: `node tools/import/build.mjs tools/import/<id>.vectors.json [--osm osm.json]` — độ cao
   SRTM 1″ (tự tải vào `.cache/dem`, không commit), biển = đất ≤ 0 m nối với mép biển (`sea: ['east']`)
-  → bờ biển thật. Sông/ray/địa danh lấy từ file công thức (vẽ tay) hoặc OpenStreetMap (Overpass JSON
-  `out geom`, `tools/import/osm.mjs`). **Môi trường này chặn OpenStreetMap** (overpass-api.de,
-  geofabrik): sông, ray, địa danh của Tuy Hòa hiện **vẽ tay theo độ cao, gần đúng** — thay bằng OSM khi
-  mở được mạng. SRTM là public domain; dùng OSM thì ghi nguồn (ODbL).
+  → bờ biển thật (đáy biển `SEA_BED` = −10 m). Ray, **phố, nhà, sông hồ dạng vùng** lấy từ bản trích
+  OpenStreetMap (Overpass JSON `out geom`, `tools/import/osm.mjs`); thiếu thì dùng sông/ray vẽ tay trong
+  công thức; địa danh của công thức thắng địa danh trùng id. **Môi trường này chặn OpenStreetMap**
+  (overpass-api.de, geofabrik) nhưng vào được **Overture Maps** trên S3 (dữ liệu OSM đóng gói lại):
+  `pip install pyarrow shapely` rồi `python3 tools/import/overture.py tools/import/tuyhoa.vectors.json >
+  .cache/overture/tuyhoa.json` (chỉ đọc phần trong hộp, ~40 s) → `--osm .cache/overture/tuyhoa.json`.
+  Bản trích ghi đúng dạng Overpass (thẻ OSM) nên OSM thật dùng y như vậy. Ghi nguồn ODbL (`sources.map`,
+  README).
+- **Mặt nước dạng vùng** (sông Đà Rằng có cồn bãi, hồ): điểm lưới độ cao nằm trong vùng (trừ đảo) thành
+  −4 m → nước tự hiện, `rivers` bỏ trống (sông vẽ tay rộng 1 km từng đè lên cả làng trên bãi bồi).
+  `seaDistanceAt` chỉ tính tới **biển** (bãi cát/phi lao ven biển, không ven hồ). Địa hình không lấp chỗ
+  nước này khi san hành lang đường ray (cầu tự có).
+- **Phố + nhà** (định dạng: `roads` [{kind, name?, points}], `buildings` {count, data} — 7 số Int16 mỗi
+  nhà: tâm dm đông/bắc của `frame.center`, dài, rộng dm, hướng 0,01°, số tầng, loại; `encodeBuildings` /
+  `decodeBuildings`). Mỗi nhà là **hình chữ nhật nhỏ nhất bao móng** (`footprintRect`). Feature
+  `streets` (`features/streets.js`): vẽ bằng `Paint` vào `world.batch` theo `meshHeightAt`, rộng ×`widen`
+  (1,5, tối thiểu 0,7), đường lớn đè đường nhỏ, vạch giữa đứt; qua nước thành cầu (mặt cầu ngang bờ,
+  thành cầu, trụ), qua ray thì dốc lên đỉnh ray; tránh sân ga, pad công trình. Feature `buildings`
+  (`features/buildings.js`): 3 InstancedMesh (khối nhà, mái ngói chóp cho nhà thấp < 220 m², dải cửa sổ
+  dùng `lamps(world).windowMat` → sáng ban đêm); cao = số tầng (bản đồ hoặc `likelyFloors`) × 3,3 m ×
+  `tall` (1,5); bỏ nhà trên phố, dưới nước, sát ray, trong sân ga/pad. Cả hai **claim** mặt đất
+  (`site.claimRect`, lưới ô 0,5 → `spotOK` từ chối) để cây không mọc lên phố/nhà — nhiều nghìn vật,
+  không dùng `obstacles` (quét tuyến tính). Thứ tự: `'station', 'landmarks', 'streets', 'buildings',
+  'trees', …`. Lớp phủ `town` giờ tính từ **mật độ nhà** (`builtUp`, ô 5 đơn vị, > 5 % mặt đất có mái),
+  vòng `landcover.town` vẫn dùng được.
+- Đo (2026-09-30, Tuy Hòa, Chromium GPU phần mềm): 891 phố + 26 417 nhà; dựng phố 1 104 → 211 ms (tra điểm
+  nhị phân, `Paint.tri` không cấp phát, màu parse 1 lần, `meshHeightAt` nhớ độ cao góc lưới — PYN/MAPLE
+  giữ nguyên golden), nhà 70 ms; file dữ liệu 88 → 720 KB (330 KB gzip, chỉ tải khi mở Tuy Hòa); draw
+  call góc mặc định 82 → 113.
 - **Chiếu** (`world/geo.js`): phẳng quanh tâm, bắc = −z, đông = +x. Mặt đất: `WATER_Y + 0,6 +
   mét / metersPerUnit × verticalScale`; đáy biển (−10 m) dưới mặt nước → bờ biển tự hiện.
 - **Sông** qua `world.rivers` (`world/rivers.js`): `distance(x, z)` (0–5 là lòng sông, 16 là lên bờ, như
@@ -139,12 +164,13 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   Phong (tầng lục giác xoắn + cột đá bazan, dải LED đổi màu ban đêm, quảng trường + lối ra biển), Tháp
   Nhạn (tháp Chăm gạch). Cao hơn thật (×3–5) cho dễ nhìn trên sa bàn.
 - **Lớp phủ đất** (`world/landcover.js`, `cfg.landcover(x, z)`): biển / bãi cát (< 150 m từ biển) / dải
-  phi lao ven biển (< 500 m) / phố (vòng `landcover.town` trong công thức, mép lượn theo nhiễu) / rừng
+  phi lao ven biển (< 500 m) / phố (nơi nhà dày — `builtUp` — và/hoặc vòng `landcover.town` trong công thức, mép lượn theo nhiễu) / rừng
   (> 25 m) / ruộng (< 12 m) / cỏ. Địa hình tô màu theo nó (ruộng thành ô bàn cờ), `trees` trồng theo
   `TREE_COVER` (giữ bao nhiêu, bao nhiêu thông). World không có `landcover` (PYN/MAPLE) không đổi gì.
 - **Mặt trời theo vĩ độ** (`sunDirection(giờ, vĩ độ, ngày)` trong `sky.js`, `cfg.latitude`, `cfg.sunDay`
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
-- Chưa làm: phố + nhà theo OSM (giai đoạn 2), tàu không bắt buộc, sa bàn chữ nhật.
+- Chưa làm: xe chạy trên phố thật, người đi bộ trong phố, nhà theo đúng hình móng (chữ L…), tàu không
+  bắt buộc, sa bàn chữ nhật.
 
 ## Phương tiện (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay)
 

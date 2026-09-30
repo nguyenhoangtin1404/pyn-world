@@ -59,6 +59,9 @@ export function defineGeoWorld(recipe) {
       cfg.heights = d.heightAt;
       cfg.rivers = d.rivers;
       cfg.places = d.places;
+      cfg.roads = d.roads;
+      cfg.buildings = d.buildings;
+      cfg.metersPerUnit = d.projection.metersPerUnit;
       const line = clipToSquare(rail.points, recipe.size / 2 - 12); // ends a little inside the edge
       if (line.length < 2) throw new Error(`World "${recipe.id}": đường ray không đi qua sa bàn`);
       cfg.track = () => line;
@@ -84,7 +87,7 @@ export function defineGeoWorld(recipe) {
         return { id: place, name: pl.name, model, p, h, rotation };
       });
       const town = (recipe.landcover?.town ?? []).map(({ at, radius }) => ({ p: d.projection.toWorld(at[0], at[1]), r: d.projection.length(radius) }));
-      cfg.landcover = createLandCover(d, { town });
+      cfg.landcover = createLandCover(d, { town, buildings: d.buildings, size: recipe.size });
       cfg.latitude = d.projection.center[0];
       cfg.sunDay = recipe.sunDay ?? 80;
     },

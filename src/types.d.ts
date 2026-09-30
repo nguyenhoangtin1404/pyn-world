@@ -67,7 +67,8 @@ export interface GeoRecipe {
   stops: GeoStopConfig[];
   /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
   landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
-  /** Land cover from the data: where the town is (the rest follows height and the coast). */
+  /** Land cover from the data: extra town circles (the town is also wherever the data's buildings
+   *  stand close together; the rest follows height and the coast). */
   landcover?: { town?: { at: [number, number]; radius: number }[] };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
@@ -99,6 +100,11 @@ export interface WorldConfig {
   heights?: (x: number, z: number) => number;
   rivers?: { id: string; name: string; width: number; points: [number, number][] }[];
   places?: Record<string, { id: string; name: string; kind: string; at: [number, number]; p: [number, number] }>;
+  /** Worlds from map data, after load(): the streets (real width in units) and the buildings. */
+  roads?: { kind: string; name: string; width: number; points: [number, number][] }[];
+  buildings?: import('./world/geodata.js').Building[];
+  /** Worlds from map data: metres in one world unit. */
+  metersPerUnit?: number;
   /** Worlds from map data: fetch, check and project the data; the app awaits it before building. */
   load?(): Promise<void>;
   /** Worlds from map data, after load(): flat ground under the landmarks, and the landmarks. */
