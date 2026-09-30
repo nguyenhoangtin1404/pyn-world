@@ -163,7 +163,7 @@ export default {
     // further out (hexagons, their flats towards their neighbours in the row, a corner to the slot).
     const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 3.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
     batch.at(site.x, base0, site.z, site.ry);
-    const led = [], beams = [];
+    const led = [], beams = [], lit = [], stones = [];
     let peak = 0;
     for (const { i, j, side, h, spire, near } of cols) {
       const w = cell * (spire ? 0.78 : 0.97), hy = h * k * (spire ? SPIRE : near ? 1 + (SPIRE - 1) * 0.85 * (1 - (near - 1) / 4) : 1), r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
@@ -176,15 +176,26 @@ export default {
         batch.add(box(w * 0.8, rh, 0.04, RELIEF, [x, rh / 2 + 0.3 * k, side * (slot / 2 - 0.02)]));
       }
       // At night: a lamp set on top of every other brick (a chessboard: a lit one, dark neighbours),
-      // in the brick's colour, throwing a soft beam up that spills over the dark ones beside it.
+      // in the brick's colour, its light washing over the faces of the taller stones beside it.
       if (!spire && (i + j) % 2 === 0) {
         const colour = LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length];
         led.push(cyl(r * 0.8, r * 0.8, 0.14 * k, colour, [x, hy + 0.07 * k, z], {}, 6));
-        beams.push(cyl(r * 1.9, r * 0.7, 2.4 * k, colour, [x, hy + 1.2 * k, z], {}, 6));
+        lit.push({ x, z, hy, colour });
       }
+      stones.push({ x, z, hy, w });
       if (spire) led.push(cyl(r * 1.06, r * 1.06, 0.6 * k, '#ff2b2b', [x, hy - 0.4 * k, z], {}, 6));
       const [cx, , cz] = W(x, z);
       worldSite.colliders.push({ x: cx, z: cz, r: cell * 0.7 });
+    }
+    // Each lamp lights only what its light reaches: the faces of the taller stones beside it, from the
+    // lamp up a few metres (a thin sheet on the stone, not a beam in the air).
+    for (const l of lit) {
+      for (const n of stones) {
+        const dx = l.x - n.x, dz = l.z - n.z, d = Math.hypot(dx, dz);
+        if (d > cell * 1.25 || d < 0.01 || n.hy < l.hy + 0.3 * k) continue;
+        const top = Math.min(n.hy, l.hy + 3 * k), h = top - l.hy - 0.05 * k;
+        beams.push(box(n.w * 0.8, h, 0.05 * k, l.colour, [n.x + (dx / d) * (n.w / 2 + 0.03 * k), l.hy + 0.05 * k + h / 2, n.z + (dz / d) * (n.w / 2 + 0.03 * k)], { ry: Math.atan2(dx, dz) }));
+      }
     }
     // The LED glow: its own material (it fades in at dusk — never a shared one), drawn unlit.
     const ledMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
@@ -194,7 +205,7 @@ export default {
     glow.rotation.y = site.ry;
     glow.visible = false;
     const beamMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-    const beam = segment(beams, beamMat);
+    const beam = segment(beams.length ? beams : [box(0.01, 0.01, 0.01, '#000', [0, -50, 0])], beamMat);
     beam.castShadow = false;
     beam.position.copy(glow.position);
     beam.rotation.y = site.ry;
@@ -234,7 +245,7 @@ export default {
         lateUpdate({ lights }) {
           const o = Math.max(0, Math.min(0.85, (lights - 0.2) * 2));
           ledMat.opacity = o;
-          beamMat.opacity = o * 0.3;
+          beamMat.opacity = o * 0.5;
           glow.visible = beam.visible = o > 0;
         },
       },
