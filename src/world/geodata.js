@@ -122,13 +122,60 @@ export function prepareWorldData(d) {
     const m = (at(r0, c0) * (1 - fc) + at(r0, c0 + 1) * fc) * (1 - fr) + (at(r0 + 1, c0) * (1 - fc) + at(r0 + 1, c0 + 1) * fc) * fr;
     return shore + projection.height(m);
   };
+  // Metres above sea (the sea bed below 0), nearest grid point; and how far the nearest sea is.
+  const cell = (/** @type {number} */ x, /** @type {number} */ z) => {
+    const [lat, lon] = projection.toLatLon(x, z);
+    const r = Math.round(((north - lat) / (north - south)) * (rows - 1)), c = Math.round(((lon - west) / (east - west)) * (cols - 1));
+    return Math.min(rows - 1, Math.max(0, r)) * cols + Math.min(cols - 1, Math.max(0, c));
+  };
+  const seaDist = seaDistances(metres, rows, cols, ((north - south) * 111195) / (rows - 1));
   const project = (/** @type {LatLon[]} */ pts) => pts.map(([lat, lon]) => projection.toWorld(lat, lon));
   return {
     name: d.name,
     projection,
     heightAt,
+    /** Metres above sea at (x, z) (nearest data point; the sea is below 0). */
+    elevationAt: (/** @type {number} */ x, /** @type {number} */ z) => metres[cell(x, z)],
+    /** Metres to the nearest sea from (x, z) (nearest data point; Infinity with no sea). */
+    seaDistanceAt: (/** @type {number} */ x, /** @type {number} */ z) => seaDist[cell(x, z)],
     rivers: d.rivers.map((r) => ({ id: r.id, name: r.name ?? r.id, width: projection.length(r.width), points: project(r.points) })),
     rails: d.rails.map((r) => ({ id: r.id, name: r.name ?? r.id, points: project(r.points) })),
     places: Object.fromEntries(d.places.map((p) => [p.id, { ...p, p: projection.toWorld(p.at[0], p.at[1]) }])),
   };
+}
+
+/**
+ * Distance (metres) from every grid point to the nearest sea point (below 0 m): two chamfer passes.
+ * @param {Int16Array} m metres, rows × cols @param {number} rows @param {number} cols @param {number} step metres between points
+ */
+export function seaDistances(m, rows, cols, step) {
+  const d = new Float32Array(rows * cols);
+  for (let k = 0; k < d.length; k++) d[k] = m[k] < 0 ? 0 : Infinity;
+  const D = Math.SQRT2 * step;
+  const relax = (k, j, w) => {
+    if (d[j] + w < d[k]) d[k] = d[j] + w;
+  };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const k = r * cols + c;
+      if (c > 0) relax(k, k - 1, step);
+      if (r > 0) {
+        relax(k, k - cols, step);
+        if (c > 0) relax(k, k - cols - 1, D);
+        if (c < cols - 1) relax(k, k - cols + 1, D);
+      }
+    }
+  }
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = cols - 1; c >= 0; c--) {
+      const k = r * cols + c;
+      if (c < cols - 1) relax(k, k + 1, step);
+      if (r < rows - 1) {
+        relax(k, k + cols, step);
+        if (c < cols - 1) relax(k, k + cols + 1, D);
+        if (c > 0) relax(k, k + cols - 1, D);
+      }
+    }
+  }
+  return d;
 }

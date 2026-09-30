@@ -224,10 +224,11 @@ export class CameraRig {
     this.fly = { p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, dur };
   }
 
-  flyToSpot(spot) {
+  // `view`: how far back to stand, × the usual (a tall landmark needs more room than a sheep).
+  flyToSpot(spot, view = 1) {
     if (this.mode !== 'overview') this.setMode('overview', { fly: false });
     const target = spot.clone().add(new THREE.Vector3(0, 1.2, 0));
-    this.flyTo(target.clone().add(new THREE.Vector3(7, 4, 9)), target, 2.0);
+    this.flyTo(target.clone().add(new THREE.Vector3(7 * view, 4 * view, 9 * view)), target, 2.0);
   }
 
   update(dt) {

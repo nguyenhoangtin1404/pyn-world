@@ -102,7 +102,7 @@ sách feature**).
   PYN ↔ MAPLE nhiều vòng, số geometry/texture/shader trên GPU không tăng, heap JS gần như phẳng
   (~0,2 MB mỗi lần đổi).
 
-## Thế giới từ bản đồ thật (giai đoạn 0)
+## Thế giới từ bản đồ thật (giai đoạn 0–1)
 
 World dựng từ dữ liệu thật (`src/worlds/tuyhoa.js`: Tuy Hòa, Phú Yên) dùng `defineGeoWorld()` thay cho
 `defineWorld()`: công thức chỉ nêu file dữ liệu, đường ray nào, các điểm dừng (đặt theo **tên địa danh**
@@ -129,9 +129,22 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   ở hai đầu; tàu chạy con thoi (`Schedule.ends`, `dir`): tới cuối tuyến đứng 8 s (không mở cửa, không tính
   là một lần dừng) rồi lùi, đầu máy giữ nguyên vị trí trong đoàn (đẩy từ sau). Đường ray bản đồ bị cắt vừa
   trong sa bàn (`clipToSquare`).
-- Chưa làm (giai đoạn sau): tháp Nghinh Phong và các công trình (thư viện `landmarks`), phố + nhà theo
-  OSM, vùng đất (cây theo rừng/công viên thay vì rải đều), mặt trời theo vĩ độ, tàu không bắt buộc, sa
-  bàn chữ nhật.
+- **Công trình nổi tiếng** (`src/landmarks/`, mỗi công trình một file, đăng ký trong `landmarks/index.js`):
+  `{ name, radius, build(site) → { spot, view, system? } }` — thêm phần tĩnh vào `world.batch` tại
+  `site` (x, y, z, xoay `ry`), tự đăng ký collider / solid (camera) / obstacle, trả system nếu có đèn đêm
+  (vật liệu **riêng**, không dùng `lam()`). Công thức world ghi `landmarks: [{ model, place, rotation?,
+  peak? }]` (`peak`: dời lên chỗ cao nhất trong bán kính đó — Tháp Nhạn trên đỉnh Núi Nhạn); `load()`
+  tạo **pad** phẳng (`cfg.pads`, bán kính = `radius`) mà địa hình san theo, feature `landmarks` dựng
+  (đặt trước `trees`). Phím **V** bay lần lượt tới từng công trình (`world.landmarks`). Có: Tháp Nghinh
+  Phong (tầng lục giác xoắn + cột đá bazan, dải LED đổi màu ban đêm, quảng trường + lối ra biển), Tháp
+  Nhạn (tháp Chăm gạch). Cao hơn thật (×3–5) cho dễ nhìn trên sa bàn.
+- **Lớp phủ đất** (`world/landcover.js`, `cfg.landcover(x, z)`): biển / bãi cát (< 150 m từ biển) / dải
+  phi lao ven biển (< 500 m) / phố (vòng `landcover.town` trong công thức, mép lượn theo nhiễu) / rừng
+  (> 25 m) / ruộng (< 12 m) / cỏ. Địa hình tô màu theo nó (ruộng thành ô bàn cờ), `trees` trồng theo
+  `TREE_COVER` (giữ bao nhiêu, bao nhiêu thông). World không có `landcover` (PYN/MAPLE) không đổi gì.
+- **Mặt trời theo vĩ độ** (`sunDirection(giờ, vĩ độ, ngày)` trong `sky.js`, `cfg.latitude`, `cfg.sunDay`
+  mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
+- Chưa làm: phố + nhà theo OSM (giai đoạn 2), tàu không bắt buộc, sa bàn chữ nhật.
 
 ## Phương tiện (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay)
 

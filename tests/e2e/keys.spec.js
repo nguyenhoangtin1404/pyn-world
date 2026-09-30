@@ -41,9 +41,25 @@ test('keyboard shortcuts', async ({ page }) => {
   await expect(toast).toHaveText('Thế giới này không có gì để theo');
   expect((await state()).mode).toBe('overview');
 
+  // No famous buildings here either (those are in worlds from map data).
+  await page.keyboard.press('KeyV');
+  await expect(toast).toHaveText('Thế giới này không có công trình nổi tiếng');
+
   // Typing in a field is not a shortcut.
   await page.locator('#weather').focus();
   await page.keyboard.press('Digit3');
   expect((await state()).mode).toBe('overview');
+  expect(page.errors).toEqual([]);
+});
+
+test('V flies to each famous building of a world from map data', async ({ page }) => {
+  await openWorld(page, 'tuyhoa');
+  const toast = page.locator('#toast');
+  await page.keyboard.press('KeyV');
+  await expect(toast).toHaveText('Bay tới Tháp Nghinh Phong 🏛');
+  await page.keyboard.press('KeyV');
+  await expect(toast).toHaveText('Bay tới Núi Nhạn – Tháp Nhạn 🏛');
+  await page.keyboard.press('KeyV');
+  await expect(toast).toHaveText('Bay tới Tháp Nghinh Phong 🏛'); // round again
   expect(page.errors).toEqual([]);
 });

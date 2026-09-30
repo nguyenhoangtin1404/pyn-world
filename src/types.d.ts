@@ -65,8 +65,17 @@ export interface GeoRecipe {
   /** id of the railway in the data the train runs on (default: the first). */
   rail?: string;
   stops: GeoStopConfig[];
+  /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
+  landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
+  /** Land cover from the data: where the town is (the rest follows height and the coast). */
+  landcover?: { town?: { at: [number, number]; radius: number }[] };
+  /** Day of the year the sun follows (default 80, the March equinox). */
+  sunDay?: number;
   features: FeatureEntry[];
 }
+
+/** What covers the ground at a point of a world from map data (world/landcover.js). */
+export type LandCover = 'sea' | 'beach' | 'coastal' | 'town' | 'forest' | 'field' | 'grass';
 
 /** A world after defineWorld() / defineGeoWorld(): what the builders read. */
 export interface WorldConfig {
@@ -92,6 +101,13 @@ export interface WorldConfig {
   places?: Record<string, { id: string; name: string; kind: string; at: [number, number]; p: [number, number] }>;
   /** Worlds from map data: fetch, check and project the data; the app awaits it before building. */
   load?(): Promise<void>;
+  /** Worlds from map data, after load(): flat ground under the landmarks, and the landmarks. */
+  pads?: { x: number; z: number; r: number; h: number }[];
+  landmarks?: { id: string; name: string; model: string; p: [number, number]; h: number; rotation: number }[];
+  landcover?: (x: number, z: number) => LandCover;
+  /** Latitude (degrees) the sun crosses the sky at, and on which day of the year. */
+  latitude?: number;
+  sunDay?: number;
 }
 
 // ---------------------------------------------------------------- systems and features

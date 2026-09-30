@@ -46,11 +46,28 @@ export function snowCovered(geo, weights, params) {
   return mat;
 }
 
-function pickColor(x, y, z, ny, out) {
+// Ground colours by land cover (worlds from map data: cfg.landcover), laid over the grass.
+const COVER = {
+  beach: [new THREE.Color('#e6d4a0'), 1],
+  coastal: [new THREE.Color('#b9c77a'), 0.55],
+  field: [new THREE.Color('#a9d24e'), 0.7],
+  town: [new THREE.Color('#c2c09a'), 0.35],
+  forest: [new THREE.Color('#4f8a3c'), 0.55],
+};
+const PADDY = new THREE.Color('#c9d65a');
+
+function pickColor(x, y, z, ny, out, cover = null) {
   if (y < WATER_Y - 0.3) return out.copy(COL.bed);
   if (y < WATER_Y + 0.7) return out.copy(COL.sand);
   const n = clamp(fbm(x, z, 2, 0.02, 4.4) * 1.6 + 0.5, 0, 1);
   out.copy(COL.grassA).lerp(COL.grassB, n);
+  if (cover) {
+    const kind = cover(x, z);
+    const c = COVER[kind];
+    if (c) out.lerp(c[0], c[1]);
+    // Rice paddies: a patchwork of greens, field by field.
+    if (kind === 'field' && (Math.floor(x / 9) + Math.floor(z / 6)) % 2) out.lerp(PADDY, 0.5);
+  }
   out.lerp(COL.grassHigh, smoothstep(14, 34, y));
   if (ny < 0.78) out.lerp(COL.rock, smoothstep(0.78, 0.6, ny));
   if (y > 44) out.lerp(COL.snow, smoothstep(44, 56, y) * smoothstep(0.6, 0.8, ny));
@@ -183,6 +200,8 @@ export function createTerrain(cfg, track, stops, rivers) {
   const { size } = cfg;
   const { hills, rim: [rim0, rim1], mountains: [mBase, mNoise], offset: [ox, oz] } = cfg.terrain ?? { hills: 0, rim: [Infinity, Infinity], mountains: [0, 0], offset: [0, 0] };
   const ground = cfg.heights ?? null;
+  const pads = cfg.pads ?? []; // flat ground under landmarks: { x, z, r, h }
+  const cover = cfg.landcover ?? null;
   // One grid cell every ~3 units, whatever the size of the world.
   const segments = Math.round(size / 3);
   const zones = {};
@@ -213,6 +232,11 @@ export function createTerrain(cfg, track, stops, rivers) {
     for (const p of yards) {
       const pad = (1 - smoothstep(16, 34, Math.hypot(x - p.x, z - p.z))) * (1 - river);
       h = lerp(h, TRACK_Y - 0.4, pad);
+    }
+    // Landmarks stand on level ground: their pad at the height of its middle, blending out over 10.
+    for (const p of pads) {
+      const w = 1 - smoothstep(p.r, p.r + 10, Math.hypot(x - p.x, z - p.z));
+      if (w > 0) h = lerp(h, p.h, w);
     }
     return h;
   }
@@ -254,7 +278,7 @@ export function createTerrain(cfg, track, stops, rivers) {
     const cy = (p.getY(t) + p.getY(t + 1) + p.getY(t + 2)) / 3;
     const cz = (p.getZ(t) + p.getZ(t + 1) + p.getZ(t + 2)) / 3;
     const ny = nrm.getY(t);
-    pickColor(cx, cy, cz, ny, c);
+    pickColor(cx, cy, cz, ny, c, cover);
     c.multiplyScalar(0.95 + hash2(cx, cz) * 0.1);
     const sw = cy > WATER_Y + 0.3 ? smoothstep(0.55, 0.85, ny) : 0;
     for (let k = 0; k < 3; k++) {
