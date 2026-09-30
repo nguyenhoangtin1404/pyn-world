@@ -10,7 +10,9 @@ import { SIZES } from '../world/scale.js';
 // Where a street crosses the river it runs on a deck at bridge height, on piers; where it crosses
 // the railway it rises to the rails. Streets stop short of the station yards and the landmarks'
 // squares. All of it is vertex-coloured triangles in the world's batch: no draw call of its own.
-// The ground under the streets is claimed (site.claimRect) so houses and trees keep off it.
+// The ground under the streets is claimed (site.claimRect) so houses and trees keep off it. Every
+// stretch drawn goes into world.streets (points, width, lanes, its surface) for the traffic and
+// the people on foot (features/citytraffic.js, strollers.js).
 // Wide enough for the traffic drawn at world.scale: the real width, or its lanes at the props
 // scale if that is wider (on a small map, a real street would be narrower than a car).
 
@@ -106,6 +108,7 @@ export default {
       for (const run of runs) {
         if (run.length < 2) continue;
         const line = openLine(run);
+        world.streets.push({ kind: road.kind, name: road.name, width: w, lanes, points: run, length: line.length, heightAt: top });
         paint.strip(line, 0, line.length, -hw, hw, top, color);
         // Round ends, so streets meet without gaps.
         for (const s of [0, line.length]) paint.ring(line.pointAt(s), 0, hw, 0, 0, top, color);

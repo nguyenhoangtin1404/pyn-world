@@ -25,5 +25,10 @@ export default defineGeoWorld({
     { model: 'nghinh-phong', place: 'nghinh-phong' }, // walkway to the sea: east (+x)
     { model: 'thap-nhan', place: 'thap-nhan', peak: 6, rotation: 0 }, // door east, on the summit
   ],
-  features: ['station', 'landmarks', 'streets', 'buildings', 'trees', 'clouds', 'train', 'birds'],
+  features: [
+    'station', 'landmarks', 'streets', 'buildings', 'trees', 'clouds', 'train',
+    'strollers', // people on the pavements and round the Nghinh Phong square
+    'citytraffic', // motorbikes, bicycles, cars and lorries on the main streets
+    { id: 'birds', gulls: 2, egrets: 2 },
+  ],
 });

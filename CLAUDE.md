@@ -176,8 +176,23 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   `TREE_COVER` (giữ bao nhiêu, bao nhiêu thông). World không có `landcover` (PYN/MAPLE) không đổi gì.
 - **Mặt trời theo vĩ độ** (`sunDirection(giờ, vĩ độ, ngày)` trong `sky.js`, `cfg.latitude`, `cfg.sunDay`
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
-- Chưa làm: xe chạy trên phố thật, người đi bộ trong phố, nhà theo đúng hình móng (chữ L…), tàu không
-  bắt buộc, sa bàn chữ nhật.
+- **Xe, người, chim trên phố thật** (`streets` để lại `world.streets`: từng đoạn phố đã vẽ — điểm, bề rộng,
+  số làn, mặt đường `heightAt`):
+  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải chạy
+    lên xuống các phố chính dài nhất (`routes`, mặc định 10): làn bên phải, quay đầu ở cuối phố. `Vehicle`
+    nhận `k` — đường đi, tốc độ và luật giao thông (`updateTraffic`) chạy **trong đơn vị mô hình** như lịch
+    tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một
+    đường lên rồi xuống) bị cắt (`untangle`) — không thì làn về chồng lên nhau. Xe dừng cho người đi bộ
+    (`world.pedestrians`); ở ngã tư không đèn, hai xe cùng thấy nhau thì xe trước trong danh sách đi trước.
+  - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
+    và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
+    đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
+  - `birds` thêm `gulls` (đàn hải âu trên bãi biển), `egrets` (cò trắng bay thấp trên ruộng) — tâm đàn
+    chọn theo lớp phủ đất (`Flock` nhận `center`).
+  E2E tua 300 s với Tuy Hòa: không xe nào chồng nhau (hình chữ nhật × `v.k`), không xe nào kẹt, đèn phanh
+  và đèn pha có bật.
+- Chưa làm: đèn giao thông ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+  (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)
 
@@ -200,8 +215,9 @@ xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì �
   co theo, bánh xe/tiếng xình xịch vẫn đúng; bên ngoài đọc `train.s`, `train.v`, `train.length` (đơn vị thế
   giới). Sân ga (`buildPlatform`: dài/rộng/cao × k, tính bằng frame ≈ 1 đơn vị), nhà ga, mái che trạm, bồ
   câu (`Pigeon` `size`), khói tàu (`Smoke` `size`), sân ga san phẳng/dọn trống, chắn tàu, camera phím 2 — đều
-  × k. **Chưa**: người (`Person`, tốc độ đi), xe (`KINDS`, `traffic`), đường `road`, nhà làng (`houses`),
-  phố của trạm `halt` — hiện chỉ PYN/MAPLE dùng (k = 1). Chuyển tiếp: nhân kích thước/tốc độ/khoảng cách
+  × k; xe trên phố thật (`Vehicle({ k })`) và người đi dạo (`strollers`) cũng vậy. **Chưa**: dân làng
+  (`villagers`), đường `road` + `traffic`, nhà làng (`houses`), phố của trạm `halt` — hiện chỉ PYN/MAPLE dùng
+  (k = 1). Chuyển tiếp: nhân kích thước/tốc độ/khoảng cách
   với `scale.props` (viết `số * k` để k = 1 ra đúng từng bit như cũ — golden PYN/MAPLE giữ nguyên), `note`
   cỡ đã vẽ, kiểm tra bằng `scale.spec.js`.
 

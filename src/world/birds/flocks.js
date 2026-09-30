@@ -41,7 +41,8 @@ function buildBird(tint, parts) {
 }
 
 export class Flock {
-  constructor(rng, parts, { count, color, altitude, radius, speed, formation }) {
+  // center: where the flock wheels round ([x, z]; by default somewhere near the middle).
+  constructor(rng, parts, { count, color, altitude, radius, speed, formation, center = null }) {
     this.group = new THREE.Group();
     this.birds = [];
     this.altitude = altitude;
@@ -50,6 +51,7 @@ export class Flock {
     this.phase = rng() * Math.PI * 2;
     this.cx = (rng() - 0.5) * 160;
     this.cz = (rng() - 0.5) * 160;
+    if (center) [this.cx, this.cz] = center;
     this.dir = rng() < 0.5 ? 1 : -1;
     for (let i = 0; i < count; i++) {
       const b = buildBird(color, parts);
