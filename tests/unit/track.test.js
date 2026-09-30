@@ -48,3 +48,16 @@ describe.each([pyn, maple])('Track ($id)', (cfg) => {
     expect(track.frame(track.frames.length)).toBe(track.frames[0]);
   });
 });
+
+describe('Track with two ends', () => {
+  const line = new Track(createTrackCurve({ track: () => [[0, -100], [10, 0], [0, 100]], trackClosed: false }));
+  it('has a frame at each end and holds distances to the line', () => {
+    expect(line.closed).toBe(false);
+    expect(line.frames.length).toBe(Math.ceil(line.length) + 1);
+    expect(line.frames.at(-1).p.z).toBeCloseTo(100, 1);
+    expect(line.wrap(-5)).toBe(0);
+    expect(line.wrap(line.length + 5)).toBe(line.length);
+    expect(line.frame(-3)).toBe(line.frames[0]);
+    expect(line.frame(1e6)).toBe(line.frames.at(-1));
+  });
+});

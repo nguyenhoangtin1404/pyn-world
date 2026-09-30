@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { defineWorld } from '../../src/worlds/define.js';
 import { WORLDS, worldById } from '../../src/worlds/index.js';
 import pyn from '../../src/worlds/pyn.js';
@@ -21,6 +21,8 @@ describe('defineWorld', () => {
 describe('world configs', () => {
   for (const cfg of WORLDS) {
     describe(cfg.id, () => {
+      beforeAll(() => cfg.load?.()); // worlds from map data: as the app does before building
+
       it('has unique stops on the loop, each with a name', () => {
         const ids = cfg.stops.map((s) => s.id);
         expect(new Set(ids).size).toBe(ids.length);
@@ -35,7 +37,7 @@ describe('world configs', () => {
         expect(() => new World(cfg).steps()).not.toThrow();
       });
 
-      it('has a track loop of (x, z) points inside the diorama', () => {
+      it('has a track of (x, z) points inside the diorama', () => {
         const pts = cfg.track();
         expect(pts.length).toBeGreaterThanOrEqual(4);
         for (const [x, z] of pts) expect(Math.max(Math.abs(x), Math.abs(z))).toBeLessThan(cfg.size / 2);

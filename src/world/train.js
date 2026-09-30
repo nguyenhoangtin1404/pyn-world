@@ -6,6 +6,8 @@ import { Smoke } from './particles.js';
 import { buildLoco, buildCarriage, LOCO_WHEEL, DOOR_Z } from './train/cars.js';
 import { Schedule } from './train/schedule.js';
 
+const TRAIN_LENGTH = 8.1 * 3 + 5; // front of the engine to the back of the last carriage
+
 // A steam locomotive and three carriages running round the loop, calling at every stop. What it
 // looks like is in train/cars.js, where it is and what it is doing (running, stopped, leaving) in
 // train/schedule.js; this puts the cars on the track and animates wheels, rods, doors and smoke.
@@ -15,7 +17,9 @@ export class Train {
   constructor(track, { stationS = 14 } = {}) {
     this.track = track;
     this.group = new THREE.Group();
-    this.schedule = new Schedule({ wrap: (s) => track.wrap(s), stops: [{ s: stationS, out: null }] });
+    // On a line with ends the locomotive stays far enough from them for its carriages.
+    const ends = track.closed ? null : { min: TRAIN_LENGTH + 6, max: track.length - 6 };
+    this.schedule = new Schedule({ wrap: (s) => track.wrap(s), stops: [{ s: stationS, out: null }], ends });
     this.schedule.onDepart = () => this.events.whistle();
     this.chuffAcc = 0;
     this.clackAcc = 0;
@@ -150,14 +154,14 @@ export class Train {
     // Chuffs, rail joints, smoke
     this.chimneyTop.getWorldPosition(this._chimney);
     const inTunnel = this.tunnel?.contains(this.s);
-    this.chuffAcc += ds;
+    this.chuffAcc += Math.abs(ds);
     while (this.chuffAcc > 3.2) {
       this.chuffAcc -= 3.2;
       const k = this.v / this.schedule.cruise;
       this.events.chuff(k);
       if (!inTunnel) this.smoke.emit(this._chimney, 0.6 + k * 0.6);
     }
-    this.clackAcc += ds;
+    this.clackAcc += Math.abs(ds);
     while (this.clackAcc > 11) {
       this.clackAcc -= 11;
       this.events.clack();

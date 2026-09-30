@@ -84,3 +84,46 @@ describe('Schedule', () => {
     expect(sch.state).toBe('stop');
   });
 });
+
+describe('Schedule on a line with ends', () => {
+  // A 500-unit line (no loop), one stop at 200; the engine may go from 40 to 490.
+  const clamp = (s) => Math.min(L, Math.max(0, s));
+  const line = () => new Schedule({ wrap: clamp, stops: [{ s: 200, out: 'A' }], s: 60, ends: { min: 40, max: 490 } });
+
+  it('calls at the stop, runs to the end, waits there, and comes back through the stop', () => {
+    const sch = line();
+    run(sch, (s) => s.state === 'stop');
+    expect(sch.s).toBe(200);
+    expect(sch.stopId).toBe(1);
+    run(sch, (s) => s.state === 'turn');
+    expect(sch.s).toBe(490);
+    expect(sch.stopId).toBe(1); // the end of the line is not a stop: nobody gets on or off
+    expect(sch.doorOpen).toBe(0);
+    let whistles = 0;
+    sch.onDepart = () => whistles++;
+    run(sch, (s) => s.state === 'run');
+    expect(sch.dir).toBe(-1);
+    expect(whistles).toBe(1);
+    run(sch, (s) => s.state === 'stop');
+    expect(sch.s).toBe(200); // same place on the way back: the carriages line up with the platform
+    expect(sch.stopId).toBe(2);
+    run(sch, (s) => s.state === 'turn');
+    expect(sch.s).toBe(40);
+    run(sch, (s) => s.state === 'run');
+    expect(sch.dir).toBe(1);
+  });
+
+  it('never leaves the line, and reports the distance it covers going back as negative', () => {
+    const sch = line();
+    let min = Infinity, max = -Infinity, back = 0;
+    for (let t = 0; t < 600; t += 0.1) {
+      const ds = sch.step(0.1, 3);
+      if (ds < 0) back++;
+      min = Math.min(min, sch.s);
+      max = Math.max(max, sch.s);
+    }
+    expect(min).toBeGreaterThanOrEqual(40);
+    expect(max).toBeLessThanOrEqual(490);
+    expect(back).toBeGreaterThan(0);
+  });
+});

@@ -102,6 +102,37 @@ sách feature**).
   PYN ↔ MAPLE nhiều vòng, số geometry/texture/shader trên GPU không tăng, heap JS gần như phẳng
   (~0,2 MB mỗi lần đổi).
 
+## Thế giới từ bản đồ thật (giai đoạn 0)
+
+World dựng từ dữ liệu thật (`src/worlds/tuyhoa.js`: Tuy Hòa, Phú Yên) dùng `defineGeoWorld()` thay cho
+`defineWorld()`: công thức chỉ nêu file dữ liệu, đường ray nào, các điểm dừng (đặt theo **tên địa danh**
+`place`, không theo `at`) và danh sách feature. App gọi `cfg.load()` trước khi dựng (nạp file bằng
+dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi world khác.
+
+- **File dữ liệu** `src/worlds/data/<id>.json`, định dạng version 1 trong `world/geodata.js`: toạ độ luôn là
+  [vĩ độ, kinh độ] và mét (không phụ thuộc cỡ sa bàn); `frame` nói tâm, số mét mỗi đơn vị,
+  `verticalScale` (phóng đại chiều cao); `heights` là lưới Int16 mét (base64, hàng 0 = bắc, biển < 0);
+  `rivers` (đường gấp khúc + bề rộng mét), `rails`, `places`. `checkWorldData()` liệt kê **từng** lỗi.
+- **Dựng file**: `node tools/import/build.mjs tools/import/<id>.vectors.json [--osm osm.json]` — độ cao
+  SRTM 1″ (tự tải vào `.cache/dem`, không commit), biển = đất ≤ 0 m nối với mép biển (`sea: ['east']`)
+  → bờ biển thật. Sông/ray/địa danh lấy từ file công thức (vẽ tay) hoặc OpenStreetMap (Overpass JSON
+  `out geom`, `tools/import/osm.mjs`). **Môi trường này chặn OpenStreetMap** (overpass-api.de,
+  geofabrik): sông, ray, địa danh của Tuy Hòa hiện **vẽ tay theo độ cao, gần đúng** — thay bằng OSM khi
+  mở được mạng. SRTM là public domain; dùng OSM thì ghi nguồn (ODbL).
+- **Chiếu** (`world/geo.js`): phẳng quanh tâm, bắc = −z, đông = +x. Mặt đất: `WATER_Y + 0,6 +
+  mét / metersPerUnit × verticalScale`; đáy biển (−10 m) dưới mặt nước → bờ biển tự hiện.
+- **Sông** qua `world.rivers` (`world/rivers.js`): `distance(x, z)` (0–5 là lòng sông, 16 là lên bờ, như
+  nhau cho sông 20 đơn vị hay cửa sông 1 km), `riverX` (chỉ world một sông) và GLSL cho nước. **Đừng đọc
+  `cfg.riverX` trực tiếp** — PYN/MAPLE vẫn ra đúng từng số (`Math.abs(x − riverX(z))`). Thuyền (steamer
+  chạy theo `riverX`) và người leo núi (cần vành núi) báo lỗi rõ ở world không có.
+- **Đường ray hai đầu** (`cfg.trackClosed: false`): `Track.wrap` giữ trong [0, L], thêm frame cuối, ụ chắn
+  ở hai đầu; tàu chạy con thoi (`Schedule.ends`, `dir`): tới cuối tuyến đứng 8 s (không mở cửa, không tính
+  là một lần dừng) rồi lùi, đầu máy giữ nguyên vị trí trong đoàn (đẩy từ sau). Đường ray bản đồ bị cắt vừa
+  trong sa bàn (`clipToSquare`).
+- Chưa làm (giai đoạn sau): tháp Nghinh Phong và các công trình (thư viện `landmarks`), phố + nhà theo
+  OSM, vùng đất (cây theo rừng/công viên thay vì rải đều), mặt trời theo vĩ độ, tàu không bắt buộc, sa
+  bàn chữ nhật.
+
 ## Phương tiện (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay)
 
 Thư viện dùng chung ở `src/world/vehicles/`, bật cho world nào cũng được bằng 3 feature:

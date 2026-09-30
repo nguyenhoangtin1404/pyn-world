@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { TRACK_Y, GAUGE } from '../config.js';
 
-// The world's closed loop through its (x, z) points, at track height.
+// The world's railway through its (x, z) points, at track height: a closed loop, or for a world
+// whose line runs off the map (cfg.trackClosed === false, e.g. a real railway) a line with two ends.
 export function createTrackCurve(cfg) {
   const pts = cfg.track().map(([x, z]) => new THREE.Vector3(x, TRACK_Y, z));
-  const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+  const curve = new THREE.CatmullRomCurve3(pts, cfg.trackClosed ?? true, 'centripetal');
   curve.arcLengthDivisions = 3000;
   return curve;
 }
@@ -13,10 +14,12 @@ export class Track {
   constructor(curve) {
     this.curve = curve;
     this.length = curve.getLength();
+    this.closed = curve.closed;
     const M = Math.ceil(this.length);
-    // One frame per ~1 world unit: position, flat tangent and the sideways vector.
+    // One frame per ~1 world unit: position, flat tangent and the sideways vector (a line with ends
+    // gets one more, at its far end).
     this.frames = [];
-    for (let i = 0; i < M; i++) {
+    for (let i = 0; i < (this.closed ? M : M + 1); i++) {
       const u = i / M;
       const p = curve.getPointAt(u);
       const t = curve.getTangentAt(u);
@@ -55,9 +58,10 @@ export class Track {
     for (let i = 0; i < n; i++) this.cellPts[fill[cellOf(i)]++] = i;
   }
 
+  // Round the loop; on a line with ends, held to them.
   wrap(s) {
     const L = this.length;
-    return ((s % L) + L) % L;
+    return this.closed ? ((s % L) + L) % L : Math.min(L, Math.max(0, s));
   }
 
   pointAt(s, target = new THREE.Vector3()) {
@@ -66,7 +70,7 @@ export class Track {
 
   frame(i) {
     const M = this.frames.length;
-    return this.frames[((i % M) + M) % M];
+    return this.frames[this.closed ? ((i % M) + M) % M : Math.min(M - 1, Math.max(0, i))];
   }
 
   // Distance to the nearest (coarse) track point. Searches grid cells in growing rings around
@@ -131,9 +135,19 @@ export function sweep(frames, start, count, profile, baseY, closed = false) {
   return g;
 }
 
-// Circular runs of equal flags: [[startIndex, length], ...]
-function runs(flags, value) {
+// Runs of equal flags: [[startIndex, length], ...] — round the loop (closed), or from end to end.
+function runs(flags, value, closed = true) {
   const M = flags.length;
+  if (!closed) {
+    const out = [];
+    for (let i = 0; i < M; i++) {
+      if (flags[i] !== value || (i > 0 && flags[i - 1] === value)) continue;
+      let len = 0;
+      while (i + len < M && flags[i + len] === value) len++;
+      out.push([i, len]);
+    }
+    return out;
+  }
   if (flags.every((f) => f === value)) return [[0, M]];
   if (!flags.includes(value)) return [];
   const i0 = flags.findIndex((f) => f !== value);
@@ -153,16 +167,20 @@ function runs(flags, value) {
 
 const yaw = (t) => Math.atan2(t.x, t.z);
 
-export function buildTrackMeshes(track, heightAt, riverX) {
+// `riverDistance(x, z)`: world/rivers.js — no stone piers in the river's navigation channel.
+export function buildTrackMeshes(track, heightAt, riverDistance) {
   const group = new THREE.Group();
   const frames = track.frames;
   const M = frames.length;
+  const closed = track.closed;
   const ground = frames.map((f) => heightAt(f.p.x, f.p.z));
   const low = ground.map((g) => g < TRACK_Y - 1.5);
   const isBridge = low.map((_, i) => {
-    for (let k = -4; k <= 4; k++) if (low[(i + k + M) % M]) return true;
+    for (let k = -4; k <= 4; k++) if (closed ? low[(i + k + M) % M] : low[i + k]) return true;
     return false;
   });
+  // How many frames a run from `start` can be swept over (a line stops at its end).
+  const span = (start, count) => (closed ? count : Math.min(count, M - start));
 
   const mat = (color) => new THREE.MeshLambertMaterial({ color, flatShading: true, side: THREE.DoubleSide });
   const mats = {
@@ -184,19 +202,20 @@ export function buildTrackMeshes(track, heightAt, riverX) {
 
   // Embankment (wide trapezoid that sinks into the ground so small dips never show a gap).
   const ballastProfile = [[-3.6, -2.6], [3.6, -2.6], [1.7, 0.3], [-1.7, 0.3]];
-  for (const [start, len] of runs(isBridge, false)) {
-    const full = len === M;
-    add(sweep(frames, start, full ? M : len + 1, ballastProfile, TRACK_Y, full), mats.ballast, false);
+  for (const [start, len] of runs(isBridge, false, closed)) {
+    const full = closed && len === M;
+    add(sweep(frames, start, full ? M : span(start, len + 1), ballastProfile, TRACK_Y, full), mats.ballast, false);
   }
 
   // Bridges: deck, girder, railings, stone piers.
   const bridges = [];
   const posts = [];
-  for (const [start, len] of runs(isBridge, true)) {
-    add(sweep(frames, start, len + 1, [[-2.1, -0.35], [2.1, -0.35], [2.1, 0.3], [-2.1, 0.3]], TRACK_Y), mats.deck);
-    add(sweep(frames, start, len + 1, [[-1.5, -1.7], [1.5, -1.7], [1.5, -0.35], [-1.5, -0.35]], TRACK_Y), mats.girder);
+  for (const [start, len] of runs(isBridge, true, closed)) {
+    const n = span(start, len + 1);
+    add(sweep(frames, start, n, [[-2.1, -0.35], [2.1, -0.35], [2.1, 0.3], [-2.1, 0.3]], TRACK_Y), mats.deck);
+    add(sweep(frames, start, n, [[-1.5, -1.7], [1.5, -1.7], [1.5, -0.35], [-1.5, -0.35]], TRACK_Y), mats.girder);
     for (const sx of [-2.05, 2.05]) {
-      add(sweep(frames, start, len + 1, [[sx - 0.09, 1.25], [sx + 0.09, 1.25], [sx + 0.09, 1.4], [sx - 0.09, 1.4]], TRACK_Y), mats.railing);
+      add(sweep(frames, start, n, [[sx - 0.09, 1.25], [sx + 0.09, 1.25], [sx + 0.09, 1.4], [sx - 0.09, 1.4]], TRACK_Y), mats.railing);
     }
     for (let k = 0; k <= len; k += 2) {
       const f = track.frame(start + k);
@@ -207,7 +226,7 @@ export function buildTrackMeshes(track, heightAt, riverX) {
       const f = frames[i];
       const g = ground[i];
       if (g > TRACK_Y - 2.2) continue;
-      if (Math.abs(f.p.x - riverX(f.p.z)) < 6) continue; // keep the navigation channel clear for the steamer
+      if (riverDistance(f.p.x, f.p.z) < 6) continue; // keep the navigation channel clear for the steamer
       const top = TRACK_Y - 1.7;
       const bottom = g - 1.5;
       const pier = add(new THREE.BoxGeometry(3.8, top - bottom, 1.5), mats.stone);
@@ -233,7 +252,17 @@ export function buildTrackMeshes(track, heightAt, riverX) {
 
   // Rails
   for (const off of [-GAUGE / 2, GAUGE / 2]) {
-    add(sweep(frames, 0, M, [[off - 0.08, 0.44], [off + 0.08, 0.44], [off + 0.08, 0.62], [off - 0.08, 0.62]], TRACK_Y, true), mats.rail, false);
+    add(sweep(frames, 0, M, [[off - 0.08, 0.44], [off + 0.08, 0.44], [off + 0.08, 0.62], [off - 0.08, 0.62]], TRACK_Y, closed), mats.rail, false);
+  }
+
+  // A line's two ends: buffer stops (a timber frame with a red beam).
+  if (!closed) {
+    for (const [i, dir] of [[0, -1], [M - 1, 1]]) {
+      const f = frames[i];
+      const stop = add(new THREE.BoxGeometry(2.4, 0.9, 0.5), mats.girder);
+      stop.position.set(f.p.x + f.t.x * dir * 0.5, TRACK_Y + 1.1, f.p.z + f.t.z * dir * 0.5);
+      stop.rotation.y = yaw(f.t);
+    }
   }
 
   // Sleepers

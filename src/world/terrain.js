@@ -176,9 +176,13 @@ export function villageZone(station, { A0 = 30, A1 = 95, HALF_B = 66 } = {}) {
 
 // `stops`: the world's stops with their track frames (World.stops). Each stop with a `zone` gets a
 // flat plateau for its houses (terrain.zones[stop id]); each with a `yard` a flat yard around it.
-export function createTerrain(cfg, track, stops) {
-  const { riverX, size } = cfg;
-  const { hills, rim: [rim0, rim1], mountains: [mBase, mNoise], offset: [ox, oz] } = cfg.terrain;
+// `rivers`: world/rivers.js. The lie of the land is noise and a ring of mountains (cfg.terrain),
+// or for a world from map data the real ground (cfg.heights, see world/geodata.js); either way the
+// rivers, the railway corridor, the villages and the yards are shaped into it the same way.
+export function createTerrain(cfg, track, stops, rivers) {
+  const { size } = cfg;
+  const { hills, rim: [rim0, rim1], mountains: [mBase, mNoise], offset: [ox, oz] } = cfg.terrain ?? { hills: 0, rim: [Infinity, Infinity], mountains: [0, 0], offset: [0, 0] };
+  const ground = cfg.heights ?? null;
   // One grid cell every ~3 units, whatever the size of the world.
   const segments = Math.round(size / 3);
   const zones = {};
@@ -186,12 +190,16 @@ export function createTerrain(cfg, track, stops) {
   const plateaus = Object.values(zones);
   const yards = stops.filter((st) => st.yard).map((st) => st.frame.p);
   function heightAt(x, z) {
-    const r = Math.hypot(x, z);
-    let h = 2 + fbm(x + ox, z + oz) * hills;
-    // Mountains around the rim of the valley
-    if (r > rim0) h += smoothstep(rim0, rim1, r) * (mBase + fbm(x + ox, z + oz, 4, 0.012, 9.1) * mNoise); // (weight 0 further in)
+    let h;
+    if (ground) h = ground(x, z);
+    else {
+      const r = Math.hypot(x, z);
+      h = 2 + fbm(x + ox, z + oz) * hills;
+      // Mountains around the rim of the valley
+      if (r > rim0) h += smoothstep(rim0, rim1, r) * (mBase + fbm(x + ox, z + oz, 4, 0.012, 9.1) * mNoise); // (weight 0 further in)
+    }
     // River channel
-    const river = 1 - smoothstep(5, 16, Math.abs(x - riverX(z)));
+    const river = 1 - smoothstep(5, 16, rivers.distance(x, z));
     h = lerp(h, RIVER_BED, river);
     // Flatten a corridor for the railway (but let the river cut through → bridges)
     const flat = (1 - smoothstep(5, 22, track.distanceTo(x, z, 22))) * (1 - river);
@@ -262,7 +270,7 @@ export function createTerrain(cfg, track, stops) {
   mesh.receiveShadow = true;
 
   // Water: one faceted sheet, animated in its shader (see water.js).
-  const water = createWater(cfg);
+  const water = createWater({ size, riverGLSL: rivers.glsl });
 
   const frame = new THREE.Group();
   frame.add(buildSkirt(heightAt, size, segments), buildPlinth(size, cfg.name));
