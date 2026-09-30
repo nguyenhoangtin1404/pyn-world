@@ -4,7 +4,8 @@ import { builtUp, createLandCover } from '../../src/world/landcover.js';
 import { createRivers } from '../../src/world/rivers.js';
 import { Site } from '../../src/world/site.js';
 import { likelyFloors } from '../../src/features/buildings.js';
-import { build, checkPlaces, despike, heightGrid, inWater } from '../../tools/import/build.mjs';
+import { build, checkPlaces, despike, growSea, heightGrid, inWater, smoothCoast, smoothLand } from '../../tools/import/build.mjs';
+import { columns } from '../../src/landmarks/nghinh-phong.js';
 import { clipToBox, footprintRect, joinLines, osmToVectors, simplify } from '../../tools/import/osm.mjs';
 
 // Phase 2 of worlds from map data: streets, buildings and water areas from OpenStreetMap / Overture.
@@ -271,5 +272,82 @@ describe('elevation spikes (despike)', () => {
     expect(once[4 * n + 4]).toBe(72);
     despike(h, n, 2);
     for (const [r, c] of [[4, 4], [4, 5], [5, 4], [5, 5]]) expect(h[r * n + c]).toBe(4);
+  });
+});
+
+describe('smoother land (smoothLand)', () => {
+  it('irons out the bumps on land and leaves the sea and the shore where they are', () => {
+    const n = 12;
+    const h = new Int16Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) h[r * n + c] = c >= 9 ? -10 : 4 + ((r + c) % 2) * 6; // bumpy land, sea east
+    smoothLand(h, n, 2);
+    for (let r = 2; r < n - 2; r++) for (let c = 2; c < 7; c++) expect(Math.abs(h[r * n + c] - 7)).toBeLessThanOrEqual(1);
+    for (let r = 0; r < n; r++) for (let c = 9; c < n; c++) expect(h[r * n + c]).toBe(-10); // the sea as it was
+    for (let r = 0; r < n; r++) expect(h[r * n + 8]).toBeGreaterThanOrEqual(4); // the shore not pulled under
+  });
+});
+
+describe('a smooth shore (smoothCoast)', () => {
+  it('rounds the staircase of a diagonal shore into a slope, and leaves land and sea away from it', () => {
+    const n = 16;
+    const h = new Int16Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) h[r * n + c] = c > r ? -10 : 2; // sea above the diagonal, stepwise
+    smoothCoast(h, n, 2);
+    // Across the shore the ground shelves down in steps of a few metres, not 12 at once.
+    for (let c = 4; c < 12; c++) expect(Math.abs(h[8 * n + c + 1] - h[8 * n + c])).toBeLessThan(6);
+    expect(h[8 * n + 0]).toBe(2); // land well inland
+    expect(h[0 * n + 15]).toBe(-10); // sea well out
+  });
+});
+
+describe('the shore brought in (growSea)', () => {
+  it('moves the edge of the sea inland by as many points, keeping its shape', () => {
+    const n = 10;
+    const sea = new Uint8Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 7; c < n; c++) sea[r * n + c] = 1; // sea east of column 7
+    growSea(sea, n, 3);
+    for (let r = 0; r < n; r++) {
+      expect(sea[r * n + 4]).toBe(1); // 3 points in
+      expect(sea[r * n + 3]).toBe(0);
+    }
+  });
+});
+
+describe('Tháp Nghinh Phong (columns)', () => {
+  it('two towers of 50 hexagonal columns in a wedge: a low prow at the front, rising row by row to spires of 35 m and 30 m', () => {
+    const cols = columns();
+    for (const side of [1, -1]) expect(cols.filter((c) => c.side === side)).toHaveLength(50);
+    const spires = cols.filter((c) => c.spire);
+    expect(spires.map((c) => c.h).sort((a, b) => b - a)).toEqual([35, 30]);
+    expect(spires.find((c) => c.h === 30).side).toBe(1); // the lower on the right, seen from the land
+    for (const c of spires) expect(c.j).toBe(0); // at the slot
+    for (const s of spires) {
+      const half = cols.filter((c) => c.side === s.side);
+      const rest = half.filter((c) => !c.spire);
+      expect(Math.max(...rest.map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
+      const row = (i) => half.filter((c) => c.i === i);
+      // The prow: the front row narrow and low; every row further back wider, and higher at the slot.
+      expect(row(0).length).toBeLessThan(row(5).length);
+      for (let i = 1; i <= 6; i++) {
+        if (i <= 5) expect(row(i).length).toBeGreaterThanOrEqual(row(i - 1).length); // wider each row up to the spire's
+        expect(Math.max(...row(i).map((c) => c.h))).toBeGreaterThan(Math.max(...row(i - 1).map((c) => c.h)));
+      }
+      expect(Math.max(...row(0).map((c) => c.h))).toBeLessThan(s.h * 0.2); // the nose at ground level
+      const mean = (j) => half.filter((c) => c.j === j && !c.spire).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j && !c.spire).length;
+      expect(mean(0)).toBeGreaterThan(mean(4)); // stepping down away from the slot
+      // The columns round the spire rise in steps up to it: the tallest at each distance is lower the further from it.
+      const at = (d) => Math.max(...half.filter((c) => c.near === d).map((c) => c.h));
+      for (let d = 2; d <= 4; d++) expect(at(d)).toBeLessThan(at(d - 1));
+      expect(at(1)).toBeGreaterThan(s.h * 0.6);
+      expect(half.filter((c) => c.near === 1).length).toBeGreaterThanOrEqual(2); // beside it on both sides
+    }
+    expect(new Set(cols.map((c) => c.i)).size).toBe(8); // 8 rows of 2.5 m: 6 of them the slot's 15 m, the prows beyond
+    // Behind the spire the tower steps down again, a short prow at its back, lower than the spire's row.
+    for (const s of spires) {
+      const back = cols.filter((c) => c.side === s.side && c.i === 7);
+      expect(back.length).toBeGreaterThan(0);
+      expect(Math.max(...back.map((c) => c.h))).toBeLessThan(s.h * 0.75);
+      expect(back.length).toBeLessThan(cols.filter((c) => c.side === s.side && c.i === 6).length);
+    }
   });
 });

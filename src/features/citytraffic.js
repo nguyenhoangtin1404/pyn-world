@@ -43,7 +43,9 @@ export function passes(path, [x, z], near) {
 // the pavements cross it (world.crosswalks: people go over while that street's traffic has red —
 // features/strollers.js), a stop line before it in each lane and a light on the pavement beside it. Head lights at dusk and in the rain,
 // brake lights when braking; key 8 follows them. Options: vehicles ({ kind: count }), routes (how
-// many streets, 10), min (shortest street, 60 units), lights (traffic lights, true).
+// many streets, 10), min (shortest street, 60 units), lights (traffic lights: true where two main
+// streets cross, 'all' also where the side streets meet the ones with traffic, false none).
+const SIDE = new Set(['residential', 'living_street', 'road']); // side streets, lit with lights: 'all'
 const CROSSWALK = 3; // metres deep, along the street (at the props scale)
 const MAIN = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified']);
 
@@ -61,6 +63,47 @@ export function untangle(pts, near) {
     }
   }
   return pts;
+}
+
+/**
+ * Whether (x, z), on street `st` heading h, is in a street crossing it (at more than 30°), or too
+ * near one to turn round there: within the other's half width and this one's width.
+ * @param {{ kind: string, width: number, points: [number, number][] }[]} streets
+ * @param {{ width: number }} st @param {number} x @param {number} z @param {number} h
+ */
+export function crossedAt(streets, st, x, z, h) {
+  for (const o of streets) {
+    if (o === st || !(MAIN.has(o.kind) || SIDE.has(o.kind))) continue; // (not service lanes, tracks, footpaths)
+    const reach = o.width / 2 + st.width + 1;
+    let best = Infinity, heading = 0;
+    for (let i = 1; i < o.points.length; i++) {
+      const [ax, az] = o.points[i - 1], [bx, bz] = o.points[i];
+      if (Math.min(ax, bx) > x + reach || Math.max(ax, bx) < x - reach || Math.min(az, bz) > z + reach || Math.max(az, bz) < z - reach) continue;
+      const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / len2));
+      const d = Math.hypot(ax + dx * t - x, az + dz * t - z);
+      if (d < best) [best, heading] = [d, Math.atan2(dx, dz)];
+    }
+    if (best < reach && Math.abs(Math.sin(h - heading)) > 0.5) return true;
+  }
+  return false;
+}
+
+/**
+ * A street's points less any stretch at either end where `clear(x, z, heading)` says no — at most
+ * 30 % of them from each end.
+ * @param {[number, number][]} pts @param {(x: number, z: number, h: number) => boolean} clear
+ */
+export function trimEnds(pts, clear) {
+  const max = Math.floor(pts.length * 0.3);
+  const heading = (/** @type {number} */ i) => {
+    const [ax, az] = pts[Math.max(0, i - 1)], [bx, bz] = pts[Math.min(pts.length - 1, i + 1)];
+    return Math.atan2(bx - ax, bz - az);
+  };
+  let a = 0, b = pts.length - 1;
+  while (a < max && !clear(pts[a][0], pts[a][1], heading(a))) a++;
+  while (pts.length - 1 - b < max && !clear(pts[b][0], pts[b][1], heading(b))) b--;
+  return pts.slice(a, b + 1);
 }
 
 /**
@@ -199,13 +242,14 @@ export default {
     const along = (/** @type {[number, number][]} */ p) => p.reduce((sum, q, i) => sum + (i ? Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0), 0);
     const streets = world.streets
       .filter((s) => MAIN.has(s.kind))
-      .map((s) => ({ ...s, points: untangle(s.points, s.width * 1.5) }))
+      // (A street ending where it meets another: its traffic turns round before the crossing, not in it.)
+      .map((s) => ({ ...s, source: s, points: trimEnds(untangle(s.points, s.width * 1.5), (x, z, h) => !crossedAt(world.streets, s, x, z, h)) }))
       .map((s) => ({ ...s, length: along(s.points) }))
       .filter((s) => s.length >= min)
       .sort((a, b) => b.length - a.length)
       // Not the same road again (drawn twice in the map, or a dual carriageway as two streets side
       // by side): its lanes would be the other's, the traffic on them head on.
-      .reduce((kept, s) => (kept.length < routeCount && !kept.some((o) => alongside(s, o) > 0.3) ? [...kept, s] : kept), /** @type {typeof world.streets} */ ([]));
+      .reduce((kept, s) => (kept.length < routeCount && !kept.some((o) => alongside(s, o) > 0.3) ? [...kept, s] : kept), /** @type {(typeof world.streets[number] & { source: typeof world.streets[number] })[]} */ ([]));
     world.need(`phố chính dài ít nhất ${min} đơn vị (world.streets)`, 'citytraffic', streets.length);
     if (vehicles.car) world.scale.note('car', KINDS.car.length * k, 'citytraffic');
 
@@ -245,7 +289,9 @@ export default {
     const signals = [];
     // Where a street with traffic crosses any main street (lights on that one too, though nothing
     // drives it: it's the town's crossroads that have lights).
-    const others = world.streets.filter((s) => MAIN.has(s.kind) && s.length >= 10 && !streets.some((r) => r.points[0] === s.points[0]));
+    // ('all': the side streets too, but not service lanes, tracks and footpaths.)
+    const lit = lights === 'all' ? (/** @type {string} */ kind) => MAIN.has(kind) || SIDE.has(kind) : (/** @type {string} */ kind) => MAIN.has(kind);
+    const others = world.streets.filter((s) => lit(s.kind) && s.length >= 10 && !streets.some((r) => r.source === s));
     const all = [...streets, ...others];
     const junctions = lights ? findJunctions(all).filter((j) => j.streets.some((si) => si < streets.length)) : [];
     const headingNear = (/** @type {[number, number][]} */ pts, /** @type {[number, number]} */ p) => {

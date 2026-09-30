@@ -60,6 +60,10 @@ export interface GeoRecipe {
   seed: number;
   /** Side of the square diorama, in world units (the data's frame says how many metres one is). */
   size: number;
+  /** The ground's grid cells, units (default 3; see WorldConfig.cell). */
+  cell?: number;
+  /** How big things are drawn (world/scale.js): props outright, or exaggerate × the map. */
+  scale?: { props?: number; exaggerate?: number };
   /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
   data(): Promise<any>;
   /** id of the railway in the data the train runs on (default: the first); null for none — a town
@@ -67,10 +71,13 @@ export interface GeoRecipe {
   rail?: string | null;
   stops: GeoStopConfig[];
   /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
-  landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
+  /** rotation: radians, 'sea' — its front (local +x) facing the sea, or 'street' — its straight side along the nearest street. */
+  landmarks?: { model: string; place: string; rotation?: number | 'sea' | 'street'; peak?: number }[];
   /** Land cover from the data: extra town circles (the town is also wherever the data's buildings
    *  stand close together; the rest follows height and the coast). */
-  landcover?: { town?: { at: [number, number]; radius: number }[] };
+  /** town: circles of town besides where the buildings stand close; fields: false — low open land is
+   *  grass, not rice paddies (a town's open ground). */
+  landcover?: { town?: { at: [number, number]; radius: number }[]; fields?: boolean };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
   features: FeatureEntry[];
@@ -87,6 +94,8 @@ export interface WorldConfig {
   size: number;
   /** The railway's points — null for a world without one (defineGeoWorld with `rail: null`). */
   track: (() => [number, number][]) | null;
+  /** Size of the ground's grid cells, units (default 3): smaller is a smoother ground and shore, more triangles. */
+  cell?: number;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
   trackClosed?: boolean;
   stops: StopConfig[];

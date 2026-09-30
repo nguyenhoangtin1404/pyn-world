@@ -1,5 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
+import { tamper } from './world/seal.js';
 import { Track, createTrackCurve, buildTrackMeshes, noTrack } from './world/track.js';
 import { createTerrain } from './world/terrain.js';
 import { createTunnel } from './world/tunnel.js';
@@ -54,6 +55,9 @@ export class World {
     this.time = 0; // simulated seconds (stops while paused)
     /** @type {System[]} */
     this.systems = [];
+    /** @type {import('./world/seal.js').Seal | null} the sea sign's guard (landmarks/nghinh-phong.js) */
+    this.seal = null;
+    this.sealTick = 0;
     /** @type {Frame} */
     this.frame = { dt: 0, raw: 0, t: 0, speed: 1, camera: null, focus: null, rain: 0, lights: 0, overcast: 0, snow: 0 };
     // Filled in by the features while they are built:
@@ -64,7 +68,7 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
-    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number }[]} famous buildings (features/landmarks.js), key V */
+    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number }[]} famous buildings (features/landmarks.js), key V; walk: a loop round it for people on foot */
     this.landmarks = [];
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[] }} keys 6, 7 and 8 */
     this.followables = { people: [], birds: [], vehicles: [] };
@@ -226,6 +230,7 @@ export class World {
           if (!person.child) this.scale.note('person', PERSON_HEIGHT * person.group.scale.y, 'people'); // (not drawn at world.scale yet)
         }
         scene.add(this.batch.build());
+        this.checkSeal();
       }),
     ];
   }
@@ -260,6 +265,16 @@ export class World {
     sky.update(raw, camera, focus, weather);
     const f = Object.assign(this.frame, { raw, camera, focus, lights: sky.lights, overcast: weather.overcast, snow: weather.snowCover });
     for (const s of this.systems) s.lateUpdate?.(f);
+    if (++this.sealTick % 45 === 0) this.checkSeal();
+  }
+
+  // A world with the Nghinh Phong tower carries its sealed sea sign (world/seal.js): without it,
+  // or with it changed, the app stops.
+  checkSeal() {
+    if (this.cfg.landmarks?.some((l) => l.model === 'nghinh-phong')) {
+      if (!this.seal) tamper('T0');
+      this.seal.check();
+    }
   }
 
   // Compile every shader while the loading screen is up — including those of things hidden at

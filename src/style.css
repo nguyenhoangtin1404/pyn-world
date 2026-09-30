@@ -63,6 +63,11 @@ kbd {
   color: var(--ink-soft);
 }
 
+/* hidden means hidden, whatever display a class gives (camera chips a world has no use for) */
+[hidden] {
+  display: none !important;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

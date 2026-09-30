@@ -168,8 +168,14 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   peak? }]` (`peak`: dời lên chỗ cao nhất trong bán kính đó — Tháp Nhạn trên đỉnh Núi Nhạn); `load()`
   tạo **pad** phẳng (`cfg.pads`, bán kính = `radius`) mà địa hình san theo, feature `landmarks` dựng
   (đặt trước `trees`). Phím **V** bay lần lượt tới từng công trình (`world.landmarks`). Có: Tháp Nghinh
-  Phong (tầng lục giác xoắn + cột đá bazan, dải LED đổi màu ban đêm, quảng trường + lối ra biển), Tháp
-  Nhạn (tháp Chăm gạch). Cao hơn thật (×3–5) cho dễ nhìn trên sa bàn.
+  Phong (theo mô tả chính thức — HUNI architectes 2021: **hai tháp**, mỗi tháp **50 cột** đá **lục giác** (lăng trụ như cột bazan Gành Đá Đĩa, xếp so le kiểu tổ ong) từ thấp lên
+  cao, cột nhọn **35 m** (Lạc Long Quân, bên trái nhìn từ đất liền) và **30 m** (Âu Cơ, bên phải); **khe đón gió 2 m ×
+  15 m** hướng ra biển, phù điêu trên hai vách khe; **quảng trường 1/4 bán nguyệt 7 190 m²** (bán kính ~68 m) lát đá
+  granite, mặt thẳng về phía phố, mặt cong có tường + lan can trên bãi cát; `columns()`: 6 hàng cột 2,5 m (ngang hai mặt phẳng), hàng lệch nửa cột, cách hàng 0,866; mỗi nửa là **hình nêm dài có mũi ở cả hai đầu**: hàng đầu (phía quảng trường) là **mũi** hẹp gồm vài cột thấp sát mặt lát nhô ra phía trước (`width` = 3, 5, 7, 8, 9, 10, 5, 3 cột, 8 hàng), mỗi hàng phía sau rộng hơn và cao hơn (một bậc/hàng) tới hàng cột nhọn (hàng thứ 7), và **sau lưng cột nhọn tháp không cắt phẳng** mà hạ bậc tiếp qua 2 hàng — mũi sau ngắn hơn (theo ảnh chụp từ trên cao); ra xa khe thì thấp dần; không cột nào cao quá 72 % cột nhọn; quảng trường theo tỉ lệ bản đồ, tháp ×1,5 bản đồ (≤ props); `rotation: 'street'` (`streetFrame` trong `worlds/define.js`: mặt thẳng của quảng trường **sát vỉa hè con đường gần nhất**, song song với nó — hướng là **đường thẳng khớp (trục chính của các điểm) qua đường phố trên đoạn dài bằng cạnh** (`along` = nửa cạnh), không phải tiếp tuyến tại một chỗ: điểm của phố thưa nên vài đỉnh liền kề lệch 2–3°, cạnh dài 27 đơn vị lệch 1 đơn vị ở một đầu; đo `claimAt` từ cạnh tới lòng đường: 1,0–2,0 → 0,1–0,6 — mặt cong quay ra xa đường; vị trí dời theo pháp tuyến cho cạnh thẳng nằm **đè lên 0,4 bề rộng vỉa hè ngoài cùng** (không chừa khe: từng chừa 0,5 đơn vị ≈ 2,5 m nên hở cỏ), và mặt lát là **mặt phẳng nghiêng** đi qua độ cao vỉa hè dọc cạnh thẳng (hồi quy 9 điểm, `max(ground, deck) + 0,05` như `streets.js`) — trước đây phẳng theo điểm đất cao nhất nên cao hơn vỉa hè tới 0,4 đơn vị, một bức tường chắn giữa hai bên; chân cột tháp thò xuống 0,3 dưới mặt lát cho khỏi hở chỗ dốc; `walkHeight` cho người đi dạo; công trình khai báo `back` = mét từ tâm tới cạnh thẳng; `'sea'` quay theo độ dốc khoảng cách tới biển); `walk`: người đi dạo đi vòng
+  tháp trên mặt lát; ban đêm **đèn gắn trên đỉnh viên đá**, cứ một viên sáng thì viên bên cạnh tắt (bàn cờ `(i + j) % 2`), mỗi đèn một màu ánh sáng chỉ phủ lên mặt các viên cao hơn kề bên (tấm mỏng từ đỉnh đèn lên ≤ 3 m, không có chùm sáng lơ lửng); **cờ Việt Nam** trên cột trước tháp (giữa tháp và phố, thổi từ biển vào: lưới 18 × 10, sóng tính trong shader (`uTime`) nên geometry đứng yên, càng xa cột càng mạnh; texture canvas đỏ + sao vàng, `emissiveMap` tự sáng khi trời tối); **6 khinh khí cầu bay quanh tháp** (`balloons` `{ near: 'landmark', big: 2 }`: mỗi quả một vòng + độ cao riêng, cỡ theo `scale.props`, hai quả đầu to ×1,7); **dòng chữ "HOÀNG SA, TRƯỜNG SA LÀ CỦA VIỆT NAM"** trên mặt biển ngoài khơi tháp (một dòng duy nhất, canvas Arial đậm đỏ viền trắng, tấm phẳng nằm sát mặt nước, tìm chỗ nước sâu > 1 đơn vị dọc trục +x của công trình, đọc được khi đứng ở quảng trường nhìn ra biển); **dòng chữ được niêm phong** (`world/seal.js`, **đừng sửa/bỏ/đổi cách vẽ**): câu chữ không nằm dạng text trong mã (xáo trộn, chỉ giải mã trong `seal.js`), mỗi lần đọc đều so checksum, texture ghi lại điều thực sự đã vẽ, và `world.checkSeal()` (lúc dựng xong + mỗi ~45 frame, cộng một lần trong `lateUpdate` của tháp) kiểm tra tấm chữ còn trong scene, hiện, đúng cỡ, đúng texture — sai một cái là `tamper()`: hiện lỗi "Ứng dụng đã bị chỉnh sửa nên không thể tải" lên trang và ném exception; world có tháp mà không có tấm chữ cũng vậy. Chỉ làm khó chứ không chặn tuyệt đối (ai có bản JS cũng sửa được; chặn thật phải ở máy chủ). Test: `tests/unit/seal.test.js`, `tests/e2e/seal.spec.js`; không còn cột đèn trên quảng trường — và đỉnh hai cột nhọn đèn đỏ; hai cột nhọn vẽ cao ×1,4 (`SPIRE`) so với số đo để nổi hẳn trên khối bậc thang, `columns()` vẫn trả mét thật; **3–4 cột phụ kề bên mỗi cột nhọn cao dần theo từng bậc** (`near` = 1..4 cột cách cột nhọn dọc khe hoặc ra ngoài: 68 % chiều cao cột nhọn, mỗi bậc xa hơn thấp thêm 12 %, cũng được vẽ cao lên theo `SPIRE` giảm dần)), Tháp Nhạn (tháp Chăm
+  gạch, cao hơn thật ×3–5 cho dễ nhìn trên sa bàn). **Bờ biển SRTM** tính cồn cát là đất: ở Nghinh Phong bờ nằm
+  cách tháp 360 m trong khi ngoài đời quảng trường ở ngay bãi cát — `seaGrow` (mét, công thức dữ liệu, `growSea`)
+  đẩy bờ vào 240 m, giữ hình dạng (tháp cách nước ~115 m).
 - **Lớp phủ đất** (`world/landcover.js`, `cfg.landcover(x, z)`): biển / bãi cát (< 150 m từ biển) / dải
   phi lao ven biển (< 500 m) / phố (nơi nhà dày — `builtUp` — và/hoặc vòng `landcover.town` trong công thức, mép lượn theo nhiễu) / rừng
   (> 25 m) / ruộng (< 12 m) / cỏ. Địa hình tô màu theo nó (ruộng thành ô bàn cờ), `trees` trồng theo
@@ -190,7 +196,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     kia (nửa bề rộng + vỉa hè), cột đèn trên vỉa hè bên phải — dời ra tối đa 1 đơn vị cho khỏi lòng đường,
     cách đá ballast ray ≥ 1, không có chỗ thì bỏ cột (vạch dừng vẫn có). **Mọi pha đều phải `update`**, kể
     cả pha không có cột đèn nào — từng quên: pha đứng đỏ mãi, xe kẹt 263 s. Phố chính không có xe cũng có
-    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s.
+    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s. `lights: 'all'` (NGHINH
+    PHONG) có đèn cả chỗ phố nhỏ (`residential`, `living_street`, `road`) gặp phố có xe: 29 → 79 cột đèn, 38 → 79 vạch.
+    **Xe cắt ngang ở góc tù vẫn phải thấy nhau**: `gapTo` (`vehicles/traffic.js`) chỉ bỏ qua xe gần như ngược chiều hẳn
+    (`cos < −0,7`, làn bên kia của phố hai chiều); trước là mọi xe lệch > 100° (`cos < −0,2`) — xe tải quay đầu ở cuối
+    phố (ngay ngã tư) cắt ngang xe máy ở góc 110° mà hai xe không thấy nhau.
     **Vạch sang đường** ở mỗi nhánh ngã tư có đèn: ngay chỗ vỉa hè của phố kia cắt qua (lùi nửa bề rộng phố
     kia + nửa vỉa hè, chia sin góc giữa hai phố — ngã tư chéo lùi xa hơn), sâu 3 m × props, sọc trắng cách
     1 m × props, vẽ trên mặt phố cao nhất chỗ đó; vạch dừng lùi sau nó 1 m × props. Vạch trùng vạch khác
@@ -227,8 +237,24 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
   ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
   world có `cfg.roads`), không san chỗ nước (cầu).
+- **Chỉ hiện NGHINH PHONG**: `SHOWN` (`worlds/index.js`) là các world app đưa ra (nút chọn, phím N, world mặc định);
+  world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>`. Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
+  bản dev) thay phím N.
+- **Đất phẳng, mịn, bờ biển mượt** (công thức dữ liệu): `smooth` (bán kính điểm lưới, `smoothLand`: đất liền = trung
+  bình đất quanh nó, không kéo theo biển/mặt nước), `coast` (`smoothCoast`: dải có cả biển lẫn đất trong bán kính lấy
+  trung bình → mép nước theo đường cong, không theo bậc thang lưới), `verticalScale` thấp hơn. Biển giờ là mọi điểm
+  **< `WATER_BED`** (−4 m; bờ đã làm mịn có biển nông hơn `SEA_BED`); `seaDistanceAt` nội suy giữa 4 điểm lưới (mép bãi
+  cát mượt). Công thức world có `cell` (ô lưới địa hình, mặc định 3; NGHINH PHONG 1,5).
+- **Xe không quay đầu trong ngã tư**: phố có xe mà kết thúc ở chỗ cắt phố khác thì bị cắt ngắn (`trimEnds` + `crossedAt`:
+  cách phố kia nửa bề rộng + bề rộng phố mình + 1) — quay đầu giữa ngã tư làm xe cắt ngang xe khác quá gần để kịp phanh.
+  Luật: chỉ bỏ qua xe **ngược chiều và lệch sang bên** (`gapTo`: `cos < −0,7` và cách trục làn mình > `LANE / 2`).
+- **Rà cảnh NGHINH PHONG** (2026-09-30): đất trống thấp giữa phố thành cỏ, không phải ruộng lúa kẻ ô
+  (`landcover: { fields: false }` trong công thức, `createLandCover({ fields })`); phố + vỉa hè dừng cách mép sa bàn
+  nửa bề rộng + vỉa hè + 1 (đầu phố tròn từng chìa ra ngoài mép); HUD chỉ hiện điều khiển world dùng được
+  (`hud.setWorld`: không tàu → ẩn máy quay 2/4/5 và thanh tốc độ tàu, không cầu → ẩn 3, không người/chim/xe → ẩn 6/7/8;
+  phím vẫn chạy và báo "không có gì để theo"; CSS `[hidden]` thắng `display` của `.chip`).
 - **NGHINH PHONG** (`src/worlds/nghinhphong.js`): 2 × 2 km quanh Tháp Nghinh Phong (tâm = tháp,
-  `halfExtent` 1000), 400 đơn vị → 5 m/đơn vị, `props` 0,6; lưới 101 (20 m); 96 phố, 870 nhà (Overture ở khu này
+  `halfExtent` 1000), 400 đơn vị → 5 m/đơn vị, `props` 0,6; lưới 101 (20 m), `verticalScale` 1, `smooth` 3, `coast` 2; 96 phố, 870 nhà (Overture ở khu này
   thưa). **World đầu tiên không có đường ray**: công thức ghi `rail: null` (và `stops: []`) → `cfg.track` null,
   `world.track` là `noTrack(k)` (`world/track.js`: không ở đâu cả, `distanceTo` = ∞) — không dựng ray/cầu, không
   san hành lang; `checkFeatures` không đòi `train` mà cấm `train`/`station`/`halt`. Máy quay 2/4/5 (tàu) không

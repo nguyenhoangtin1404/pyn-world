@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { lam } from '../world/lowpoly.js';
 
 // Hot-air balloons circling over the valley, firing their burners as they climb (followed by the
-// bird camera, key 7). Options: count (4).
+// bird camera, key 7). Options: count (4); near: 'landmark' circles the first landmark closely (small, at
+// the world's props scale) instead of wandering over the whole valley, `big` of them larger.
 const BALLOON_STRIPES = [
   ['#c8453a', '#f2c14e'],
   ['#2f5d7c', '#f1e3c3'],
@@ -56,7 +57,8 @@ function buildBalloon(colors) {
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang bơm khinh khí cầu',
-  build(world, { rng, count = 4 }) {
+  build(world, { rng, count = 4, near, big = 0 }) {
+    if (near) world.need('công trình để khinh khí cầu bay quanh', 'landmarks', world.landmarks.length);
     const group = new THREE.Group();
       // Hot-air balloons
       const balloons = [];
@@ -71,13 +73,24 @@ export default {
         b.ph = rng() * 10;
         b.burn = 0;
         b.group.scale.setScalar(1.3);
+        if (near) {
+          // Round the landmark, each on its own ring and height, the largest ones first.
+          const spot = world.landmarks[0].spot, size = (i < big ? 1.7 : 1) * 0.9 * world.scale.props;
+          b.cx = spot.x;
+          b.cz = spot.z;
+          b.r = 20 + i * 4.5 + rng() * 2;
+          b.w = (0.03 + rng() * 0.015) * (i % 2 ? -1 : 1);
+          b.base = spot.y + 9 + i * 4 + rng() * 3;
+          b.bob = 2.5;
+          b.group.scale.setScalar(size);
+        }
         balloons.push(b);
         group.add(b.group);
       }
       const update = ({ dt, t, lights }) => {
         for (const b of balloons) {
           b.a += b.w * dt;
-          const y = b.base + Math.sin(t * 0.15 + b.ph) * 8;
+          const y = b.base + Math.sin(t * 0.15 + b.ph) * (b.bob ?? 8);
           const rising = Math.cos(t * 0.15 + b.ph) > 0.2;
           b.group.position.set(b.cx + Math.cos(b.a) * b.r, y, b.cz + Math.sin(b.a) * b.r);
           b.group.rotation.set(Math.sin(t * 0.5 + b.ph) * 0.03, t * 0.05 + b.ph, Math.cos(t * 0.4 + b.ph) * 0.03);

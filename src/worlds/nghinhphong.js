@@ -15,12 +15,15 @@ export default defineGeoWorld({
   size: 400, // 2 km across: 5 m per unit (the data file's frame), Tháp Nghinh Phong in the middle
   data: () => import('./data/nghinhphong.json'),
   rail: null,
+  cell: 1.5, // the ground in finer triangles: a smooth shore
+  landcover: { fields: false }, // the town's open ground is grass, not rice paddies
   stops: [],
-  landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong' }], // walkway to the sea: east (+x)
+  landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong', rotation: 'street' }], // its square's straight side flush with the street, the round side away from it (to the sea)
   features: [
     'landmarks', 'streets', 'buildings', 'trees', 'clouds',
-    'strollers', // people on the pavements and round the square
-    { id: 'citytraffic', min: 40 }, // the main streets here are shorter
+    { id: 'balloons', count: 6, near: 'landmark', big: 2 }, // hot-air balloons over the tower, two of them big
+    { id: 'strollers', square: 20 }, // people on the pavements and 20 round the tower's square
+    { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
   ],
 });
