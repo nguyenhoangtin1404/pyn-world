@@ -335,6 +335,11 @@ describe('Tháp Nghinh Phong (columns)', () => {
       expect(Math.max(...row(0).map((c) => c.h))).toBeLessThan(s.h * 0.2); // the nose at ground level
       const mean = (j) => half.filter((c) => c.j === j && !c.spire).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j && !c.spire).length;
       expect(mean(0)).toBeGreaterThan(mean(4)); // stepping down away from the slot
+      // The columns round the spire rise in steps up to it: the tallest at each distance is lower the further from it.
+      const at = (d) => Math.max(...half.filter((c) => c.near === d).map((c) => c.h));
+      for (let d = 2; d <= 4; d++) expect(at(d)).toBeLessThan(at(d - 1));
+      expect(at(1)).toBeGreaterThan(s.h * 0.6);
+      expect(half.filter((c) => c.near === 1).length).toBeGreaterThanOrEqual(2); // beside it on both sides
     }
     expect(new Set(cols.map((c) => c.i)).size).toBe(6); // 6 columns of 2.5 m: the slot's 15 m
   });

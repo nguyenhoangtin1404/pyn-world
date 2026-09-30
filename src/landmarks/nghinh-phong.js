@@ -35,8 +35,10 @@ const LED = ['#ff3b5c', '#ffb830', '#3bff7a', '#33c2ff', '#8a5bff', '#ff5bd6'];
  * along it (6 rows, the first the land side), `j` out from it (0 at the slot), `side` which half (+1
  * on the right seen from the land). Each half is 50 columns in a wedge: the front (land side) a
  * narrow prow of a few low columns standing out from the rest, every row further back wider and
- * higher, up to the spire at the seaward end with a shorter column beside it; heights in metres.
- * @returns {{ i: number, j: number, side: 1 | -1, h: number, spire: boolean }[]}
+ * higher, up to the spire at the seaward end with three or four columns rising in steps beside it;
+ * heights in metres.
+ * @returns {{ i: number, j: number, side: 1 | -1, h: number, spire: boolean, near: number }[]} `near`: for the
+ *   columns round a spire, how many columns away (1 to 4), else 0
  */
 export function columns() {
   const out = [];
@@ -49,9 +51,12 @@ export function columns() {
         let h = top * (0.1 + 0.14 * i) - 2.4 * j + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
         h = Math.max(1.2, Math.round(h / 1.2) * 1.2);
         const spire = i === 5 && j === 0;
+        // The columns round the spire rise in steps up to it: those a column away (along the slot or
+        // out from it) at two thirds of its height, each further one (to four away) a step lower.
+        const near = spire ? 0 : 5 - i + j <= 4 ? 5 - i + j : 0;
         if (spire) h = top;
-        else if (i === 4 && j === 0) h = Math.round((top * 0.72) / 1.2) * 1.2; // the column beside the spire
-        out.push({ i, j, side, h, spire });
+        else if (near) h = Math.max(h, Math.round((top * (0.68 - 0.12 * (near - 1))) / 1.2) * 1.2);
+        out.push({ i, j, side, h, spire, near });
       }
     }
   }
@@ -155,8 +160,8 @@ export default {
     batch.at(site.x, base0, site.z, site.ry);
     const led = [];
     let peak = 0;
-    for (const { i, j, side, h, spire } of cols) {
-      const w = cell * (spire ? 0.78 : 0.97), hy = h * k * (spire ? SPIRE : 1), r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
+    for (const { i, j, side, h, spire, near } of cols) {
+      const w = cell * (spire ? 0.78 : 0.97), hy = h * k * (spire ? SPIRE : near ? 1 + (SPIRE - 1) * 0.85 * (1 - (near - 1) / 4) : 1), r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
       const [x, z0] = at(i, j, side), z = j === 0 ? z0 - side * (cell - w) * 0.58 : z0; // (the slot's edge kept straight)
       // (Down a little below the paving, where it slopes away under the foot.)
       batch.add(cyl(r, r, hy + 0.6, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2 - 0.3, z], {}, 6));
