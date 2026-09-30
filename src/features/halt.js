@@ -22,6 +22,7 @@ export default {
     const { build } = houses(world);
     const group = new THREE.Group();
     const hf = stop.frame;
+    const k = track.k ?? 1; // the platform and shelter at the railway's size (the town street isn't yet)
     const sgH = -(Math.sign(hf.side.dot(hf.p)) || 1); // the town side: towards the middle of the loop
     const haltPlat = buildPlatform(world, group, frameIndex(track, hf), sgH, 6.5);
     const hRot = Math.atan2(hf.t.x, hf.t.z);
@@ -31,32 +32,33 @@ export default {
       z: hf.p.z - lx * Math.sin(hRot) + lz * Math.cos(hRot),
     });
     {
-      const floorH = TRACK_Y + PLAT_TOP;
+      const floorH = TRACK_Y + PLAT_TOP * k;
       batch.at(hf.p.x, 0, hf.p.z, hRot);
       batch.add([
-        box(0.14, 2.5, 8.4, '#e8d6b0', [oxH * 6.35, floorH + 1.25, 0]), // back wall
-        box(2.6, 0.18, 9, '#4f6d8f', [oxH * 5.3, floorH + 2.6, 0], { rz: oxH * 0.12 }), // roof, sloping to the back
-        box(0.5, 0.45, 3.2, WOOD, [oxH * 5.95, floorH + 0.225, 0]), // bench
-        box(0.08, 0.5, 3.2, WOOD, [oxH * 6.2, floorH + 0.7, 0]),
+        box(0.14 * k, 2.5 * k, 8.4 * k, '#e8d6b0', [oxH * 6.35 * k, floorH + 1.25 * k, 0]), // back wall
+        box(2.6 * k, 0.18 * k, 9 * k, '#4f6d8f', [oxH * 5.3 * k, floorH + 2.6 * k, 0], { rz: oxH * 0.12 }), // roof, sloping to the back
+        box(0.5 * k, 0.45 * k, 3.2 * k, WOOD, [oxH * 5.95 * k, floorH + 0.225 * k, 0]), // bench
+        box(0.08 * k, 0.5 * k, 3.2 * k, WOOD, [oxH * 6.2 * k, floorH + 0.7 * k, 0]),
       ]);
-      site.colliders.push({ ...hWorld(oxH * 6.1, 0), w: 0.9, d: 8.4, rot: hRot });
-      const sh = hWorld(oxH * 5.3, 0);
-      site.solidBox(sh.x, sh.z, 2.6, 9, hRot, floorH, floorH + 2.8);
+      site.colliders.push({ ...hWorld(oxH * 6.1 * k, 0), w: 0.9 * k, d: 8.4 * k, rot: hRot });
+      const sh = hWorld(oxH * 5.3 * k, 0);
+      site.solidBox(sh.x, sh.z, 2.6 * k, 9 * k, hRot, floorH, floorH + 2.8 * k);
       for (const z of [-4, 4]) {
-        batch.add(cyl(0.1, 0.1, 2.6, '#efe3c6', [oxH * 4.3, floorH + 1.3, z], {}, 6));
-        batch.add(shape(new THREE.SphereGeometry(0.22, 8, 6), '#fff4d6', [oxH * 4.3, floorH + 2.35, z]), lampMat);
-        site.colliders.push({ ...hWorld(oxH * 4.3, z), r: 0.2 });
-        const lw = hWorld(oxH * 4.3, z);
-        halos.push([lw.x, floorH + 2.35, lw.z]);
-        pools.push([lw.x, floorH, lw.z, 4.5]);
+        batch.add(cyl(0.1 * k, 0.1 * k, 2.6 * k, '#efe3c6', [oxH * 4.3 * k, floorH + 1.3 * k, z * k], {}, 6));
+        batch.add(shape(new THREE.SphereGeometry(0.22 * k, 8, 6), '#fff4d6', [oxH * 4.3 * k, floorH + 2.35 * k, z * k]), lampMat);
+        site.colliders.push({ ...hWorld(oxH * 4.3 * k, z * k), r: 0.2 * k });
+        const lw = hWorld(oxH * 4.3 * k, z * k);
+        halos.push([lw.x, floorH + 2.35 * k, lw.z]);
+        pools.push([lw.x, floorH, lw.z, 4.5 * k]);
       }
       const hs = new THREE.Group();
       hs.position.set(hf.p.x, 0, hf.p.z);
       hs.rotation.y = hRot;
       const hsign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshLambertMaterial({ map: labelTexture(stop.name) }));
-      hsign.position.set(oxH * 4.2, floorH + 3.3, 0);
+      hsign.position.set(oxH * 4.2 * k, floorH + 3.3 * k, 0);
       hsign.rotation.y = -oxH * (Math.PI / 2);
-      const signPosts = new THREE.Mesh(mergeGeometries([-1.4, 1.4].map((z) => cyl(0.05, 0.05, 0.8, '#3a302b', [oxH * 4.25, floorH + 2.9, z], {}, 5))), VERTEX_COLORED);
+      hsign.scale.setScalar(k);
+      const signPosts = new THREE.Mesh(mergeGeometries([-1.4, 1.4].map((z) => cyl(0.05 * k, 0.05 * k, 0.8 * k, '#3a302b', [oxH * 4.25 * k, floorH + 2.9 * k, z * k], {}, 5))), VERTEX_COLORED);
       hs.add(hsign, signPosts);
       group.add(shadowed(hs));
     }

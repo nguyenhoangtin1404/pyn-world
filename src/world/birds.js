@@ -5,7 +5,8 @@ import { createSkyBirdParts, Flock } from './birds/flocks.js';
 // Pigeons pottering about the station platform (birds/pigeons.js), and flocks of birds wheeling
 // across the sky (birds/flocks.js) — all drawn with Instancer, a few InstancedMeshes in all.
 
-export function createBirds({ rng, scenery, nav, train }) {
+// size: the pigeons' (the station's size, world.scale.props).
+export function createBirds({ rng, scenery, nav, train, size = 1 }) {
   const group = new THREE.Group();
   const floorY = scenery.platformPoint(0.5, 0.5).y;
   // On the platform floor and not under a bench or against a post.
@@ -27,7 +28,7 @@ export function createBirds({ rng, scenery, nav, train }) {
   group.add(...[...Object.values(pigeonParts), ...Object.values(skyParts)].map((p) => p.mesh));
   const pigeons = [];
   for (let i = 0; i < 9; i++) {
-    const p = new Pigeon(rng, place, pigeonParts);
+    const p = new Pigeon(rng, place, pigeonParts, size);
     p.foldWings();
     pigeons.push(p);
     group.add(p.group);
@@ -40,7 +41,7 @@ export function createBirds({ rng, scenery, nav, train }) {
   ];
   flocks.forEach((f) => group.add(f.group));
 
-  const trainThreat = { x: 0, y: 0, z: 0, r: 5 };
+  const trainThreat = { x: 0, y: 0, z: 0, r: 5 * size };
   const flockNames = ['Chim sáo (đàn chữ V)', 'Chim nhạn (đàn chữ V)', 'Hải âu'];
   const followables = [
     ...flocks.flatMap((f, i) => f.birds.slice(0, 2).map((b) => ({ label: flockNames[i], anchor: () => b.group }))),

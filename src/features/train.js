@@ -7,12 +7,13 @@ import { Train } from '../world/train.js';
 export default {
   label: 'Đang lắp đầu máy',
   build(world) {
-    const train = (world.train = new Train(world.track));
+    const k = world.track.k; // drawn at the railway's size (world.scale.props), like the track
+    const train = (world.train = new Train(world.track, { k }));
     train.tunnel = world.tunnel;
-    // (Not drawn at world.scale yet: the track, the train and the platforms are one size — see CLAUDE.md.)
-    world.scale.note('carriage', train.cars[1].offset - train.cars[0].offset, 'train');
-    // Without stops it just stops by the first frame of the track now and then.
-    if (world.stations.length) train.setStops(world.stations.map((st) => ({ s: st.frame.s + 14, out: st.out })));
+    world.scale.note('carriage', (train.cars[1].offset - train.cars[0].offset) * k, 'train');
+    // Without stops it just stops by the first frame of the track now and then. The engine halts a
+    // little past the middle of the platform, so the carriages line up along it.
+    if (world.stations.length) train.setStops(world.stations.map((st) => ({ s: st.frame.s + 14 * k, out: st.out })));
     return {
       group: train.group,
       update: ({ dt, speed }) => train.update(dt, speed),

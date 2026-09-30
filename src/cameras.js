@@ -146,10 +146,11 @@ export class CameraRig {
       if (fly) this.flyTo(this.homePos, HOME_TARGET);
     } else if (mode === 'train') {
       const loco = this.train.loco;
-      const p = loco.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 2, 0));
+      const k = this.train.k ?? 1; // a train drawn smaller: the camera closer
+      const p = loco.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 2 * k, 0));
       const fwd = loco.getWorldDirection(new THREE.Vector3());
       const side = new THREE.Vector3().crossVectors(fwd, UP);
-      this.camera.position.copy(p).addScaledVector(fwd, -16).addScaledVector(side, 10).add(new THREE.Vector3(0, 8, 0));
+      this.camera.position.copy(p).addScaledVector(fwd, -16 * k).addScaledVector(side, 10 * k).add(new THREE.Vector3(0, 8 * k, 0));
       this.controls.target.copy(p);
       this.prevFollow.copy(p);
     } else if (mode === 'bridge') {
@@ -257,7 +258,7 @@ export class CameraRig {
     }
 
     if (this.mode === 'train') {
-      const p = this._v.copy(this.train.locoPos).add(UP).add(UP);
+      const p = this._v.copy(this.train.locoPos).addScaledVector(UP, 2 * (this.train.k ?? 1));
       const delta = p.clone().sub(this.prevFollow);
       cam.position.add(delta);
       c.target.copy(p);

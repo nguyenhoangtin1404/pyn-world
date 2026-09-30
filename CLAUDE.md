@@ -186,12 +186,17 @@ xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì �
   `SIZES` (mét, quy ước của sa bàn — toa tàu 9 m như mô hình). `tests/e2e/scale.spec.js` chạy cho mọi world;
   `PENDING` liệt kê thứ biết là lệch — **chỉ được bớt, không thêm** để cho qua. Loại vật mới: thêm vào `SIZES`
   và `note` ở feature vẽ nó.
-- Đã theo `world.scale`: cây/hoa/đá (`trees`), nhà + phố từ bản đồ. **Chưa** (vẫn cỡ cố định, chỉ `note`):
-  đường ray + tàu + sân ga/ga (`GAUGE`, `PLAT_TOP`, `RAIL_TOP`, `train/cars.js`, toa cách 8,1), người
-  (`Person`, tốc độ đi), xe (`KINDS`, `traffic`), đường `road`, nhà làng (`houses`). Với PYN/MAPLE
-  `props = 1` nên nhân vào không đổi một số nào (golden giữ nguyên) — chuyển dần từng feature: nhân kích
-  thước/tốc độ/khoảng cách với `scale.props`, rồi bớt nó khỏi `PENDING`. Tuy Hòa hiện: đường ray gấp 3,1
-  lần, toa 2,7 lần cỡ đúng.
+- Đã theo `world.scale`: cây/hoa/đá (`trees`), nhà + phố từ bản đồ, **đường ray + tàu + ga**: `Track`
+  nhận `k` (`track.k`, `track.gauge`, `track.railTop` — dùng thay `GAUGE`/`RAIL_TOP` của `config.js`),
+  `buildTrackMeshes` nhân mọi mặt cắt với `k` (tà vẹt cách `k`), `Train({ k })` thu nhỏ từng toa và chạy
+  lịch (`Schedule`) **trong đơn vị của mô hình** (quãng đường thế giới / k) → tốc độ, quãng phanh, chỗ dừng
+  co theo, bánh xe/tiếng xình xịch vẫn đúng; bên ngoài đọc `train.s`, `train.v`, `train.length` (đơn vị thế
+  giới). Sân ga (`buildPlatform`: dài/rộng/cao × k, tính bằng frame ≈ 1 đơn vị), nhà ga, mái che trạm, bồ
+  câu (`Pigeon` `size`), khói tàu (`Smoke` `size`), sân ga san phẳng/dọn trống, chắn tàu, camera phím 2 — đều
+  × k. **Chưa**: người (`Person`, tốc độ đi), xe (`KINDS`, `traffic`), đường `road`, nhà làng (`houses`),
+  phố của trạm `halt` — hiện chỉ PYN/MAPLE dùng (k = 1). Chuyển tiếp: nhân kích thước/tốc độ/khoảng cách
+  với `scale.props` (viết `số * k` để k = 1 ra đúng từng bit như cũ — golden PYN/MAPLE giữ nguyên), `note`
+  cỡ đã vẽ, kiểm tra bằng `scale.spec.js`.
 
 ## Phương tiện (xe đạp, xe máy, ô tô, xe bán tải, xe tải, máy bay)
 

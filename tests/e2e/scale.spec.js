@@ -6,9 +6,7 @@ import { test, expect, openWorld } from './helpers.js';
 // they drew; the audit lists what is off.
 // PENDING: what is known to be off, until its feature draws at world.scale — shrink this list, never
 // grow it to let a new mismatch through.
-const PENDING = {
-  tuyhoa: ['carriage:train', 'gauge:track'], // the track, the train and the station are one size yet
-};
+const PENDING = {};
 
 for (const { id } of WORLDS) {
   test(`${id}: everything is drawn to the same scale`, async ({ page }) => {

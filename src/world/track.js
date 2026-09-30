@@ -11,8 +11,12 @@ export function createTrackCurve(cfg) {
 }
 
 export class Track {
-  constructor(curve) {
+  // k: how big the railway is drawn (world.scale.props): gauge, ballast, rails, bridges, the train.
+  constructor(curve, k = 1) {
     this.curve = curve;
+    this.k = k;
+    this.gauge = GAUGE * k;
+    this.railTop = TRACK_Y + 0.62 * k; // top of the rails
     this.length = curve.getLength();
     this.closed = curve.closed;
     const M = Math.ceil(this.length);
@@ -168,8 +172,11 @@ function runs(flags, value, closed = true) {
 const yaw = (t) => Math.atan2(t.x, t.z);
 
 // `riverDistance(x, z)`: world/rivers.js — no stone piers in the river's navigation channel.
+// Every size across the track is × track.k (the railway drawn smaller on a small map).
 export function buildTrackMeshes(track, heightAt, riverDistance) {
   const group = new THREE.Group();
+  const k = track.k ?? 1;
+  const sized = (/** @type {number[][]} */ profile) => profile.map(([x, y]) => [x * k, y * k]);
   const frames = track.frames;
   const M = frames.length;
   const closed = track.closed;
@@ -201,7 +208,7 @@ export function buildTrackMeshes(track, heightAt, riverDistance) {
   };
 
   // Embankment (wide trapezoid that sinks into the ground so small dips never show a gap).
-  const ballastProfile = [[-3.6, -2.6], [3.6, -2.6], [1.7, 0.3], [-1.7, 0.3]];
+  const ballastProfile = sized([[-3.6, -2.6], [3.6, -2.6], [1.7, 0.3], [-1.7, 0.3]]);
   for (const [start, len] of runs(isBridge, false, closed)) {
     const full = closed && len === M;
     add(sweep(frames, start, full ? M : span(start, len + 1), ballastProfile, TRACK_Y, full), mats.ballast, false);
@@ -212,24 +219,25 @@ export function buildTrackMeshes(track, heightAt, riverDistance) {
   const posts = [];
   for (const [start, len] of runs(isBridge, true, closed)) {
     const n = span(start, len + 1);
-    add(sweep(frames, start, n, [[-2.1, -0.35], [2.1, -0.35], [2.1, 0.3], [-2.1, 0.3]], TRACK_Y), mats.deck);
-    add(sweep(frames, start, n, [[-1.5, -1.7], [1.5, -1.7], [1.5, -0.35], [-1.5, -0.35]], TRACK_Y), mats.girder);
+    add(sweep(frames, start, n, sized([[-2.1, -0.35], [2.1, -0.35], [2.1, 0.3], [-2.1, 0.3]]), TRACK_Y), mats.deck);
+    add(sweep(frames, start, n, sized([[-1.5, -1.7], [1.5, -1.7], [1.5, -0.35], [-1.5, -0.35]]), TRACK_Y), mats.girder);
     for (const sx of [-2.05, 2.05]) {
-      add(sweep(frames, start, n, [[sx - 0.09, 1.25], [sx + 0.09, 1.25], [sx + 0.09, 1.4], [sx - 0.09, 1.4]], TRACK_Y), mats.railing);
+      add(sweep(frames, start, n, sized([[sx - 0.09, 1.25], [sx + 0.09, 1.25], [sx + 0.09, 1.4], [sx - 0.09, 1.4]]), TRACK_Y), mats.railing);
     }
-    for (let k = 0; k <= len; k += 2) {
-      const f = track.frame(start + k);
-      for (const sx of [-2.05, 2.05]) posts.push([f.p.x + f.side.x * sx, TRACK_Y + 0.8, f.p.z + f.side.z * sx, yaw(f.t)]);
+    const postStep = Math.max(1, Math.round(2 * k)); // a post every 2 (model) units
+    for (let j = 0; j <= len; j += postStep) {
+      const f = track.frame(start + j);
+      for (const sx of [-2.05 * k, 2.05 * k]) posts.push([f.p.x + f.side.x * sx, TRACK_Y + 0.8 * k, f.p.z + f.side.z * sx, yaw(f.t)]);
     }
-    for (let k = 3; k < len - 2; k += 9) {
-      const i = (start + k) % M;
+    for (let j = 3; j < len - 2; j += 9) {
+      const i = (start + j) % M;
       const f = frames[i];
       const g = ground[i];
       if (g > TRACK_Y - 2.2) continue;
       if (riverDistance(f.p.x, f.p.z) < 6) continue; // keep the navigation channel clear for the steamer
-      const top = TRACK_Y - 1.7;
+      const top = TRACK_Y - 1.7 * k;
       const bottom = g - 1.5;
-      const pier = add(new THREE.BoxGeometry(3.8, top - bottom, 1.5), mats.stone);
+      const pier = add(new THREE.BoxGeometry(3.8 * k, top - bottom, 1.5 * k), mats.stone);
       pier.position.set(f.p.x, (top + bottom) / 2, f.p.z);
       pier.rotation.y = yaw(f.t);
     }
@@ -239,7 +247,7 @@ export function buildTrackMeshes(track, heightAt, riverDistance) {
 
   const dummy = new THREE.Object3D();
   if (posts.length) {
-    const postMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 1.0, 0.14), mats.railing, posts.length);
+    const postMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14 * k, 1.0 * k, 0.14 * k), mats.railing, posts.length);
     posts.forEach(([x, y, z, r], i) => {
       dummy.position.set(x, y, z);
       dummy.rotation.set(0, r, 0);
@@ -252,23 +260,27 @@ export function buildTrackMeshes(track, heightAt, riverDistance) {
 
   // Rails
   for (const off of [-GAUGE / 2, GAUGE / 2]) {
-    add(sweep(frames, 0, M, [[off - 0.08, 0.44], [off + 0.08, 0.44], [off + 0.08, 0.62], [off - 0.08, 0.62]], TRACK_Y, closed), mats.rail, false);
+    add(sweep(frames, 0, M, sized([[off - 0.08, 0.44], [off + 0.08, 0.44], [off + 0.08, 0.62], [off - 0.08, 0.62]]), TRACK_Y, closed), mats.rail, false);
   }
 
   // A line's two ends: buffer stops (a timber frame with a red beam).
   if (!closed) {
     for (const [i, dir] of [[0, -1], [M - 1, 1]]) {
       const f = frames[i];
-      const stop = add(new THREE.BoxGeometry(2.4, 0.9, 0.5), mats.girder);
-      stop.position.set(f.p.x + f.t.x * dir * 0.5, TRACK_Y + 1.1, f.p.z + f.t.z * dir * 0.5);
+      const stop = add(new THREE.BoxGeometry(2.4 * k, 0.9 * k, 0.5 * k), mats.girder);
+      stop.position.set(f.p.x + f.t.x * dir * 0.5 * k, TRACK_Y + 1.1 * k, f.p.z + f.t.z * dir * 0.5 * k);
       stop.rotation.y = yaw(f.t);
     }
   }
 
-  // Sleepers
-  const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(2.6, 0.14, 0.42), mats.sleeper, M);
-  frames.forEach((f, i) => {
-    dummy.position.set(f.p.x, TRACK_Y + 0.37, f.p.z);
+  // Sleepers: one every frame (~1 unit); a railway drawn smaller has them closer, every k units.
+  const at = k === 1 ? frames.map((f) => ({ p: f.p, t: f.t })) : Array.from({ length: Math.floor(track.length / k) + 1 }, (_, i) => {
+    const s = i * k;
+    return { p: track.pointAt(s), t: track.curve.getTangentAt(track.wrap(s) / track.length) };
+  });
+  const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(2.6 * k, 0.14 * k, 0.42 * k), mats.sleeper, at.length);
+  at.forEach((f, i) => {
+    dummy.position.set(f.p.x, TRACK_Y + 0.37 * k, f.p.z);
     dummy.rotation.set(0, yaw(f.t), 0);
     dummy.updateMatrix();
     sleepers.setMatrixAt(i, dummy.matrix);

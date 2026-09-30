@@ -1,5 +1,5 @@
 // @ts-check
-import { RAIL_TOP, WATER_Y } from '../config.js';
+import { WATER_Y } from '../config.js';
 import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
 import { SIZES } from '../world/scale.js';
@@ -70,7 +70,7 @@ export default {
     const pads = cfg.pads ?? [];
     // Where no street goes: off the diorama, the station yards, the landmarks' squares.
     const keepOff = (/** @type {number} */ x, /** @type {number} */ z) =>
-      Math.abs(x) > half || Math.abs(z) > half || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
+      Math.abs(x) > half || Math.abs(z) > half || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24 * track.k) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
     const paint = new Paint();
     const piers = [];
     const lane = world.scale.fit(SIZES.lane);
@@ -84,7 +84,7 @@ export default {
       const surface = (/** @type {number} */ lift) => (/** @type {number} */ x, /** @type {number} */ z) => {
         let h = Math.max(ground(x, z), deck);
         const d = track.distanceTo(x, z, 12);
-        if (d < 12) h = Math.max(h, RAIL_TOP - 0.09 - Math.max(0, d - 2.8) * 0.22);
+        if (d < 12) h = Math.max(h, track.railTop - 0.09 - Math.max(0, d - 2.8 * track.k) * 0.22);
         return h + lift;
       };
       const top = surface(0.06 + rank * 0.012);

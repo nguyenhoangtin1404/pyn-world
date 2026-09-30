@@ -232,7 +232,7 @@ export function createTerrain(cfg, track, stops, rivers) {
     h = lerp(h, TRACK_Y - 0.4, plateau);
     // Station yards
     for (const p of yards) {
-      const pad = (1 - smoothstep(16, 34, Math.hypot(x - p.x, z - p.z))) * (1 - river);
+      const pad = (1 - smoothstep(16 * (track.k ?? 1), 34 * (track.k ?? 1), Math.hypot(x - p.x, z - p.z))) * (1 - river); // the yard at the railway's size
       h = lerp(h, TRACK_Y - 0.4, pad);
     }
     // Landmarks stand on level ground: their pad at the height of its middle, blending out over 10.

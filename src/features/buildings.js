@@ -38,7 +38,7 @@ export default {
       const { x, z, length, width, angle } = b;
       const reach = Math.hypot(length, width) / 2;
       if (Math.abs(x) + reach > half || Math.abs(z) + reach > half) continue;
-      if (site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 26 + reach)) continue;
+      if (site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 26 * track.k + reach)) continue;
       if (pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 2 + reach)) continue;
       if (track.distanceTo(x, z, 4 + reach) < 3.5 + reach) continue;
       if (site.claimed(x, z)) continue; // on a street
