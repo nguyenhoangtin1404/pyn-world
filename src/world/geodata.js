@@ -26,6 +26,9 @@ import { createProjection } from './geo.js';
 export const DATA_VERSION = 1;
 /** Metres the sea bed is given (the importer marks the sea with it; rivers and lakes are higher). */
 export const SEA_BED = -10;
+/** Rivers and lakes as areas sink the ground to here; anything deeper is the sea (a smoothed shore
+ *  shelves from 0 m down to SEA_BED). */
+export const WATER_BED = -4;
 
 /** Roads by kind (OpenStreetMap's highway=…) and how wide they really are, metres. */
 export const ROAD_WIDTH = {
@@ -180,6 +183,16 @@ export function prepareWorldData(d) {
     return Math.min(rows - 1, Math.max(0, r)) * cols + Math.min(cols - 1, Math.max(0, c));
   };
   const seaDist = seaDistances(metres, rows, cols, ((north - south) * 111195) / (rows - 1));
+  // Between the four data points round (x, z), so the beach's edge is a smooth line, not the grid's
+  // steps (the nearest point where one of them is Infinity: no sea).
+  const seaDistanceAt = (/** @type {number} */ x, /** @type {number} */ z) => {
+    const [lat, lon] = projection.toLatLon(x, z);
+    const r = Math.min(rows - 1, Math.max(0, ((north - lat) / (north - south)) * (rows - 1))), c = Math.min(cols - 1, Math.max(0, ((lon - west) / (east - west)) * (cols - 1)));
+    const r0 = Math.min(rows - 2, Math.floor(r)), c0 = Math.min(cols - 2, Math.floor(c)), fr = r - r0, fc = c - c0;
+    const a = seaDist[r0 * cols + c0], b = seaDist[r0 * cols + c0 + 1], e = seaDist[(r0 + 1) * cols + c0], f = seaDist[(r0 + 1) * cols + c0 + 1];
+    if (![a, b, e, f].every(Number.isFinite)) return seaDist[cell(x, z)];
+    return (a * (1 - fc) + b * fc) * (1 - fr) + (e * (1 - fc) + f * fc) * fr;
+  };
   const project = (/** @type {LatLon[]} */ pts) => pts.map(([lat, lon]) => projection.toWorld(lat, lon));
   return {
     name: d.name,
@@ -187,8 +200,8 @@ export function prepareWorldData(d) {
     heightAt,
     /** Metres above sea at (x, z) (nearest data point; the sea is below 0). */
     elevationAt: (/** @type {number} */ x, /** @type {number} */ z) => metres[cell(x, z)],
-    /** Metres to the nearest sea from (x, z) (nearest data point; Infinity with no sea). */
-    seaDistanceAt: (/** @type {number} */ x, /** @type {number} */ z) => seaDist[cell(x, z)],
+    /** Metres to the nearest sea from (x, z) (between the data points; Infinity with no sea). */
+    seaDistanceAt,
     rivers: d.rivers.map((r) => ({ id: r.id, name: r.name ?? r.id, width: projection.length(r.width), points: project(r.points) })),
     rails: d.rails.map((r) => ({ id: r.id, name: r.name ?? r.id, points: project(r.points) })),
     places: Object.fromEntries(d.places.map((p) => [p.id, { ...p, p: projection.toWorld(p.at[0], p.at[1]) }])),
@@ -244,13 +257,13 @@ export function decodeBuildings(b, projection) {
 }
 
 /**
- * Distance (metres) from every grid point to the nearest sea point (at the sea bed, SEA_BED — not
- * a river or a lake): two chamfer passes.
+ * Distance (metres) from every grid point to the nearest sea point (deeper than WATER_BED — not a
+ * river or a lake): two chamfer passes.
  * @param {Int16Array} m metres, rows × cols @param {number} rows @param {number} cols @param {number} step metres between points
  */
 export function seaDistances(m, rows, cols, step) {
   const d = new Float32Array(rows * cols);
-  for (let k = 0; k < d.length; k++) d[k] = m[k] <= SEA_BED ? 0 : Infinity;
+  for (let k = 0; k < d.length; k++) d[k] = m[k] < WATER_BED ? 0 : Infinity;
   const D = Math.SQRT2 * step;
   const relax = (k, j, w) => {
     if (d[j] + w < d[k]) d[k] = d[j] + w;

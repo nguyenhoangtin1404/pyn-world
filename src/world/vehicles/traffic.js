@@ -45,12 +45,12 @@ function gapTo(car, [x, z], other, [ox, oz]) {
   }
   const reach = LOOK + other.length / 2;
   if (Math.abs(ox - x) > reach || Math.abs(oz - z) > reach) return Infinity;
-  // Behind us, or coming the other way (the other lane of a two-way road, nearly head on): not in
-  // our way. (Not every car heading more than a right angle away: one turning across our path —
-  // a U-turn in a crossroads — is.)
+  // Behind us, or coming the other way in the other lane (nearly head on, and off to the side): not
+  // in our way. (Not every car heading more than a right angle away: one turning across our path,
+  // or making a U-turn in a crossroads right in front of us, is.)
   const h = car.path.headingAt(car.s), ho = other.path.headingAt(other.s);
   if ((ox - x) * Math.sin(h) + (oz - z) * Math.cos(h) < -other.length / 2 - LANE) return Infinity;
-  if (Math.cos(h - ho) < -0.7) return Infinity;
+  if (Math.cos(h - ho) < -0.7 && Math.abs((ox - x) * Math.cos(h) - (oz - z) * Math.sin(h)) > LANE / 2) return Infinity;
   const fx = Math.sin(ho), fz = Math.cos(ho), half = other.length / 2;
   for (let d = car.length / 2; d <= LOOK; d += 0.5) {
     const [px, pz] = car.path.pointAt(car.s + d);

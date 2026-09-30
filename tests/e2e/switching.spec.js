@@ -1,8 +1,9 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { SHOWN, WORLDS } from '../../src/worlds/index.js';
 import { test, expect, openWorld, waitForWorld } from './helpers.js';
 
-// Switching worlds (key N) frees the old one: coming back to a world, the GPU holds the same number
-// of geometries, textures and shader programs as the first time.
+// Switching worlds frees the old one: coming back to a world, the GPU holds the same number of
+// geometries, textures and shader programs as the first time. Every world, hidden ones too (the
+// app switches as key N does, through __pyn.switchWorld).
 test('switching worlds frees the old one', async ({ page }) => {
   test.skip(WORLDS.length < 2, 'only one world');
   await openWorld(page, WORLDS[0].id);
@@ -15,7 +16,7 @@ test('switching worlds frees the old one', async ({ page }) => {
   for (let round = 0; round < 2; round++) {
     for (let i = 1; i <= WORLDS.length; i++) {
       const { id } = WORLDS[i % WORLDS.length];
-      await page.keyboard.press('KeyN');
+      await page.evaluate((id) => window.__pyn.switchWorld(id), id);
       await waitForWorld(page, id);
       await page.waitForTimeout(500);
       const now = await gpu();
@@ -29,12 +30,12 @@ test('switching worlds frees the old one', async ({ page }) => {
 // The world picker (top left): one button per world; clicking one switches to it, the button of the
 // world on screen is pressed, and all of them wait while a world is being built.
 test('the world picker switches worlds', async ({ page }) => {
-  test.skip(WORLDS.length < 2, 'only one world');
-  const [first, second] = WORLDS;
+  test.skip(SHOWN.length < 2, 'only one world shown');
+  const [first, second] = SHOWN;
   await openWorld(page, first.id);
   const picker = page.getByRole('group', { name: /Chọn thế giới/ });
   const button = (w) => picker.getByRole('button', { name: w.name, exact: true });
-  await expect(picker.getByRole('button')).toHaveCount(WORLDS.length);
+  await expect(picker.getByRole('button')).toHaveCount(SHOWN.length);
   await expect(button(first)).toHaveAttribute('aria-pressed', 'true');
   await expect(button(second)).toHaveAttribute('aria-pressed', 'false');
 
@@ -48,5 +49,15 @@ test('the world picker switches worlds', async ({ page }) => {
   await button(second).click(); // already on screen: nothing happens
   await expect(button(second)).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.__pyn.state.switchingTo)).toBeNull();
+  expect(page.errors).toEqual([]);
+});
+
+// The app opens on the first world shown, the only button in the picker when it is the only one.
+test('opens on the world shown', async ({ page }) => {
+  await page.goto('/');
+  await waitForWorld(page, SHOWN[0].id);
+  const picker = page.getByRole('group', { name: /Chọn thế giới/ });
+  await expect(picker.getByRole('button')).toHaveCount(SHOWN.length);
+  await expect(picker.getByRole('button', { name: SHOWN[0].name, exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(page.errors).toEqual([]);
 });

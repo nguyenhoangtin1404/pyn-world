@@ -15,6 +15,7 @@ export default defineGeoWorld({
   size: 400, // 2 km across: 5 m per unit (the data file's frame), Tháp Nghinh Phong in the middle
   data: () => import('./data/nghinhphong.json'),
   rail: null,
+  cell: 1.5, // the ground in finer triangles: a smooth shore
   stops: [],
   landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong' }], // walkway to the sea: east (+x)
   features: [

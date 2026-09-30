@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { defineWorld } from '../../src/worlds/define.js';
-import { WORLDS, worldById } from '../../src/worlds/index.js';
+import { SHOWN, WORLDS, worldById } from '../../src/worlds/index.js';
 import pyn from '../../src/worlds/pyn.js';
 import { World } from '../../src/World.js';
 import { FEATURES } from '../../src/features/index.js';
@@ -49,10 +49,11 @@ describe('world configs', () => {
     });
   }
 
-  it('worldById falls back to the first world', () => {
+  it('shows only NGHINH PHONG; worldById finds any world, hidden ones too, else the first shown', () => {
+    expect(SHOWN.map((w) => w.id)).toEqual(['nghinhphong']);
     expect(worldById('maple').id).toBe('maple');
-    expect(worldById('nope')).toBe(WORLDS[0]);
-    expect(worldById(null)).toBe(WORLDS[0]);
+    expect(worldById('nope')).toBe(SHOWN[0]);
+    expect(worldById(null)).toBe(SHOWN[0]);
   });
 });
 

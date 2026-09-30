@@ -204,7 +204,7 @@ export function createTerrain(cfg, track, stops, rivers) {
   const pads = cfg.pads ?? []; // flat ground under landmarks: { x, z, r, h }
   const cover = cfg.landcover ?? null;
   // One grid cell every ~3 units, whatever the size of the world.
-  const segments = Math.round(size / 3);
+  const segments = Math.round(size / (cfg.cell ?? 3)); // cfg.cell: the ground's triangles, units across (finer: smoother shores)
   const zones = {};
   for (const st of stops) if (st.zone) zones[st.id] = villageZone(st.frame, st.zone);
   const plateaus = Object.values(zones);

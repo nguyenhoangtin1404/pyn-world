@@ -4,7 +4,9 @@
   "center": [13.1163, 109.3076],
   "halfExtent": 1000,
   "size": 400,
-  "verticalScale": 2,
+  "verticalScale": 1,
+  "smooth": 3,
+  "coast": 2,
   "grid": 101,
   "sea": ["east"],
   "sources": {

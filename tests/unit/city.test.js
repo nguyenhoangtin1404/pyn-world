@@ -4,7 +4,7 @@ import { builtUp, createLandCover } from '../../src/world/landcover.js';
 import { createRivers } from '../../src/world/rivers.js';
 import { Site } from '../../src/world/site.js';
 import { likelyFloors } from '../../src/features/buildings.js';
-import { build, checkPlaces, despike, heightGrid, inWater } from '../../tools/import/build.mjs';
+import { build, checkPlaces, despike, heightGrid, inWater, smoothCoast, smoothLand } from '../../tools/import/build.mjs';
 import { clipToBox, footprintRect, joinLines, osmToVectors, simplify } from '../../tools/import/osm.mjs';
 
 // Phase 2 of worlds from map data: streets, buildings and water areas from OpenStreetMap / Overture.
@@ -271,5 +271,30 @@ describe('elevation spikes (despike)', () => {
     expect(once[4 * n + 4]).toBe(72);
     despike(h, n, 2);
     for (const [r, c] of [[4, 4], [4, 5], [5, 4], [5, 5]]) expect(h[r * n + c]).toBe(4);
+  });
+});
+
+describe('smoother land (smoothLand)', () => {
+  it('irons out the bumps on land and leaves the sea and the shore where they are', () => {
+    const n = 12;
+    const h = new Int16Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) h[r * n + c] = c >= 9 ? -10 : 4 + ((r + c) % 2) * 6; // bumpy land, sea east
+    smoothLand(h, n, 2);
+    for (let r = 2; r < n - 2; r++) for (let c = 2; c < 7; c++) expect(Math.abs(h[r * n + c] - 7)).toBeLessThanOrEqual(1);
+    for (let r = 0; r < n; r++) for (let c = 9; c < n; c++) expect(h[r * n + c]).toBe(-10); // the sea as it was
+    for (let r = 0; r < n; r++) expect(h[r * n + 8]).toBeGreaterThanOrEqual(4); // the shore not pulled under
+  });
+});
+
+describe('a smooth shore (smoothCoast)', () => {
+  it('rounds the staircase of a diagonal shore into a slope, and leaves land and sea away from it', () => {
+    const n = 16;
+    const h = new Int16Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) h[r * n + c] = c > r ? -10 : 2; // sea above the diagonal, stepwise
+    smoothCoast(h, n, 2);
+    // Across the shore the ground shelves down in steps of a few metres, not 12 at once.
+    for (let c = 4; c < 12; c++) expect(Math.abs(h[8 * n + c + 1] - h[8 * n + c])).toBeLessThan(6);
+    expect(h[8 * n + 0]).toBe(2); // land well inland
+    expect(h[0 * n + 15]).toBe(-10); // sea well out
   });
 });

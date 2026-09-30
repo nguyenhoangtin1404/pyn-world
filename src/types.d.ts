@@ -60,6 +60,8 @@ export interface GeoRecipe {
   seed: number;
   /** Side of the square diorama, in world units (the data's frame says how many metres one is). */
   size: number;
+  /** The ground's grid cells, units (default 3; see WorldConfig.cell). */
+  cell?: number;
   /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
   data(): Promise<any>;
   /** id of the railway in the data the train runs on (default: the first); null for none — a town
@@ -87,6 +89,8 @@ export interface WorldConfig {
   size: number;
   /** The railway's points — null for a world without one (defineGeoWorld with `rail: null`). */
   track: (() => [number, number][]) | null;
+  /** Size of the ground's grid cells, units (default 3): smaller is a smoother ground and shore, more triangles. */
+  cell?: number;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
   trackClosed?: boolean;
   stops: StopConfig[];

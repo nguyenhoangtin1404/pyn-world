@@ -4,7 +4,7 @@ import { Site, CLAIM } from '../../src/world/site.js';
 import { createGrade } from '../../src/world/grade.js';
 import { drawnHeight, fitOffStreets } from '../../src/features/buildings.js';
 import { crosswalkAt, pavementRoute } from '../../src/features/strollers.js';
-import { alongFrom, alongside, findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
+import { alongFrom, alongside, crossedAt, findJunctions, overlaps, passes, trimEnds } from '../../src/features/citytraffic.js';
 import { LoopPath } from '../../src/world/vehicles/path.js';
 
 // A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
@@ -191,5 +191,24 @@ describe('along a street from a crossing (alongFrom)', () => {
   it('is nothing past the end of the street (a street ending at the crossing has one arm)', () => {
     expect(alongFrom(pts, [5, 0], -6)).toBeNull();
     expect(alongFrom(pts, [5, 0], 16)).toBeNull();
+  });
+});
+
+describe('turning round before a crossroads, not in it (crossedAt, trimEnds)', () => {
+  const line = (x0, z0, x1, z1, n = 20) => Array.from({ length: n + 1 }, (_, i) => [x0 + ((x1 - x0) * i) / n, z0 + ((z1 - z0) * i) / n]);
+  // A street along x ending at a street across it at x = 40.
+  const st = { kind: 'primary', width: 3, points: line(0, 0, 40, 0) };
+  const across = { kind: 'secondary', width: 4, points: line(40, -30, 40, 30) };
+  const beside = { kind: 'primary', width: 3, points: line(0, 4, 40, 4) }; // the other half of a dual carriageway
+  const streets = [st, across, beside];
+  it('knows the end at the crossing street, not the street alongside', () => {
+    expect(crossedAt(streets, st, 40, 0, Math.PI / 2)).toBe(true);
+    expect(crossedAt(streets, st, 20, 0, Math.PI / 2)).toBe(false);
+    expect(crossedAt([st, beside], st, 40, 0, Math.PI / 2)).toBe(false);
+  });
+  it('cuts the street back from that end only', () => {
+    const cut = trimEnds(st.points, (x, z, h) => !crossedAt(streets, st, x, z, h));
+    expect(cut[0]).toEqual([0, 0]);
+    expect(cut.at(-1)[0]).toBeLessThan(40 - 2 - 3);
   });
 });

@@ -10,7 +10,7 @@ import { createKeyHandler } from './app/keys.js';
 import { createResolutionAdapter, createStats } from './app/perf.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
-import { WORLDS, worldById } from './worlds/index.js';
+import { SHOWN, worldById } from './worlds/index.js';
 
 // The app: renderer, camera, sound, UI and the frame loop. What is on screen is `world` — one
 // World (src/World.js) built from a WorldConfig (src/worlds/); the world picker or N switches.
@@ -54,7 +54,7 @@ const audio = new AudioEngine();
 const post = new PostFX(renderer);
 const rig = new CameraRig(camera, renderer.domElement);
 let world = null; // the World on screen (null while the next one is being built)
-if (import.meta.env.DEV) window.__pyn = { get W() { return world; }, renderer, post, rig, camera, state };
+if (import.meta.env.DEV) window.__pyn = { get W() { return world; }, renderer, post, rig, camera, state, switchWorld: (id) => switchWorld(id) };
 
 const adaptResolution = createResolutionAdapter(renderer, MAX_DPR, resize);
 const stats = createStats(renderer);
@@ -137,7 +137,7 @@ const actions = {
   },
 };
 
-const onKey = createKeyHandler({ state, actions, rig, audio, worlds: WORLDS, hud: () => hud, world: () => world, switchWorld });
+const onKey = createKeyHandler({ state, actions, rig, audio, worlds: SHOWN, hud: () => hud, world: () => world, switchWorld });
 
 const clock = new THREE.Clock();
 
@@ -253,7 +253,7 @@ async function boot() {
   }
   show(first);
 
-  hud = initHud(state, actions, WORLDS);
+  hud = initHud(state, actions, SHOWN);
   addEventListener('keydown', onKey);
   addEventListener('resize', resize);
   addEventListener('pointerdown', () => audio.init(), { once: true });
