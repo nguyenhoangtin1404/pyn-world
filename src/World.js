@@ -1,6 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
-import { Track, createTrackCurve, buildTrackMeshes } from './world/track.js';
+import { Track, createTrackCurve, buildTrackMeshes, noTrack } from './world/track.js';
 import { createTerrain } from './world/terrain.js';
 import { createTunnel } from './world/tunnel.js';
 import { Sky } from './world/sky.js';
@@ -49,7 +49,7 @@ export class World {
     /** @type {any} */ this.sky = null;
     /** @type {any} */ this.weather = null;
     // …and by the features:
-    /** @type {any} */ this.train = null; // Train (features/train.js) — required
+    /** @type {any} */ this.train = null; // Train (features/train.js) — in every world with a railway
     this.scene = new THREE.Scene();
     this.time = 0; // simulated seconds (stops while paused)
     /** @type {System[]} */
@@ -76,8 +76,10 @@ export class World {
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
-    /** @type {{ kind: string, name: string, width: number, lanes: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js) */
+    /** @type {{ kind: string, name: string, width: number, lanes: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
     this.streets = [];
+    /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
+    this.crosswalks = [];
     /** @type {{ pos: THREE.Vector3 }[]} people on foot about the town who don't take the train (features/strollers.js) */
     this.pedestrians = [];
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
@@ -161,12 +163,13 @@ export class World {
   steps() {
     const { cfg, scene } = this;
     const features = cfg.features.map((entry) => (typeof entry === 'string' ? { id: entry } : entry));
-    checkFeatures(features);
+    checkFeatures(features, !!cfg.track);
     /** @type {(label: string, run: () => void) => [string, () => void]} */
     const step = (label, run) => [label, run];
     return [
       step('Đang trải đường ray', () => {
-        this.track = new Track(createTrackCurve(cfg), this.scale.props);
+        // (No railway — cfg.track null: a stand-in nothing is near, and no stops.)
+        this.track = cfg.track ? new Track(createTrackCurve(cfg), this.scale.props) : noTrack(this.scale.props);
         const M = this.track.frames.length;
         // Every stop in the config with its place on the track (frame); features build on them.
         this.stops = cfg.stops.map((st) => ({ ...st, frame: this.track.frame(Math.round(M * st.at)) }));
@@ -187,10 +190,18 @@ export class World {
         })]
         : []),
       step('Đang dựng cầu và tà vẹt', () => {
-        const rails = buildTrackMeshes(this.track, this.heightAt, this.rivers.distance);
-        this.bridges = rails.bridges;
-        this.scale.note('gauge', this.track.gauge, 'track');
-        this.add({ group: rails.group });
+        if (cfg.track) {
+          const rails = buildTrackMeshes(this.track, this.heightAt, this.rivers.distance);
+          this.bridges = rails.bridges;
+          this.scale.note('gauge', this.track.gauge, 'track');
+          this.add({ group: rails.group });
+        } else {
+          this.bridges = [];
+          // Every other world has the train's headlight (the one real light, world/train/cars.js):
+          // the same one here, off, so every world's lights are the same and its materials — shared
+          // between worlds — keep the shaders they have instead of getting a second set.
+          scene.add(new THREE.SpotLight('#ffe7b0', 0, 90, 0.45, 0.6, 1));
+        }
         const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
         this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards, rivers: this.rivers });
       }),
@@ -306,10 +317,12 @@ export class World {
 
 /**
  * @param {{ id: string }[]} features
+ * @param {boolean} railway whether the world has one (cfg.track)
  */
 // Before anything is built: every feature exists, comes after the features it needs (feature.needs:
-// ids, or a list of ids any one of which will do), and there is a train (the cameras ride it).
-function checkFeatures(features) {
+// ids, or a list of ids any one of which will do), and a world with a railway has a train on it
+// (the cameras ride it); one without has nothing that runs on it.
+function checkFeatures(features, railway = true) {
   const before = new Set();
   for (const { id } of features) {
     const feature = FEATURES[id];
@@ -320,5 +333,6 @@ function checkFeatures(features) {
     }
     before.add(id);
   }
-  if (!before.has('train')) throw new Error('WorldConfig cần feature "train" (máy quay đi theo tàu)');
+  if (railway && !before.has('train')) throw new Error('WorldConfig cần feature "train" (máy quay đi theo tàu)');
+  for (const id of ['train', 'station', 'halt']) if (!railway && before.has(id)) throw new Error(`World không có đường ray (cfg.track null) nên không có feature "${id}"`);
 }

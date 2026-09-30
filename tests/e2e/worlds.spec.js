@@ -16,7 +16,7 @@ for (const { id } of WORLDS) {
     test('comes alive: train, people, doors, rain, hikers, vehicles', async ({ page }) => {
       await openWorld(page, id);
       const life = await page.evaluate(simulate);
-      expect(life.trainStops, 'the train keeps calling at stops').toBeGreaterThanOrEqual(2);
+      if (life.train) expect(life.trainStops, 'the train keeps calling at stops').toBeGreaterThanOrEqual(2);
       if (life.people > 0) {
         expect(life.boarding, 'people board the train').toBeGreaterThan(0);
         expect(life.alighting, 'people get off at the next stop').toBeGreaterThan(0);
@@ -45,6 +45,13 @@ for (const { id } of WORLDS) {
         const why = (what) => `${what} — ${JSON.stringify(f)}`;
         expect(f.onCarriageway, why('people keep off the carriageway but for the crosswalks')).toBe(0);
         expect(f.redCrossings, why('nobody starts across while the lights say wait')).toBe(0);
+        expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
+        expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
+      }
+      if (life.zebra) {
+        const f = life.zebra;
+        const why = (what) => `${what} — ${JSON.stringify(f)}`;
+        expect(f.notOnRed, why('nobody steps onto a crossroads crosswalk unless its traffic has red')).toBe(0);
         expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
         expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }

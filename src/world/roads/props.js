@@ -18,9 +18,14 @@ export const ARM_OPEN = 1.45; // radians up from level: the arm stands (nearly) 
 export class SignalProps {
   /**
    * @param {import('../lowpoly.js').StaticBatch} batch
+   * @param {number} [size] drawn this many times as big (world.scale.props)
+   * @param {{ square?: boolean }} [o] square: lamps behind flat square lenses in their boxes (the
+   *   town's crossroads) instead of round ones
    */
-  constructor(batch) {
+  constructor(batch, size = 1, { square = false } = {}) {
     this.batch = batch;
+    this.size = size;
+    this.square = square;
     this.group = new THREE.Group();
     /** @type {[THREE.Object3D, string][]} */
     this.lamps = [];
@@ -34,8 +39,9 @@ export class SignalProps {
     const o = new THREE.Object3D();
     o.position.set(x, y, z);
     o.rotation.y = h + Math.PI;
+    if (this.size !== 1) o.scale.setScalar(this.size);
     this.group.add(o);
-    this.batch.at(x, y, z, h + Math.PI);
+    this.batch.at(x, y, z, h + Math.PI, this.size);
     return o;
   }
 
@@ -65,11 +71,37 @@ export class SignalProps {
     const head = /** @type {any} */ ({});
     [['red', 0.36], ['yellow', 0], ['green', -0.36]].forEach(([name, dy]) => {
       const c = /** @type {'red' | 'yellow' | 'green'} */ (name), yy = Y + /** @type {number} */ (dy);
-      parts.push(ball(0.13, DIM[c], [0, yy, 0.15], { sz: 0.4 }), box(0.32, 0.04, 0.16, '#1b1d21', [0, yy + 0.17, 0.22]));
+      parts.push(this.lens(DIM[c], [0, yy, 0.15]), box(0.32, 0.04, 0.16, '#1b1d21', [0, yy + 0.17, 0.22]));
       head[c] = this.lamp(o, 0, yy, 0.18, LIT[c]);
     });
     this.batch.add(parts);
     return head;
+  }
+
+  /**
+   * A pedestrian light on the pole of a traffic light at (x, z) (no pole of its own), a little
+   * below the traffic light's head, facing the people who come across the road along heading h
+   * (from the far kerb).
+   * @param {number} x @param {number} y ground @param {number} z @param {number} h
+   */
+  walkOnPole(x, y, z, h) {
+    const o = this.frame(x, y, z, h);
+    // A box in front of the pole, a lens over the other: red (wait) above green (walk).
+    this.batch.add([
+      box(0.44, 0.9, 0.3, '#24272c', [0, 2.15, 0.22]),
+      box(0.12, 0.2, 0.12, '#3b3f45', [0, 2.15, 0.06]), // its bracket
+      this.lens(DIM.red, [0, 2.36, 0.37]),
+      this.lens(DIM.green, [0, 1.94, 0.37]),
+    ]);
+    return { stop: this.lamp(o, 0, 2.36, 0.4, LIT.red), walk: this.lamp(o, 0, 1.94, 0.4, LIT.green) };
+  }
+
+  /**
+   * A lens, unlit: round, or square and flat (`square`).
+   * @param {string} color @param {[number, number, number]} at
+   */
+  lens(color, at) {
+    return this.square ? box(0.3, 0.3, 0.04, color, at) : ball(0.13, color, at, { sz: 0.4 });
   }
 
   /**
@@ -135,7 +167,8 @@ export class SignalProps {
   /** The Instancers drawing every lamp and arm; call once, after the last post. */
   build() {
     if (this.lamps.length) {
-      const lamps = new Instancer(ball(0.15, '#ffffff', [0, 0, 0], { sz: 0.45 }), UNLIT, this.lamps.length, { castShadow: false, receiveShadow: false });
+      const bulb = this.square ? box(0.3, 0.3, 0.05, '#ffffff') : ball(0.15, '#ffffff', [0, 0, 0], { sz: 0.45 });
+      const lamps = new Instancer(bulb, UNLIT, this.lamps.length, { castShadow: false, receiveShadow: false });
       for (const [a, c] of this.lamps) lamps.add(a, c);
       this.group.add(lamps.mesh);
     }

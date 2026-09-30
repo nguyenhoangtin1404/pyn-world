@@ -127,8 +127,8 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   > 200 m — Tháp Nghinh Phong từng bị đặt lệch 3 km (13.0917, 109.3262 thay vì 13.1163, 109.3076, nằm ngoài
   khung cũ); đối chiếu thêm với Google Maps khi thêm địa danh. Overture có danh sách địa danh nhưng phân
   loại lỏng (quán cà phê gắn "di tích") nên chỉ dùng để kiểm tra, không đưa vào file dữ liệu.
-  **Gai độ cao** (một điểm SRTM cao hơn mọi điểm quanh > 12 m — nhiễu radar, nhà cao tầng) bị hạ về
-  trung vị các điểm quanh (`despike`); đỉnh núi thật luôn có điểm quanh gần bằng nên giữ nguyên. Ghi nguồn ODbL (`sources.map`,
+  **Gai độ cao** (một điểm SRTM cao hơn các điểm quanh > 12 m — nhiễu radar, nhà cao tầng) bị hạ về
+  trung vị các điểm quanh (`despike`, xem NGHINH PHONG bên dưới); đỉnh núi thật luôn có điểm quanh gần bằng nên giữ nguyên. Ghi nguồn ODbL (`sources.map`,
   README).
 - **Mặt nước dạng vùng** (sông Đà Rằng có cồn bãi, hồ): điểm lưới độ cao nằm trong vùng (trừ đảo) thành
   −4 m → nước tự hiện, `rivers` bỏ trống (sông vẽ tay rộng 1 km từng đè lên cả làng trên bãi bồi).
@@ -184,6 +184,32 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một
     đường lên rồi xuống) bị cắt (`untangle`) — không thì làn về chồng lên nhau. Xe dừng cho người đi bộ
     (`world.pedestrians`); ở ngã tư không đèn, hai xe cùng thấy nhau thì xe trước trong danh sách đi trước.
+    **Đèn giao thông ở ngã tư thật** (`lights: true`): `findJunctions` tìm chỗ hai phố chính cắt nhau (góc
+    đủ lớn, gộp trong 5 đơn vị), ít nhất một phố có xe chạy. Mỗi ngã tư một `crossroads()` hai pha, lệch pha
+    ngẫu nhiên với ngã tư khác; mỗi làn qua ngã tư (`passes`) có điểm dừng + vạch dừng trắng lùi trước phố
+    kia (nửa bề rộng + vỉa hè), cột đèn trên vỉa hè bên phải — dời ra tối đa 1 đơn vị cho khỏi lòng đường,
+    cách đá ballast ray ≥ 1, không có chỗ thì bỏ cột (vạch dừng vẫn có). **Mọi pha đều phải `update`**, kể
+    cả pha không có cột đèn nào — từng quên: pha đứng đỏ mãi, xe kẹt 263 s. Phố chính không có xe cũng có
+    đèn cả hai chiều. Tuy Hòa: ~30 ngã tư, 67 vạch dừng, 94 cột đèn; xe đứng lâu nhất 16 s.
+    **Vạch sang đường** ở mỗi nhánh ngã tư có đèn: ngay chỗ vỉa hè của phố kia cắt qua (lùi nửa bề rộng phố
+    kia + nửa vỉa hè, chia sin góc giữa hai phố — ngã tư chéo lùi xa hơn), sâu 3 m × props, sọc trắng cách
+    1 m × props, vẽ trên mặt phố cao nhất chỗ đó; vạch dừng lùi sau nó 1 m × props. Vạch trùng vạch khác
+    (phố cắt chéo, hai ngã tư sát nhau, `overlaps` — trừ hai đầu, vì vạch hai nhánh gặp nhau ở góc) thì bỏ. Mỗi vạch vào `world.crosswalks` `{ x, z, h, half, depth,
+    signal }`; người đi dạo (`strollers`, `crosswalkAt`) tới mép thì chờ (`walker.waiting`) tới khi xe trên
+    phố đó đỏ **đủ lâu để qua hết** (`signal.walk(bề rộng / tốc độ + 1)`). E2E: không ai bước lên vạch khi
+    xe chưa đỏ, có người chờ, có người qua. Tuy Hòa: 100 vạch (vạch trùng vạch khác bị bỏ — một phố có thể là nhiều đoạn trong `world.streets`).
+    **Vạch kẻ vẽ bằng `Paint`** (tam giác theo mặt đường, ô ≤ 0,5, độ cao = mặt phố **đang nằm trên cùng** ở mỗi góc —
+    phố nào có lòng phủ điểm đó, `distanceToLine`), không phải hộp phẳng đặt theo độ cao tâm (từng chìm/nổi trên dốc).
+    Vị trí đo **dọc theo chính phố** (`alongFrom`: từ chỗ phố đi gần ngã tư nhất, đi ± d theo polyline), không theo
+    đường thẳng qua tâm; phố hết trước khi tới đó (phố cụt ở ngã ba) thì không có nhánh ấy — từng vẽ vạch giữa ngã tư.
+    Làm hết vạch sang đường của một ngã tư trước, rồi vạch dừng (bỏ vạch dừng đè lên vạch sang đường hay lòng phố khác —
+    xe vẫn dừng). **Đèn hình hộp, mặt kính vuông** (`new SignalProps(batch, k, { square: true })` — chỉ đèn ở phố thật; đèn MAPLE vẫn
+    kính tròn, golden giữ nguyên). **Đèn đi bộ chung trụ với đèn xe** (`props.walkOnPole`: hộp riêng trước trụ, đỏ trên xanh
+    dưới, dưới đầu đèn xe, quay sang bên kia đường,
+    xanh khi `signal.walk(bề rộng / tốc độ + 1)`); một trụ mỗi làn (trụ cách trụ cùng hướng < 1,5 thì bỏ). Vạch giữa
+    đứt của phố (`streets`) dừng **trước** phố cắt ngang (lưới đoạn phố, góc > 30°; đại lộ hai nửa vẫn giữ vạch), lùi
+    nửa bề rộng phố kia + vỉa hè + 5 m × props (chỗ cho vạch sang đường 3 m + vạch dừng), đo vuông góc với phố kia —
+    ngã ba chéo tự lùi xa hơn, như vạch sang đường.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
@@ -191,8 +217,38 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     chọn theo lớp phủ đất (`Flock` nhận `center`).
   E2E tua 300 s với Tuy Hòa: không xe nào chồng nhau (hình chữ nhật × `v.k`), không xe nào kẹt, đèn phanh
   và đèn pha có bật.
-- Chưa làm: đèn giao thông ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
-  (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
+- **Phố sạch sẽ**: `site.claimRect(…, kind)` nhớ **loại** đất (`CLAIM`: `TAKEN` 1 < `PAVEMENT` 2 <
+  `CARRIAGEWAY` 3, ô giữ loại cao nhất; `site.claimAt`). `streets` claim lòng đường + vỉa hè (`PAVEMENT`
+  = 1,5 m × props mỗi bên, vẽ màu xám nhạt ở lượt đầu, thấp hơn mọi lòng đường nên lòng phố cắt ngang
+  che vỉa hè ở miệng phố). Nhà (`fitOffStreets`): thử 15 điểm trên móng, chạm vỉa hè/lòng đường thì cắt
+  bớt phía giáp phố (còn 75 % / 55 % chiều dài hoặc rộng), không được thì bỏ. Người đi dạo
+  (`pavementRoute`): đi giữa vỉa hè, điểm rơi vào lòng phố khác thì đẩy ra ≤ 0,8, không được thì là chỗ
+  băng qua đường (giữ), trừ ở hai đầu — không bắt đầu/kết thúc giữa lòng đường. **San mặt đường**
+  (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
+  ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
+  world có `cfg.roads`), không san chỗ nước (cầu).
+- **NGHINH PHONG** (`src/worlds/nghinhphong.js`): 2 × 2 km quanh Tháp Nghinh Phong (tâm = tháp,
+  `halfExtent` 1000), 400 đơn vị → 5 m/đơn vị, `props` 0,6; lưới 101 (20 m); 96 phố, 870 nhà (Overture ở khu này
+  thưa). **World đầu tiên không có đường ray**: công thức ghi `rail: null` (và `stops: []`) → `cfg.track` null,
+  `world.track` là `noTrack(k)` (`world/track.js`: không ở đâu cả, `distanceTo` = ∞) — không dựng ray/cầu, không
+  san hành lang; `checkFeatures` không đòi `train` mà cấm `train`/`station`/`halt`. Máy quay 2/4/5 (tàu) không
+  làm gì (`setMode` trả false), âm thanh tàu im; `birds` không cần ga nữa (không ga thì không có bồ câu). E2E:
+  `trainStops` chỉ đòi khi có tàu. **World không tàu vẫn thêm một `SpotLight` tắt giống đèn pha tàu**: thiếu nó
+  thì cấu hình đèn khác, material dùng chung (`keep()`) biên dịch thêm bộ shader thứ hai và giữ luôn — e2e đổi
+  world bắt được (MAPLE lần hai 37 → 48 shader).
+  **Gai độ cao theo cụm**: lưới mịn hơn SRTM (30 m) lặp mỗi mẫu thành khối 2×2, và ở đây là một cụm mẫu cao
+  (72/65/34/33 m, nhà cao tầng?) che nhau → núi giả cạnh tháp. `despike(h, n, reach)`: so với **vòng cách
+  `reach` điểm** (`reach` = số điểm lưới mỗi mẫu SRTM, `build.mjs` tự tính) và với điểm cao **thứ nhì** của vòng
+  (một mẫu gai bên cạnh không che được), lặp tới khi không đổi (≤ 4 lượt). Tuy Hòa dựng lại chỉ lệch 1 điểm (4 → 5
+  m), đỉnh núi giữ nguyên — file dữ liệu Tuy Hòa không dựng lại.
+  **Phố trùng**: một con đường có thể nằm hai lần trong `world.streets` (vẽ hai lần trên bản đồ, hay đại lộ hai
+  nửa) → hai tuyến xe ngược chiều trên cùng làn (luật giao thông bỏ qua xe ngược chiều) → đâm nhau. `citytraffic`
+  bỏ phố có > 30 % điểm nằm sát một phố đã chọn (`alongside`).
+- **Nhà không mảnh như cây tăm** (`drawnHeight`): tầng theo tỉ lệ đồ vật (`scale.fit`) còn móng theo bản đồ → trên bản
+  đồ nhỏ nhà cao gấp 3 so với thật (Tuy Hòa: nhà 4 × 4 m 4 tầng cao 4 đơn vị trên móng 0,35 — 11 000 / 31 000 nhà cao
+  > 5 lần cạnh ngắn). Giờ cao ≤ 2,5 × cạnh ngắn, nhưng ≥ 0,6 tầng.
+- Chưa làm: xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+  (chữ L…), sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)
 

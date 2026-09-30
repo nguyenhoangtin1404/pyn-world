@@ -54,17 +54,19 @@ export function defineGeoWorld(recipe) {
       if (cfg.heights) return;
       const mod = await recipe.data();
       const d = prepareWorldData(mod.default ?? mod);
-      const rail = recipe.rail ? d.rails.find((r) => r.id === recipe.rail) : d.rails[0];
-      if (!rail) throw new Error(`World "${recipe.id}": dữ liệu không có đường ray${recipe.rail ? ` "${recipe.rail}"` : ''}`);
+      // rail: null — no railway (a town away from the line): no train, no stops.
+      const rail = recipe.rail === null ? null : recipe.rail ? d.rails.find((r) => r.id === recipe.rail) : d.rails[0];
+      if (!rail && recipe.rail !== null) throw new Error(`World "${recipe.id}": dữ liệu không có đường ray${recipe.rail ? ` "${recipe.rail}"` : ''}`);
       cfg.heights = d.heightAt;
       cfg.rivers = d.rivers;
       cfg.places = d.places;
       cfg.roads = d.roads;
       cfg.buildings = d.buildings;
       cfg.metersPerUnit = d.projection.metersPerUnit;
-      const line = clipToSquare(rail.points, recipe.size / 2 - 12); // ends a little inside the edge
-      if (line.length < 2) throw new Error(`World "${recipe.id}": đường ray không đi qua sa bàn`);
-      cfg.track = () => line;
+      const line = rail ? clipToSquare(rail.points, recipe.size / 2 - 12) : []; // ends a little inside the edge
+      if (rail && line.length < 2) throw new Error(`World "${recipe.id}": đường ray không đi qua sa bàn`);
+      if (!rail && recipe.stops.length) throw new Error(`World "${recipe.id}": không có đường ray (rail: null) thì không có điểm dừng`);
+      cfg.track = rail ? () => line : null;
       cfg.stops = recipe.stops.map(({ place, ...st }) => {
         const p = d.places[place];
         if (!p) throw new Error(`World "${recipe.id}": điểm dừng "${st.id}" cần nơi "${place}" trong dữ liệu`);

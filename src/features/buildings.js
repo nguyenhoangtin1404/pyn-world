@@ -4,12 +4,14 @@ import { WATER_Y } from '../config.js';
 import { lam } from '../world/lowpoly.js';
 import { lamps } from './lamps.js';
 import { SIZES } from '../world/scale.js';
+import { CLAIM } from '../world/site.js';
 
 // A town's real buildings (cfg.buildings, from the map data): each footprint's rectangle as a
 // block standing on the ground, as tall as its floors (from the map, or a likely number for a
 // Vietnamese town: narrow tube houses of 2–4 floors, big sheds and schools lower), each storey as
 // tall as the people and props are drawn (world.scale.fit: taller than the map scale on a small map,
-// or a storey would be shorter than a person). Walls in the pale colours of the street, schools yellow; some of the low houses
+// or a storey would be shorter than a person) — but never taller than 2.5 times its narrower side
+// (drawnHeight: a small house would stand like a stick). Walls in the pale colours of the street, schools yellow; some of the low houses
 // get a tiled hip roof, the rest the flat roof terrace. A band of windows on the taller ones glows
 // after dark (lamps(world).windowMat). Every building of a kind shares an InstancedMesh: 3 draw
 // calls (and their shadows) for the whole town. Buildings on a street, in the water, on the
@@ -34,14 +36,17 @@ export default {
     const pads = cfg.pads ?? [];
     const ground = terrain.meshHeightAt;
     const kept = [];
-    for (const b of all) {
+    for (const data of all) {
+      const reach = Math.hypot(data.length, data.width) / 2;
+      if (Math.abs(data.x) + reach > half || Math.abs(data.z) + reach > half) continue;
+      if (site.yards.some((p) => Math.hypot(data.x - p.x, data.z - p.z) < 26 * track.k + reach)) continue;
+      if (pads.some((p) => Math.hypot(data.x - p.x, data.z - p.z) < p.r + 2 + reach)) continue;
+      if (track.distanceTo(data.x, data.z, 4 + reach) < 3.5 + reach) continue;
+      // Off the streets and their pavements (drawn wider than life): cut back from the street side
+      // if it has to be, or left out.
+      const b = fitOffStreets(data, (x, z) => site.claimAt(x, z) >= CLAIM.PAVEMENT);
+      if (!b) continue;
       const { x, z, length, width, angle } = b;
-      const reach = Math.hypot(length, width) / 2;
-      if (Math.abs(x) + reach > half || Math.abs(z) + reach > half) continue;
-      if (site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 26 * track.k + reach)) continue;
-      if (pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 2 + reach)) continue;
-      if (track.distanceTo(x, z, 4 + reach) < 3.5 + reach) continue;
-      if (site.claimed(x, z)) continue; // on a street
       // Standing on dry ground at every corner; the lowest corner is its foot.
       const c = Math.cos(angle), s = Math.sin(angle);
       let foot = Infinity, head = -Infinity;
@@ -53,7 +58,7 @@ export default {
       }
       if (foot < WATER_Y + 0.5) continue;
       const floors = b.floors || likelyFloors(b.kind, length * width * mpu * mpu, rng);
-      const height = b.kind === 'shelter' ? shed : floors * storey + parapet;
+      const height = drawnHeight(b.kind === 'shelter' ? shed : floors * storey + parapet, Math.min(length, width), storey);
       kept.push({ b, foot: foot - 0.1, height: height + (head - foot), floors });
       site.claimRect(x, z, length, width, angle, 0.4);
     }
@@ -107,6 +112,53 @@ export default {
     return { group };
   },
 };
+
+/**
+ * A footprint kept off the streets: as it is if no part of it is on one (`onStreet`, tested over a
+ * grid of points across it), else cut back — to 75 % or 55 % of its length or width, keeping the
+ * side away from the street — or null if even that is on one (or too small to be a house).
+ * @template {{ x: number, z: number, length: number, width: number, angle: number }} B
+ * @param {B} b @param {(x: number, z: number) => boolean} onStreet
+ * @returns {B | null}
+ */
+export function fitOffStreets(b, onStreet) {
+  const c = Math.cos(b.angle), s = Math.sin(b.angle);
+  // Local u along the length (c, -s), v across it (s, c).
+  const at = (/** @type {number} */ u, /** @type {number} */ v) => /** @type {[number, number]} */ ([b.x + c * u + s * v, b.z - s * u + c * v]);
+  const clear = (/** @type {number} */ cu, /** @type {number} */ cv, /** @type {number} */ l, /** @type {number} */ w) => {
+    for (let i = 0; i <= 4; i++) {
+      for (let j = 0; j <= 2; j++) {
+        const [px, pz] = at(cu + (i / 4 - 0.5) * l, cv + (j / 2 - 0.5) * w);
+        if (onStreet(px, pz)) return false;
+      }
+    }
+    return true;
+  };
+  if (clear(0, 0, b.length, b.width)) return b;
+  for (const f of [0.75, 0.55]) {
+    const dl = ((1 - f) * b.length) / 2, dw = ((1 - f) * b.width) / 2;
+    for (const [cu, cv, l, w] of [[dl, 0, b.length * f, b.width], [-dl, 0, b.length * f, b.width], [0, dw, b.length, b.width * f], [0, -dw, b.length, b.width * f]]) {
+      if (Math.min(l, w) < 0.25 || !clear(cu, cv, l, w)) continue;
+      const [x, z] = at(cu, cv);
+      return { ...b, x, z, length: l, width: w };
+    }
+  }
+  return null;
+}
+
+const SLENDER = 2.5; // tallest a building is drawn, times its narrower side: a tower, not a needle
+
+/**
+ * How tall a building is drawn. Its storeys are at the props scale (people fit through the doors),
+ * its footprint at the map's (it stands where it does): on a small map (Tuy Hòa: props 3 × map) a
+ * narrow town house would stand three times as tall for its width as it is — a stick. No taller
+ * than SLENDER × its narrower side, then, and fewer storeys it seems to have; but never lower than
+ * most of a storey.
+ * @param {number} want its floors' height @param {number} narrow its narrower side @param {number} storey
+ */
+export function drawnHeight(want, narrow, storey) {
+  return Math.min(want, Math.max(SLENDER * narrow, 0.6 * storey));
+}
 
 /**
  * A likely number of floors for a building the map doesn't say: town houses mostly 2–3 (the

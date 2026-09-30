@@ -3,10 +3,12 @@ import { WATER_Y } from '../config.js';
 import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
 import { SIZES } from '../world/scale.js';
+import { CLAIM } from '../world/site.js';
 
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
 // is drawn (terrain.meshHeightAt), a little wider than life so the small ones still show, busier
-// ones darker and over the quieter ones where they meet, a dashed centre line on the main roads.
+// ones darker and over the quieter ones where they meet, a dashed centre line on the main roads
+// (stopping short of the streets across it).
 // Where a street crosses the river it runs on a deck at bridge height, on piers; where it crosses
 // the railway it rises to the rails. Streets stop short of the station yards and the landmarks'
 // squares. All of it is vertex-coloured triangles in the world's batch: no draw call of its own.
@@ -23,6 +25,8 @@ const MAIN = new Set(['secondary', 'primary', 'trunk', 'motorway']);
 /** @param {string} kind */
 const colorOf = (kind) => (kind === 'track' ? '#a48d6a' : MAIN.has(kind) ? '#55575c' : kind === 'tertiary' ? '#65676b' : '#8e8b85');
 const STEP = 1.2; // units between the points a street is laid through
+export const PAVEMENT = 1.5; // metres of pavement each side of the carriageway (at the props scale)
+const PAVEMENT_COLOR = '#c4bfb4';
 
 /**
  * An open polyline walked by distance (Paint's `Line`).
@@ -76,7 +80,9 @@ export default {
     const paint = new Paint();
     const piers = [];
     const lane = world.scale.fit(SIZES.lane);
+    const pavement = PAVEMENT * world.scale.props; // each side of the carriageway, for people on foot
     const ordered = [...roads].sort((a, b) => RANK.indexOf(a.kind) - RANK.indexOf(b.kind));
+    const laid = [];
     for (const road of ordered) {
       const rank = Math.max(0, RANK.indexOf(road.kind));
       const lanes = LANES[road.kind] ?? 2;
@@ -105,28 +111,75 @@ export default {
           } else runs.at(-1)?.push([x, z]);
         }
       }
-      for (const run of runs) {
-        if (run.length < 2) continue;
-        const line = openLine(run);
-        world.streets.push({ kind: road.kind, name: road.name, width: w, lanes, points: run, length: line.length, heightAt: top });
-        paint.strip(line, 0, line.length, -hw, hw, top, color);
-        // Round ends, so streets meet without gaps.
-        for (const s of [0, line.length]) paint.ring(line.pointAt(s), 0, hw, 0, 0, top, color);
-        if (MAIN.has(road.kind) && line.length > 6) paint.dashes(line, 1, line.length - 1, -0.07, 0.07, surface(0.075 + rank * 0.012), '#ecebe4', 1.2, 2.8);
-        for (let i = 1; i < run.length; i++) {
-          const [ax, az] = run[i - 1], [bx, bz] = run[i];
-          site.claimRect((ax + bx) / 2, (az + bz) / 2, Math.hypot(bx - ax, bz - az) + 0.2, w, Math.atan2(bx - ax, bz - az) - Math.PI / 2, 0.3);
+      for (const run of runs) if (run.length >= 2) laid.push({ road, rank, lanes, w, hw, run, line: openLine(run), top, color, surface });
+    }
+    // The pavements first, a little lower than any carriageway: where a street meets another, the
+    // other's carriageway covers this one's pavement across its mouth.
+    for (const { hw, line, surface } of laid) {
+      const low = surface(0.04);
+      paint.strip(line, 0, line.length, hw, hw + pavement, low, PAVEMENT_COLOR);
+      paint.strip(line, 0, line.length, -hw - pavement, -hw, low, PAVEMENT_COLOR);
+    }
+    // Every stretch's segments in a grid, to tell where another street's carriageway is (the
+    // centre line stops where it crosses one).
+    const CELL = 4;
+    /** @type {Map<number, { id: number, ax: number, az: number, bx: number, bz: number, hw: number }[]>} */
+    const grid = new Map();
+    const cell = (/** @type {number} */ x, /** @type {number} */ z) => Math.floor(x / CELL) * 100003 + Math.floor(z / CELL);
+    laid.forEach(({ run, hw }, id) => {
+      for (let i = 1; i < run.length; i++) {
+        const [ax, az] = run[i - 1], [bx, bz] = run[i];
+        const seg = { id, ax, az, bx, bz, hw };
+        for (const x of [ax, bx]) for (const z of [az, bz]) {
+          const key = cell(x, z);
+          const list = grid.get(key) ?? [];
+          if (!list.includes(seg)) list.push(seg);
+          grid.set(key, list);
         }
-        // Over water: the deck's edge, and a pier every few units.
-        if (!run.some(([x, z]) => ground(x, z) < deck - 0.3)) continue;
-        const under = (/** @type {number} */ x, /** @type {number} */ z) => (ground(x, z) < deck - 0.3 ? Math.max(ground(x, z), top(x, z) - 0.5) : top(x, z));
-        paint.wall(line, 0, line.length, hw, top, under, '#9c978d');
-        paint.wall(line, 0, line.length, -hw, top, under, '#9c978d');
-        for (let s = 3; s < line.length; s += 7) {
-          const [x, z] = line.pointAt(s);
-          const g = ground(x, z);
-          if (g < WATER_Y - 0.3) piers.push({ x, z, y0: g, y1: top(x, z) - 0.4, w: w * 0.8, ry: line.headingAt(s) });
+      }
+    });
+    // The centre line stops short of a street across it, far enough back to leave room for a zebra
+    // crossing and a stop line (features/citytraffic.js: the other street's half width, its pavement,
+    // 3 m of crossing and 2 m more at the props scale; measured square to that street, so further
+    // along one meeting it at an angle, as the crossings are). A street alongside — the other half of
+    // a dual carriageway — keeps its line.
+    const clearance = pavement + 5 * world.scale.props;
+    const onOther = (/** @type {number} */ id, /** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ h) => {
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        for (const g of grid.get(cell(x + dx * CELL, z + dz * CELL)) ?? []) {
+          if (g.id === id) continue;
+          const ux = g.bx - g.ax, uz = g.bz - g.az, len2 = ux * ux + uz * uz || 1;
+          if (Math.abs(Math.sin(h - Math.atan2(ux, uz))) < 0.5) continue;
+          const t = Math.max(0, Math.min(1, ((x - g.ax) * ux + (z - g.az) * uz) / len2));
+          if (Math.hypot(g.ax + ux * t - x, g.az + uz * t - z) < g.hw + clearance) return true;
         }
+      }
+      return false;
+    };
+    for (const [id, { road, rank, lanes, w, hw, run, line, top, color, surface }] of laid.entries()) {
+      world.streets.push({ kind: road.kind, name: road.name, width: w, lanes, points: run, length: line.length, heightAt: top, pavementAt: surface(0.04) });
+      paint.strip(line, 0, line.length, -hw, hw, top, color);
+      // Round ends, so streets meet without gaps.
+      for (const s of [0, line.length]) paint.ring(line.pointAt(s), 0, hw, 0, 0, top, color);
+      if (MAIN.has(road.kind) && line.length > 6) {
+        const skip = (/** @type {number} */ s) => onOther(id, ...line.pointAt(s), line.headingAt(s)) || onOther(id, ...line.pointAt(s + 1.2), line.headingAt(s + 1.2));
+        paint.dashes(line, 1, line.length - 1, -0.07, 0.07, surface(0.075 + rank * 0.012), '#ecebe4', 1.2, 2.8, skip);
+      }
+      for (let i = 1; i < run.length; i++) {
+        const [ax, az] = run[i - 1], [bx, bz] = run[i];
+        const mx = (ax + bx) / 2, mz = (az + bz) / 2, len = Math.hypot(bx - ax, bz - az) + 0.2, ang = Math.atan2(bx - ax, bz - az) - Math.PI / 2;
+        site.claimRect(mx, mz, len, w, ang, 0, CLAIM.CARRIAGEWAY);
+        site.claimRect(mx, mz, len, w, ang, pavement + 0.1, CLAIM.PAVEMENT); // for people on foot: no houses
+      }
+      // Over water: the deck's edge, and a pier every few units.
+      if (!run.some(([x, z]) => ground(x, z) < deck - 0.3)) continue;
+      const under = (/** @type {number} */ x, /** @type {number} */ z) => (ground(x, z) < deck - 0.3 ? Math.max(ground(x, z), top(x, z) - 0.5) : top(x, z));
+      paint.wall(line, 0, line.length, hw, top, under, '#9c978d');
+      paint.wall(line, 0, line.length, -hw, top, under, '#9c978d');
+      for (let s = 3; s < line.length; s += 7) {
+        const [x, z] = line.pointAt(s);
+        const g = ground(x, z);
+        if (g < WATER_Y - 0.3) piers.push({ x, z, y0: g, y1: top(x, z) - 0.4, w: w * 0.8, ry: line.headingAt(s) });
       }
     }
     batch.at(0, 0, 0, 0).add(paint.geometry() ?? []);

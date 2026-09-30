@@ -3,6 +3,7 @@ import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 import { TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
 import { clamp, lerp, smoothstep, hash2 } from '../utils.js';
 import { createWater } from './water.js';
+import { createGrade } from './grade.js';
 
 const perlin = new ImprovedNoise();
 
@@ -208,10 +209,14 @@ export function createTerrain(cfg, track, stops, rivers) {
   for (const st of stops) if (st.zone) zones[st.id] = villageZone(st.frame, st.zone);
   const plateaus = Object.values(zones);
   const yards = stops.filter((st) => st.yard).map((st) => st.frame.p);
+  // A town's streets graded smooth into the real ground (world/grade.js).
+  const grade = ground && cfg.roads?.length ? createGrade(cfg.roads, ground, { size, dry: WATER_Y + 0.8 }) : null;
   function heightAt(x, z) {
     let h;
-    if (ground) h = ground(x, z);
-    else {
+    if (ground) {
+      h = ground(x, z);
+      if (grade) h = grade(x, z, h);
+    } else {
       const r = Math.hypot(x, z);
       h = 2 + fbm(x + ox, z + oz) * hills;
       // Mountains around the rim of the valley

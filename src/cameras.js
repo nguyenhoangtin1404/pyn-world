@@ -121,8 +121,10 @@ export class CameraRig {
     return FOLLOW[this.mode] && this.followTarget ? this.followTarget.label : null;
   }
 
-  // Returns false (and changes nothing) for a follow mode with nothing to follow in this world.
+  // Returns false (and changes nothing) for a follow mode with nothing to follow in this world, or
+  // a train camera in a world without a train.
   setMode(mode, { fly = true } = {}) {
+    if (!this.train && (mode === 'train' || LOOK_MODES.has(mode))) return false;
     // Pressing the same follow key again moves on to the next person / bird / vehicle.
     if (FOLLOW[mode]) {
       const list = this.followables[FOLLOW[mode].list];
@@ -132,8 +134,8 @@ export class CameraRig {
     }
     this.mode = mode;
     this.fly = null;
-    this.train.setPassengerView(mode === 'passenger');
-    this.train.setDriverView(mode === 'driver');
+    this.train?.setPassengerView(mode === 'passenger');
+    this.train?.setDriverView(mode === 'driver');
     this.controls.enabled = !LOOK_MODES.has(mode);
     this.camera.near = LOOK_MODES.has(mode) ? 0.05 : 0.1;
     this.camera.fov = LOOK_MODES.has(mode) ? 75 : 50; // wider lens inside the cramped cabins

@@ -262,4 +262,14 @@ describe('elevation spikes (despike)', () => {
     expect(h[2 * n + 3]).toBe(4);
     expect(h[6 * n + 6]).toBe(57);
   });
+  it('on a grid finer than the elevation samples: a spike repeated over a block of points', () => {
+    const n = 11;
+    const h = new Int16Array(n * n).fill(4);
+    for (const [r, c] of [[4, 4], [4, 5], [5, 4], [5, 5]]) h[r * n + c] = 72; // one sample, 2 × 2 points
+    const once = Int16Array.from(h);
+    despike(once, n); // (each point has a neighbour as high: not a spike, seen one point away)
+    expect(once[4 * n + 4]).toBe(72);
+    despike(h, n, 2);
+    for (const [r, c] of [[4, 4], [4, 5], [5, 4], [5, 5]]) expect(h[r * n + c]).toBe(4);
+  });
 });

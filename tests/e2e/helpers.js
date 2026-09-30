@@ -104,6 +104,14 @@ export function simulate() {
   const onCrossing = walkers.map(() => -1);
   const feet = { walkers: walkers.length, onCarriageway: 0, redCrossings: 0, crossings: 0, waits: 0 };
   const lights = { brakeLights: 0, headlightsInRain: 0 };
+  // People on foot at a town's lit crossroads (features/strollers.js): onto a crosswalk only while
+  // the street it crosses has red.
+  const zebraAt = (x, z) => W.crosswalks.findIndex((c) => {
+    const dx = x - c.x, dz = z - c.z;
+    return Math.abs(dx * Math.sin(c.h) + dz * Math.cos(c.h)) < c.depth / 2 + 0.5 && Math.abs(dx * Math.cos(c.h) - dz * Math.sin(c.h)) < c.half;
+  });
+  const onZebra = W.pedestrians.map((w) => zebraAt(w.pos.x, w.pos.z));
+  const zebra = { crosswalks: W.crosswalks.length, crossings: 0, notOnRed: 0, waits: 0 };
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
@@ -144,6 +152,17 @@ export function simulate() {
         if (w.waiting) feet.waits++;
       });
     }
+    if (W.crosswalks.length) {
+      W.pedestrians.forEach((w, k) => {
+        const c = zebraAt(w.pos.x, w.pos.z);
+        if (c >= 0 && c !== onZebra[k]) {
+          zebra.crossings++;
+          if (W.crosswalks[c].signal.state !== 'red') zebra.notOnRed++;
+        }
+        onZebra[k] = c;
+        if (w.waiting) zebra.waits++;
+      });
+    }
     for (const c of cars) {
       if (!c.lamps) continue;
       if (i < 1500 && c.lamps.tail[0].visible) lights.brakeLights++;
@@ -161,7 +180,8 @@ export function simulate() {
       }
     }
   }
-  s.trainStops = W.train.stopId;
+  s.train = !!W.train;
+  s.trainStops = W.train?.stopId ?? 0;
   s.umbrellas = W.people.filter((w) => w.person.umbrella.scale.x > 0).length;
   s.hikersMoved = hikers.filter((h, i) => h.position.distanceTo(start[i]) > 1).length;
   s.vehicles = W.vehicles.length;
@@ -171,6 +191,7 @@ export function simulate() {
   road.longestStop = Math.round(road.longestStop);
   if (cars.length) s.road = { ...road, ...lights };
   if (W.site.crossings.length) s.feet = feet;
+  if (W.crosswalks.length) s.zebra = zebra;
   W.weather.set('clear');
   return s;
 }

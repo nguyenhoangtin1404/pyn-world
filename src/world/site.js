@@ -14,9 +14,12 @@ const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0); // instance matrix of a c
 // - surfaces: extra ground to walk on — (x, z) → height, or -Infinity (platforms, house floors)
 // - walkMaps: sidewalks, carriageways (people keep off) and crosswalks by the roads
 //   (world/roads/walkmap.js); crossings: each crosswalk's { walk() } — may people start across?
-// - claimed ground (claimRect / claimed): a raster of half-unit cells taken by things too many to
-//   keep as obstacles — a town's streets and thousands of houses (features/streets.js, buildings.js)
+// - claimed ground (claimRect / claimed / claimAt): a raster of half-unit cells taken by things too
+//   many to keep as obstacles — a town's streets and thousands of houses (features/streets.js,
+//   buildings.js). Each cell remembers what took it (CLAIM: the highest wins), so houses keep off the
+//   pavements and people on foot off the carriageway.
 const CLAIM_CELL = 0.5;
+export const CLAIM = /** @type {const} */ ({ TAKEN: 1, PAVEMENT: 2, CARRIAGEWAY: 3 });
 
 export class Site {
   // `yards`: points kept clear around the stops with a yard (cfg.stops[].yard).
@@ -41,10 +44,11 @@ export class Site {
 
   /**
    * Take the ground under a rectangle (centre, length along `angle` — a rotation.y — and width),
-   * grown by `margin` all round: nothing else is put there (spotOK).
-   * @param {number} x @param {number} z @param {number} length @param {number} width @param {number} angle @param {number} [margin]
+   * grown by `margin` all round, as `kind` (CLAIM; a cell keeps the highest): nothing else is put
+   * there (spotOK).
+   * @param {number} x @param {number} z @param {number} length @param {number} width @param {number} angle @param {number} [margin] @param {number} [kind]
    */
-  claimRect(x, z, length, width, angle, margin = 0) {
+  claimRect(x, z, length, width, angle, margin = 0, kind = CLAIM.TAKEN) {
     const n = Math.ceil(this.size / CLAIM_CELL);
     this.claims ??= new Uint8Array(n * n);
     const c = Math.cos(angle), s = Math.sin(angle), hl = length / 2 + margin, hw = width / 2 + margin;
@@ -54,17 +58,22 @@ export class Site {
       for (let j = Math.max(0, cell(x - ex)); j <= Math.min(n - 1, cell(x + ex)); j++) {
         const dx = (j + 0.5) * CLAIM_CELL - this.size / 2 - x, dz = (i + 0.5) * CLAIM_CELL - this.size / 2 - z;
         // Local axes: length along (cos, -sin) in (x, z), width across it.
-        if (Math.abs(dx * c - dz * s) <= hl && Math.abs(dx * s + dz * c) <= hw) this.claims[i * n + j] = 1;
+        if (Math.abs(dx * c - dz * s) <= hl && Math.abs(dx * s + dz * c) <= hw && this.claims[i * n + j] < kind) this.claims[i * n + j] = kind;
       }
     }
   }
 
   /** Is (x, z) claimed ground? @param {number} x @param {number} z */
   claimed(x, z) {
-    if (!this.claims) return false;
+    return this.claimAt(x, z) > 0;
+  }
+
+  /** What claimed (x, z): 0 for nothing, else a CLAIM. @param {number} x @param {number} z */
+  claimAt(x, z) {
+    if (!this.claims) return 0;
     const n = Math.ceil(this.size / CLAIM_CELL);
     const i = Math.floor((z + this.size / 2) / CLAIM_CELL), j = Math.floor((x + this.size / 2) / CLAIM_CELL);
-    return i >= 0 && j >= 0 && i < n && j < n && this.claims[i * n + j] === 1;
+    return i >= 0 && j >= 0 && i < n && j < n ? this.claims[i * n + j] : 0;
   }
 
   // What the roads make of (x, z) for someone on foot: 0, SIDEWALK, CARRIAGEWAY or CROSSWALK.

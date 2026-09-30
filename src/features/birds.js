@@ -8,10 +8,10 @@ import { createBirds } from '../world/birds.js';
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang gọi chim',
-  needs: ['station'], // the pigeons live on its platform and canopy
   build(world, { rng, gulls = 0, egrets = 0 }) {
+    // The pigeons live on the station's platform and canopy (a world without a station: none).
     const st = world.stations.find((s) => s.canopyPoint);
-    const scenery = { platformPoint: st.point, canopyPoint: st.canopyPoint };
+    const scenery = st ? { platformPoint: st.point, canopyPoint: st.canopyPoint } : null;
     // In a world from map data: flocks of gulls over the beach, egrets low over the rice fields.
     const more = [];
     const cover = world.cfg.landcover;
@@ -29,7 +29,7 @@ export default {
         more.push({ name: 'Cò trắng trên đồng', count: 5, color: '#f6f6f2', altitude: 9 + rng() * 5, radius: 25 + rng() * 20, speed: 0.08, formation: 'loose', center: pick(where.field) });
       }
     }
-    const birds = createBirds({ rng, scenery, nav: st.nav ?? null, train: world.train, size: world.track.k, more });
+    const birds = createBirds({ rng, scenery, nav: st?.nav ?? null, train: world.train, size: world.track.k, more });
     // First in the bird camera's list (key 7 starts on a bird, then the balloons).
     world.followables.birds.unshift(...birds.followables);
     return {
