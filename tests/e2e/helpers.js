@@ -52,7 +52,7 @@ export function fingerprint() {
   for (const k of ['courting', 'bridgeSheep', 'summit', 'fisherman']) if (W.spots[k]) spots[k] = [W.spots[k].x, W.spots[k].z].map((v) => +v.toFixed(2));
   return {
     meshes,
-    geometry: hash([...geos].map((g) => `${g.attributes.position.count}:${sum(g.attributes.position.array).toFixed(2)}`)),
+    geometry: hash([...geos].filter((g) => g.attributes.position).map((g) => `${g.attributes.position.count}:${sum(g.attributes.position.array).toFixed(2)}`)),
     instances: hash(instanced.map((m) => `${m.count}:${sum(m.instanceMatrix.array).toFixed(2)}`)),
     colliders: W.site.colliders.length,
     stations: W.stations.map((s) => s.id),

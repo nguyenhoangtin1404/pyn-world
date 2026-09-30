@@ -79,7 +79,7 @@ export default {
   build(site) {
     const { world } = site;
     const { batch, site: worldSite, terrain } = world;
-    const { lampMat, halos, pools } = lamps(world);
+    const { halos } = lamps(world);
     const map = world.scale.map, k = Math.min(world.scale.props, TOWER * map);
     const R = R_M * map, B = BACK_M * map, cell = CELL_M * k, slot = SLOT_M * k;
     const ground = terrain.meshHeightAt;
@@ -163,7 +163,7 @@ export default {
     // further out (hexagons, their flats towards their neighbours in the row, a corner to the slot).
     const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 3.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
     batch.at(site.x, base0, site.z, site.ry);
-    const led = [];
+    const led = [], beams = [];
     let peak = 0;
     for (const { i, j, side, h, spire, near } of cols) {
       const w = cell * (spire ? 0.78 : 0.97), hy = h * k * (spire ? SPIRE : near ? 1 + (SPIRE - 1) * 0.85 * (1 - (near - 1) / 4) : 1), r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
@@ -175,13 +175,12 @@ export default {
         const rh = Math.min(hy, 10 * k) * 0.7;
         batch.add(box(w * 0.8, rh, 0.04, RELIEF, [x, rh / 2 + 0.3 * k, side * (slot / 2 - 0.02)]));
       }
-      // At night: the lower columns in colours, the spires' tips red.
-      // The stone's faces glow, not the column: a band round the top of each column, where its faces
-      // catch the light, and the top face itself, in the colour of its column.
-      if (!spire) {
-        const colour = LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length], band = Math.min(0.9 * k, hy * 0.4);
-        led.push(cyl(r * 1.025, r * 1.025, band, colour, [x, hy - band / 2, z], {}, 6));
-        led.push(cyl(r * 0.94, r * 0.94, 0.03, colour, [x, hy + 0.015, z], {}, 6));
+      // At night: a lamp set on top of every other brick (a chessboard: a lit one, dark neighbours),
+      // in the brick's colour, throwing a soft beam up that spills over the dark ones beside it.
+      if (!spire && (i + j) % 2 === 0) {
+        const colour = LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length];
+        led.push(cyl(r * 0.8, r * 0.8, 0.14 * k, colour, [x, hy + 0.07 * k, z], {}, 6));
+        beams.push(cyl(r * 1.9, r * 0.7, 2.4 * k, colour, [x, hy + 1.2 * k, z], {}, 6));
       }
       if (spire) led.push(cyl(r * 1.06, r * 1.06, 0.6 * k, '#ff2b2b', [x, hy - 0.4 * k, z], {}, 6));
       const [cx, , cz] = W(x, z);
@@ -194,23 +193,17 @@ export default {
     glow.position.set(site.x, base0, site.z);
     glow.rotation.y = site.ry;
     glow.visible = false;
+    const beamMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
+    const beam = segment(beams, beamMat);
+    beam.castShadow = false;
+    beam.position.copy(glow.position);
+    beam.rotation.y = site.ry;
+    beam.visible = false;
     for (const c of cols.filter((c) => c.spire)) {
       const [x, z] = at(c.i, c.j, c.side);
       const [hx0, , hz0] = W(x, z);
       halos.push([hx0, base0 + c.h * k * SPIRE, hz0]);
     }
-
-    // Lamp posts along the straight side and inside the railing.
-    const post = (/** @type {number} */ lx, /** @type {number} */ lz) => {
-      if (Math.abs(lx) < 4.5 * cell + 1 && Math.abs(lz) < slot / 2 + 10.5 * cell + 1) return; // not in the tower's steps
-      const [px, py, pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
-      batch.at(px, py, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
-      batch.add(box(0.72 * k, 0.2, 0.72 * k, '#fff4d6', [0, hy - 0.12, 0]), lampMat);
-      halos.push([px, py + hy - 0.12, pz]);
-      pools.push([px, py + 0.05, pz, 8 * k]);
-    };
-    for (let z = -R * 0.8; z <= R * 0.8 + 0.01; z += (R * 1.6) / 5) post(-B + 1, z);
-    for (let a = -1.2; a <= 1.21; a += 0.4) post(-B + (R - 1.5) * Math.cos(a), (R - 1.5) * Math.sin(a));
 
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
@@ -237,11 +230,12 @@ export default {
         return H(dx * c - dz * s, dx * s + dz * c);
       },
       system: {
-        group: new THREE.Group().add(glow),
+        group: new THREE.Group().add(glow, beam),
         lateUpdate({ lights }) {
           const o = Math.max(0, Math.min(0.85, (lights - 0.2) * 2));
           ledMat.opacity = o;
-          glow.visible = o > 0;
+          beamMat.opacity = o * 0.3;
+          glow.visible = beam.visible = o > 0;
         },
       },
     };
