@@ -9,7 +9,9 @@ export default {
   label: 'Đang hạ thủy thuyền',
   build(world, { rng }) {
     const { spots, ripples } = waterLife(world, rng);
-    const boats = createBoats({ heightAt: world.heightAt, riverX: world.cfg.riverX, ripples, waterSpots: spots, rng });
+    // The steamer sails up and down a river x = riverX(z) (the one-river worlds).
+    world.need('một con sông dạng riverX (cfg.river)', 'boats', world.rivers.riverX);
+    const boats = createBoats({ heightAt: world.heightAt, riverX: world.rivers.riverX, ripples, waterSpots: spots, rng });
     Object.assign(world.spots, boats.spots);
     return { group: boats.group, update: ({ dt, t }) => boats.update(dt, t) };
   },

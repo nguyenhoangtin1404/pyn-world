@@ -180,6 +180,11 @@ function frame() {
 
 // Build a world step by step behind the loading screen, compile its shaders, and return it.
 async function buildWorld(cfg) {
+  if (cfg.load) {
+    // A world from map data: fetch and check its data first (world/geodata.js).
+    loader.phase('Đang tải bản đồ');
+    await cfg.load();
+  }
   const next = new World(cfg);
   const steps = next.steps();
   for (let i = 0; i < steps.length; i++) {

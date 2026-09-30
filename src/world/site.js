@@ -16,9 +16,9 @@ const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0); // instance matrix of a c
 //   (world/roads/walkmap.js); crossings: each crosswalk's { walk() } — may people start across?
 export class Site {
   // `yards`: points kept clear around the stops with a yard (cfg.stops[].yard).
-  constructor({ cfg, track, heightAt, tunnel, yards }) {
+  constructor({ cfg, track, heightAt, tunnel, yards, rivers }) {
     this.size = cfg.size;
-    this.riverX = cfg.riverX;
+    this.rivers = rivers;
     this.track = track;
     this.heightAt = heightAt;
     this.tunnel = tunnel;
@@ -59,7 +59,7 @@ export class Site {
     const h = this.heightAt(x, z);
     if (h < WATER_Y + 0.9 || h > 46) return null;
     if (track.distanceTo(x, z, clearTrack) < clearTrack) return null;
-    if (Math.abs(x - this.riverX(z)) < 17) return null;
+    if (this.rivers.distance(x, z) < 17) return null;
     for (const p of yards) if (Math.hypot(x - p.x, z - p.z) < 30) return null;
     for (const [ox, oz, r] of this.obstacles) if (Math.hypot(x - ox, z - oz) < r) return null;
     return h;

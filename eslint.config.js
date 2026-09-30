@@ -25,7 +25,7 @@ export default [
   },
   {
     // Node scripts and tool configs.
-    files: ['scripts/**', 'tests/**', '*.config.js', '*.config.mjs'],
+    files: ['scripts/**', 'tests/**', 'tools/**', '*.config.js', '*.config.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 ];

@@ -12,7 +12,7 @@ export default {
   label: 'Đang mở đường mòn',
   build(world, { rng, trails: trailCount = 2, perTrail = 3 }) {
     const { cfg, track, site, heightAt, size } = world;
-    const { riverX } = cfg;
+    world.need('một vành núi quanh thung lũng (cfg.terrain.rim)', 'hikers', cfg.terrain?.rim);
     const group = new THREE.Group();
       // Hikers climbing to mountain summits along zig-zag trails
       const candidates = [];
@@ -22,7 +22,7 @@ export default {
         const r = rim0 + 10 + rng() * (rim1 - rim0 - 20);
         const x = Math.cos(a) * r, z = Math.sin(a) * r;
         if (Math.abs(x) > size / 2 - 15 || Math.abs(z) > size / 2 - 15) continue;
-        if (Math.abs(x - riverX(z)) < 30) continue;
+        if (world.rivers.distance(x, z) < 30) continue;
         candidates.push({ x, z, h: heightAt(x, z) });
       }
       candidates.sort((a, b) => b.h - a.h);

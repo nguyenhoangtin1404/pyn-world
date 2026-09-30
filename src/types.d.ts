@@ -47,10 +47,51 @@ export interface WorldRecipe {
   features: FeatureEntry[];
 }
 
-/** A recipe after defineWorld(): plus the river as a function and as GLSL. */
-export interface WorldConfig extends WorldRecipe {
-  riverX(z: number): number;
+/** A stop on a world from map data: at the point of the railway nearest a named place. */
+export interface GeoStopConfig extends Omit<StopConfig, 'at'> {
+  /** id of a place in the world's data (places[].id). */
+  place: string;
+}
+
+/** What a world from real map data writes (src/worlds/tuyhoa.js documents every field). */
+export interface GeoRecipe {
+  id: string;
+  name: string;
+  seed: number;
+  /** Side of the square diorama, in world units (the data's frame says how many metres one is). */
+  size: number;
+  /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
+  data(): Promise<any>;
+  /** id of the railway in the data the train runs on (default: the first). */
+  rail?: string;
+  stops: GeoStopConfig[];
+  features: FeatureEntry[];
+}
+
+/** A world after defineWorld() / defineGeoWorld(): what the builders read. */
+export interface WorldConfig {
+  id: string;
+  name: string;
+  seed: number;
+  size: number;
+  track(): [number, number][];
+  /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
+  trackClosed?: boolean;
+  stops: StopConfig[];
+  tunnel?: { at: number };
+  features: FeatureEntry[];
+  /** Procedural ground (defineWorld); absent for worlds from map data. */
+  terrain?: WorldRecipe['terrain'];
+  river?: WorldRecipe['river'];
+  /** The one river x = riverX(z), and the same in GLSL — or null / a stub for worlds from map data. */
+  riverX: ((z: number) => number) | null;
   riverGLSL: string;
+  /** Worlds from map data, after load(): the real ground, the rivers as polylines, named places. */
+  heights?: (x: number, z: number) => number;
+  rivers?: { id: string; name: string; width: number; points: [number, number][] }[];
+  places?: Record<string, { id: string; name: string; kind: string; at: [number, number]; p: [number, number] }>;
+  /** Worlds from map data: fetch, check and project the data; the app awaits it before building. */
+  load?(): Promise<void>;
 }
 
 // ---------------------------------------------------------------- systems and features

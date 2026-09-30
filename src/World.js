@@ -6,6 +6,7 @@ import { createTunnel } from './world/tunnel.js';
 import { Sky } from './world/sky.js';
 import { Weather } from './world/weather.js';
 import { Site } from './world/site.js';
+import { createRivers } from './world/rivers.js';
 import { StaticBatch, isShared } from './world/lowpoly.js';
 import { mulberry32 } from './utils.js';
 import { FEATURES } from './features/index.js';
@@ -31,6 +32,8 @@ export class World {
   constructor(cfg) {
     this.cfg = cfg;
     this.size = cfg.size;
+    /** Where the rivers are (world/rivers.js): distance(x, z), riverX for the one-river worlds. */
+    this.rivers = createRivers(cfg);
     // Built by steps() — core:
     /** @type {any} */ this.track = null; // Track: the loop, its frames, distanceTo()
     /** @type {(StopConfig & { frame: TrackFrame })[]} */ this.stops = [];
@@ -159,7 +162,7 @@ export class World {
         this.stops = cfg.stops.map((st) => ({ ...st, frame: this.track.frame(Math.round(M * st.at)) }));
       }),
       step('Đang nặn địa hình', () => {
-        const terrain = (this.terrain = createTerrain(cfg, this.track, this.stops));
+        const terrain = (this.terrain = createTerrain(cfg, this.track, this.stops, this.rivers));
         this.heightAt = terrain.heightAt;
         this.add({
           group: new THREE.Group().add(terrain.mesh, terrain.water, terrain.frame),
@@ -174,11 +177,11 @@ export class World {
         })]
         : []),
       step('Đang dựng cầu và tà vẹt', () => {
-        const rails = buildTrackMeshes(this.track, this.heightAt, cfg.riverX);
+        const rails = buildTrackMeshes(this.track, this.heightAt, this.rivers.distance);
         this.bridges = rails.bridges;
         this.add({ group: rails.group });
         const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
-        this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards });
+        this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards, rivers: this.rivers });
       }),
       ...features.map((entry) => {
         const { id, stream, ...options } = entry;

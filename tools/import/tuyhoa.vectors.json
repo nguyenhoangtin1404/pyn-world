@@ -1,0 +1,35 @@
+{
+  "id": "tuyhoa",
+  "name": "TUY HÒA",
+  "center": [13.088, 109.312],
+  "halfExtent": 2700,
+  "size": 600,
+  "verticalScale": 3,
+  "grid": 181,
+  "sea": ["east"],
+  "sources": {
+    "elevation": "SRTM 1 arc-second (NASA/USGS, public domain) via AWS Terrain Tiles",
+    "vectors": "traced by hand from the elevation data (approximate: replace with OpenStreetMap when it can be fetched)"
+  },
+  "rivers": [
+    {
+      "id": "da-rang",
+      "name": "Sông Đà Rằng",
+      "width": 1000,
+      "points": [[13.0700, 109.2800], [13.0715, 109.2980], [13.0735, 109.3080], [13.0755, 109.3170], [13.0775, 109.3260], [13.0800, 109.3450]]
+    }
+  ],
+  "rails": [
+    {
+      "id": "bac-nam",
+      "name": "Đường sắt Bắc – Nam",
+      "points": [[13.1150, 109.2878], [13.1050, 109.2922], [13.0980, 109.2948], [13.0930, 109.2963], [13.0870, 109.2972], [13.0820, 109.2975], [13.0760, 109.2978], [13.0700, 109.2982], [13.0610, 109.2986]]
+    }
+  ],
+  "places": [
+    { "id": "nghinh-phong", "name": "Tháp Nghinh Phong", "kind": "landmark", "at": [13.0963, 109.3270] },
+    { "id": "thap-nhan", "name": "Núi Nhạn – Tháp Nhạn", "kind": "landmark", "at": [13.0819, 109.3014] },
+    { "id": "ga-tuy-hoa", "name": "Ga Tuy Hòa", "kind": "station", "at": [13.0930, 109.2963] },
+    { "id": "chop-chai", "name": "Núi Chóp Chài", "kind": "peak", "at": [13.1133, 109.2725] }
+  ]
+}

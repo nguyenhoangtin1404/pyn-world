@@ -1,7 +1,9 @@
 // @ts-check
-// Where the train is along the loop and what it is doing: running, stopped at a platform with its
-// doors open, or closing its doors to leave. Pure logic (no three.js): the Train animates whatever
-// this decides. `s` is the distance along the track of the locomotive.
+// Where the train is along the track and what it is doing: running, stopped at a platform with its
+// doors open, closing its doors to leave, or — on a line with ends — waiting at the end of the line
+// to go back the other way. Pure logic (no three.js): the Train animates whatever this decides. `s`
+// is the distance along the track of the locomotive, which keeps its place in the train: going
+// back, it is pushed from behind (dir = -1).
 
 import { approach } from '../../utils.js';
 
@@ -16,16 +18,21 @@ export class Schedule {
    * @param {number} [o.cruise] top speed at speed ×1 (units/s)
    * @param {number} [o.accel]
    * @param {number} [o.decel]
+   * @param {{ min: number, max: number } | null} [o.ends] on a line with ends, how far the
+   *   locomotive may go each way (leaving room for the carriages behind it)
    */
-  constructor({ wrap, stops, s = 60, cruise = 13, accel = 1.4, decel = 2.0 }) {
+  constructor({ wrap, stops, s = 60, cruise = 13, accel = 1.4, decel = 2.0, ends = null }) {
     this.wrap = wrap;
+    this.ends = ends;
+    this.dir = 1; // +1 along the track, -1 back (lines with ends only)
+    this.turnTime = 0;
     this.stops = stops;
     this.s = s;
     this.v = 0;
     this.cruise = cruise;
     this.accel = accel;
     this.decel = decel;
-    /** @type {'run' | 'stop' | 'closing'} */
+    /** @type {'run' | 'stop' | 'closing' | 'turn'} */
     this.state = 'run';
     this.stopTime = 0;
     this.closeTime = 0;
@@ -53,26 +60,50 @@ export class Schedule {
   step(dt, speedMul) {
     const cruise = this.cruise * speedMul;
     if (this.state === 'run') {
-      // The next stop ahead (skipping the one just left, which is right behind us).
+      // The next stop ahead (skipping the one just left, which is right behind us); on a line with
+      // ends, the end of the line counts as one (next = -1).
       let ahead = Infinity, next = 0;
+      const { ends, dir } = this;
       this.stops.forEach((st, i) => {
-        const d = this.wrap(st.s - this.s);
-        if (d < ahead) {
+        const d = ends ? (st.s - this.s) * dir : this.wrap(st.s - this.s);
+        if (d >= 0 && d < ahead) {
           ahead = d;
           next = i;
         }
       });
+      if (ends) {
+        const d = ((dir > 0 ? ends.max : ends.min) - this.s) * dir;
+        if (d < ahead) {
+          ahead = d;
+          next = -1;
+        }
+      }
       let target = cruise;
       if (ahead < 70) target = Math.min(cruise, Math.sqrt(2 * this.decel * Math.max(ahead - 0.3, 0)) + 0.4);
       this.v = approach(this.v, target, (target > this.v ? this.accel : this.decel * 1.6) * dt);
       // Also stop if this frame's step would carry us past the stop (long frames, fast time).
       if (cruise > 0 && (ahead < 0.6 || (ahead < 6 && this.v * dt >= ahead))) {
-        this.state = 'stop';
         this.v = 0;
-        this.stopTime = 0;
-        this.stopId++;
-        this.stopIndex = next;
-        this.s = this.stops[next].s;
+        if (next < 0) {
+          // The end of the line: wait, then go back.
+          this.state = 'turn';
+          this.turnTime = 0;
+          this.s = dir > 0 ? ends.max : ends.min;
+        } else {
+          this.state = 'stop';
+          this.stopTime = 0;
+          this.stopId++;
+          this.stopIndex = next;
+          this.s = this.stops[next].s;
+        }
+      }
+    } else if (this.state === 'turn') {
+      this.v = 0;
+      this.turnTime += dt;
+      if (cruise > 0 && this.turnTime > 8) {
+        this.dir = -this.dir;
+        this.state = 'run';
+        this.onDepart();
       }
     } else if (this.state === 'stop') {
       // Doors open after a moment; leave once everyone is aboard (or after a maximum wait).
@@ -86,14 +117,14 @@ export class Schedule {
       this.closeTime += dt;
       if (this.closeTime > 1.6) {
         this.state = 'run';
-        this.s = this.stops[this.stopIndex].s + 0.01;
+        this.s = this.stops[this.stopIndex].s + 0.01 * this.dir;
         this.onDepart();
       }
     }
     const doorTarget = this.state === 'stop' && this.stopTime > 1 ? 1 : 0;
     this.doorOpen = approach(this.doorOpen, doorTarget, dt * 1.4);
 
-    const ds = this.v * dt;
+    const ds = this.v * dt * this.dir;
     this.s = this.wrap(this.s + ds);
     return ds;
   }

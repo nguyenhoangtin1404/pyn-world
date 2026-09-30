@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { Site } from '../../src/world/site.js';
+import { createRivers } from '../../src/world/rivers.js';
 import { WATER_Y } from '../../src/config.js';
 
 // A made-up world: flat ground at 1, a lake west of x = -100, the "track" along z = 0, a river at
@@ -8,7 +9,7 @@ import { WATER_Y } from '../../src/config.js';
 const track = { distanceTo: (x, z) => Math.abs(z) };
 const cfg = { size: 600, riverX: () => 150 };
 const heightAt = (x) => (x < -100 ? WATER_Y - 2 : 1);
-const make = () => new Site({ cfg, track, heightAt, tunnel: null, yards: [new THREE.Vector3(100, 0, 100)] });
+const make = () => new Site({ cfg, track, heightAt, tunnel: null, yards: [new THREE.Vector3(100, 0, 100)], rivers: createRivers(cfg) });
 
 describe('Site.spotOK', () => {
   it('accepts open dry ground and returns its height', () => {
@@ -28,7 +29,7 @@ describe('Site.spotOK', () => {
   });
 
   it('keeps out of the tunnel hill', () => {
-    const site = new Site({ cfg, track, heightAt, tunnel: { footprint: (x) => x > 0 && x < 20 }, yards: [] });
+    const site = new Site({ cfg, track, heightAt, tunnel: { footprint: (x) => x > 0 && x < 20 }, yards: [], rivers: createRivers(cfg) });
     expect(site.spotOK(10, 50)).toBeNull();
     expect(site.spotOK(30, 50)).toBe(1);
   });
