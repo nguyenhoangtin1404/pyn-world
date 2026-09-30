@@ -234,4 +234,12 @@ describe('a landmark along a street (streetFrame)', () => {
     expect(Math.abs(f.n[0])).toBeLessThan(0.3); // the street there runs along x: the normal along z
     expect(f.n[1]).toBeGreaterThan(0.9);
   });
+  it('lies parallel to a street with coarse points, over the whole length asked for', () => {
+    // Points 60 apart, a slight lean (2.4°: 5 in 120) that a couple of vertices near p would hide or exaggerate.
+    const coarse = { kind: 'tertiary', width: 4, points: [[-120, -5], [-60, -2.5], [0, 0], [60, 2.5], [120, 5]] };
+    const f = streetFrame([coarse], [10, 30], kinds, 30);
+    const lean = Math.atan2(5, 120); // the street's true direction from the x axis
+    expect(f.n[0]).toBeCloseTo(-Math.sin(lean), 3); // the normal to (cos, sin), on p's side
+    expect(f.n[1]).toBeCloseTo(Math.cos(lean), 3);
+  });
 });

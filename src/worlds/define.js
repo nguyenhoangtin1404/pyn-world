@@ -89,11 +89,11 @@ export function defineGeoWorld(recipe) {
             if (dx * dx + dz * dz <= peak * peak && d.heightAt(pl.p[0] + dx, pl.p[1] + dz) > d.heightAt(p[0], p[1])) p = [pl.p[0] + dx, pl.p[1] + dz];
           }
         }
-        const { radius, back = 0 } = LANDMARKS[model];
+        const { radius, back = 0, along = 12 } = LANDMARKS[model];
         // 'street': its straight side (local −x, `back` from its centre) along the nearest street, flush
         // with its pavement, its front (local +x) away from the street.
         let rotation = 0;
-        const frame = turn === 'street' ? streetFrame(d.roads ?? [], p, STREETS) : null;
+        const frame = turn === 'street' ? streetFrame(d.roads ?? [], p, STREETS, along * scale.map) : null;
         if (frame) {
           const lane = Math.max(frame.half, scale.fit(SIZES.lane)); // (streets.js: at least two lanes wide)
           const edge = lane + 0.4 * PAVEMENT * scale.props; // its side over the outer part of the pavement: no gap, the kerb still shows
@@ -118,14 +118,17 @@ export function defineGeoWorld(recipe) {
 }
 
 /**
- * The street nearest p, and how a landmark with a straight side lies along it: where the street
- * passes nearest (q), the unit normal from it towards p (n, away from the street), the street's
- * half width. The tangent is taken over a few points round q, so a bend doesn't turn the landmark.
+ * The street nearest p, and how a landmark with a straight side lies along it: a straight line fitted
+ * through the street's points over `reach` either way of where it passes nearest p (so the side is
+ * as long as that stretch, and parallel to the street over all of it — the tangent at one point, or
+ * over a few vertices, is off by a few degrees on a street with coarse points), the point of the line
+ * nearest p (q), the unit normal from it towards p (n, away from the street), the street's half width.
  * @param {{ kind: string, width: number, points: [number, number][] }[]} roads @param {[number, number]} p
  * @param {Set<string>} kinds the kinds of street that count
+ * @param {number} [reach] units
  * @returns {{ q: [number, number], n: [number, number], half: number } | null}
  */
-export function streetFrame(roads, p, kinds) {
+export function streetFrame(roads, p, kinds, reach = 12) {
   let best = Infinity, found = null;
   for (const r of roads) {
     if (!kinds.has(r.kind)) continue;
@@ -133,18 +136,36 @@ export function streetFrame(roads, p, kinds) {
       const [ax, az] = r.points[i - 1], [bx, bz] = r.points[i];
       const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
       const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - az) * dz) / len2));
-      const q = /** @type {[number, number]} */ ([ax + dx * t, az + dz * t]);
-      const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      if (d < best) [best, found] = [d, { r, i, q }];
+      const d = Math.hypot(ax + dx * t - p[0], az + dz * t - p[1]);
+      if (d < best) [best, found] = [d, { r, i, t }];
     }
   }
   if (!found) return null;
-  const { r, i, q } = found, pts = r.points;
-  const [ax, az] = pts[Math.max(0, i - 4)], [bx, bz] = pts[Math.min(pts.length - 1, i + 3)];
-  const len = Math.hypot(bx - ax, bz - az) || 1;
-  let nx = -(bz - az) / len, nz = (bx - ax) / len;
-  if (nx * (p[0] - q[0]) + nz * (p[1] - q[1]) < 0) [nx, nz] = [-nx, -nz];
-  return { q, n: [nx, nz], half: r.width / 2 };
+  const { r, i, t } = found, pts = r.points;
+  // The street resampled every half unit, by distance along it, and the samples within `reach` of the nearest point.
+  const at = [0];
+  for (let k = 1; k < pts.length; k++) at.push(at[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  const s0 = at[i - 1] + t * (at[i] - at[i - 1]);
+  const along = (/** @type {number} */ s) => {
+    let k = 1;
+    while (k < pts.length - 1 && at[k] < s) k++;
+    const u = at[k] > at[k - 1] ? (s - at[k - 1]) / (at[k] - at[k - 1]) : 0;
+    return [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * u, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * u];
+  };
+  /** @type {number[][]} */
+  const samples = [];
+  for (let s = Math.max(0, s0 - reach); s <= Math.min(at[at.length - 1], s0 + reach); s += 0.5) samples.push(along(s));
+  if (samples.length < 2) samples.push(along(Math.max(0, s0 - 1)), along(Math.min(at[at.length - 1], s0 + 1)));
+  // Principal direction of the samples (their covariance's long axis) and their centre.
+  const mx = samples.reduce((t2, q) => t2 + q[0], 0) / samples.length, mz = samples.reduce((t2, q) => t2 + q[1], 0) / samples.length;
+  let sxx = 0, sxz = 0, szz = 0;
+  for (const [x, z] of samples) [sxx, sxz, szz] = [sxx + (x - mx) ** 2, sxz + (x - mx) * (z - mz), szz + (z - mz) ** 2];
+  const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz), tx = Math.cos(ang), tz = Math.sin(ang);
+  let nx = -tz, nz = tx;
+  if (nx * (p[0] - mx) + nz * (p[1] - mz) < 0) [nx, nz] = [-nx, -nz];
+  // The point of the line nearest p.
+  const u = (p[0] - mx) * tx + (p[1] - mz) * tz;
+  return { q: [mx + tx * u, mz + tz * u], n: [nx, nz], half: r.width / 2 };
 }
 
 /**

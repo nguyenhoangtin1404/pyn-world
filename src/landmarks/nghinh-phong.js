@@ -61,6 +61,7 @@ export function columns() {
 export default {
   name: 'Tháp Nghinh Phong',
   back: BACK_M,
+  along: R_M, // its straight side is 2 × R_M long
   // The flat ground under the tower and the seaward part of the square (the rest of it is laid on
   // the ground as it is, a wall where that falls away).
   radius: ({ map }) => 36 * map,
