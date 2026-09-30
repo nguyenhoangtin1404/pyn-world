@@ -65,7 +65,7 @@ export default {
     for (const lm of world.landmarks) {
       const pad = world.cfg.pads?.find((p) => Math.hypot(p.x - lm.spot.x, p.z - lm.spot.z) < p.r);
       if (!pad || pad.r < 10) continue; // a square to walk round, not a hilltop
-      const r = pad.r * 0.62;
+      const r = lm.ring ?? pad.r * 0.62;
       const route = Array.from({ length: 25 }, (_, i) => new THREE.Vector3(pad.x + Math.sin((i / 24) * Math.PI * 2) * r, 0, pad.z + Math.cos((i / 24) * Math.PI * 2) * r));
       for (let n = 0; n < square; n++) add(route, ground, `Khách thăm ${lm.name}`);
     }

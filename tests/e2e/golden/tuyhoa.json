@@ -1,17 +1,17 @@
 {
-  "meshes": 326,
-  "geometry": "4672faaf",
-  "instances": "ab2859f7",
-  "colliders": 1204,
+  "meshes": 322,
+  "geometry": "367f63f4",
+  "instances": "c42b9fdf",
+  "colliders": 1262,
   "stations": [
     "tuyhoa"
   ],
   "people": 0,
   "followables": [
-    28,
+    24,
     23
   ],
   "spots": {},
-  "drawCalls": 200,
-  "programs": 30
+  "drawCalls": 194,
+  "programs": 31
 }

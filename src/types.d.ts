@@ -62,6 +62,8 @@ export interface GeoRecipe {
   size: number;
   /** The ground's grid cells, units (default 3; see WorldConfig.cell). */
   cell?: number;
+  /** How big things are drawn (world/scale.js): props outright, or exaggerate × the map. */
+  scale?: { props?: number; exaggerate?: number };
   /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
   data(): Promise<any>;
   /** id of the railway in the data the train runs on (default: the first); null for none — a town
@@ -69,7 +71,8 @@ export interface GeoRecipe {
   rail?: string | null;
   stops: GeoStopConfig[];
   /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
-  landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
+  /** rotation: radians, or 'sea' — its front (local +x) facing the sea. */
+  landmarks?: { model: string; place: string; rotation?: number | 'sea'; peak?: number }[];
   /** Land cover from the data: extra town circles (the town is also wherever the data's buildings
    *  stand close together; the rest follows height and the coast). */
   /** town: circles of town besides where the buildings stand close; fields: false — low open land is

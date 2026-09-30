@@ -3,6 +3,7 @@ import { prepareWorldData } from '../world/geodata.js';
 import { NO_RIVER_GLSL } from '../world/rivers.js';
 import { createLandCover } from '../world/landcover.js';
 import { LANDMARKS } from '../landmarks/index.js';
+import { createScale } from '../world/scale.js';
 
 // A WorldConfig is the recipe for one world: everything that differs between worlds (layout,
 // names, seed). The builders in src/world/ read it instead of module constants, so a new world is
@@ -74,7 +75,8 @@ export function defineGeoWorld(recipe) {
       });
       // Landmarks at their places (or on the highest ground near them), each on a flat pad.
       cfg.pads = [];
-      cfg.landmarks = (recipe.landmarks ?? []).map(({ model, place, rotation = 0, peak = 0 }) => {
+      const scale = createScale({ metersPerUnit: d.projection.metersPerUnit, scale: recipe.scale });
+      cfg.landmarks = (recipe.landmarks ?? []).map(({ model, place, rotation: turn = 0, peak = 0 }) => {
         const pl = d.places[place];
         if (!pl) throw new Error(`World "${recipe.id}": công trình "${model}" cần nơi "${place}" trong dữ liệu`);
         if (!LANDMARKS[model]) throw new Error(`World "${recipe.id}": không có công trình "${model}" (src/landmarks/index.js)`);
@@ -85,7 +87,11 @@ export function defineGeoWorld(recipe) {
           }
         }
         const h = d.heightAt(p[0], p[1]);
-        cfg.pads.push({ x: p[0], z: p[1], r: LANDMARKS[model].radius, h });
+        const { radius } = LANDMARKS[model];
+        cfg.pads.push({ x: p[0], z: p[1], r: typeof radius === 'function' ? radius(scale) : radius, h });
+        // 'sea': its front (local +x) to the sea — down the slope of the distance to it.
+        const s = 10, gx = d.seaDistanceAt(p[0] + s, p[1]) - d.seaDistanceAt(p[0] - s, p[1]), gz = d.seaDistanceAt(p[0], p[1] + s) - d.seaDistanceAt(p[0], p[1] - s);
+        const rotation = turn === 'sea' ? (Number.isFinite(gx + gz) ? Math.atan2(gz, -gx) : 0) : turn;
         return { id: place, name: pl.name, model, p, h, rotation };
       });
       const town = (recipe.landcover?.town ?? []).map(({ at, radius }) => ({ p: d.projection.toWorld(at[0], at[1]), r: d.projection.length(radius) }));

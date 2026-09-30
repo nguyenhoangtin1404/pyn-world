@@ -140,8 +140,31 @@ export function smoothCoast(h, n, radius, passes = 2) {
   }
 }
 
+/**
+ * The sea further inland by `points` grid points (Euclidean): SRTM counts a beach's dunes and the
+ * sand behind them as land, so its shore can lie well out to sea from the real one — a town's
+ * landmark "on the beach" hundreds of metres from the water. The shore keeps its shape.
+ * @param {Uint8Array} sea n × n, 1 for the sea (changed in place) @param {number} n @param {number} points
+ */
+export function growSea(sea, n, points) {
+  const src = Uint8Array.from(sea), R = Math.ceil(points);
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (src[r * n + c]) continue;
+      for (let dr = -R; dr <= R && !sea[r * n + c]; dr++) {
+        for (let dc = -R; dc <= R; dc++) {
+          const rr = r + dr, cc = c + dc;
+          if (rr < 0 || rr >= n || cc < 0 || cc >= n || !src[rr * n + cc] || dr * dr + dc * dc > points * points) continue;
+          sea[r * n + c] = 1;
+          break;
+        }
+      }
+    }
+  }
+}
+
 /** The grid of metres (row 0 = north) with the sea marked, from any elevation(lat, lon). */
-export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = [], reach = 1, smooth = 0, coast = 0) {
+export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = [], reach = 1, smooth = 0, coast = 0, grow = 0) {
   const h = new Int16Array(n * n);
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) h[r * n + c] = Math.round(elevationAt(north - ((north - south) * r) / (n - 1), west + ((east - west) * c) / (n - 1)));
@@ -162,6 +185,7 @@ export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdge
     if (c > 0) stack.push(k - 1);
     if (c < n - 1) stack.push(k + 1);
   }
+  if (grow > 0) growSea(sea, n, grow);
   for (let k = 0; k < n * n; k++) h[k] = sea[k] ? SEA_BED : Math.max(0, h[k]); // dry land below 0: bad data
   if (water.length) {
     for (let r = 0; r < n; r++) {
@@ -213,8 +237,9 @@ export async function build(recipe, { osm = null, demDir = '.cache/dem', elevati
   // (Grid points to an SRTM sample, 30 m: finer grids repeat samples, and spikes are wider.)
   const reach = Math.max(1, Math.round(30 / ((2 * recipe.halfExtent) / (n - 1))));
   // (recipe.smooth: grid points to smooth the land over — a town on flat ground, its bumps ironed out;
-  // recipe.coast: grid points to round the shore over.)
-  const heights = heightGrid(box, n, at, recipe.sea ?? [], map?.water ?? [], reach, recipe.smooth ?? 0, recipe.coast ?? 0);
+  // recipe.coast: grid points to round the shore over; recipe.seaGrow: metres to bring the shore in.)
+  const spacing = (2 * recipe.halfExtent) / (n - 1);
+  const heights = heightGrid(box, n, at, recipe.sea ?? [], map?.water ?? [], reach, recipe.smooth ?? 0, recipe.coast ?? 0, (recipe.seaGrow ?? 0) / spacing);
   const pick = (/** @type {string} */ k) => (map?.[k]?.length ? map[k] : recipe[k] ?? []);
   const places = [...(recipe.places ?? []), ...(map?.places ?? []).filter((p) => !recipe.places?.some((q) => q.id === p.id))];
   const round = (v) => +v.toFixed(6);

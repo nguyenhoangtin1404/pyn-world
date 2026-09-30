@@ -4,7 +4,8 @@ import { builtUp, createLandCover } from '../../src/world/landcover.js';
 import { createRivers } from '../../src/world/rivers.js';
 import { Site } from '../../src/world/site.js';
 import { likelyFloors } from '../../src/features/buildings.js';
-import { build, checkPlaces, despike, heightGrid, inWater, smoothCoast, smoothLand } from '../../tools/import/build.mjs';
+import { build, checkPlaces, despike, growSea, heightGrid, inWater, smoothCoast, smoothLand } from '../../tools/import/build.mjs';
+import { columns } from '../../src/landmarks/nghinh-phong.js';
 import { clipToBox, footprintRect, joinLines, osmToVectors, simplify } from '../../tools/import/osm.mjs';
 
 // Phase 2 of worlds from map data: streets, buildings and water areas from OpenStreetMap / Overture.
@@ -296,5 +297,37 @@ describe('a smooth shore (smoothCoast)', () => {
     for (let c = 4; c < 12; c++) expect(Math.abs(h[8 * n + c + 1] - h[8 * n + c])).toBeLessThan(6);
     expect(h[8 * n + 0]).toBe(2); // land well inland
     expect(h[0 * n + 15]).toBe(-10); // sea well out
+  });
+});
+
+describe('the shore brought in (growSea)', () => {
+  it('moves the edge of the sea inland by as many points, keeping its shape', () => {
+    const n = 10;
+    const sea = new Uint8Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 7; c < n; c++) sea[r * n + c] = 1; // sea east of column 7
+    growSea(sea, n, 3);
+    for (let r = 0; r < n; r++) {
+      expect(sea[r * n + 4]).toBe(1); // 3 points in
+      expect(sea[r * n + 3]).toBe(0);
+    }
+  });
+});
+
+describe('Tháp Nghinh Phong (columns)', () => {
+  it('two halves, each stepping up to its spire at the slot between them: 40 m and 33 m', () => {
+    const cols = columns();
+    const spires = cols.filter((c) => c.spire);
+    expect(spires.map((c) => c.h).sort((a, b) => b - a)).toEqual([40, 33]);
+    expect(new Set(spires.map((c) => c.side)).size).toBe(2); // one in each half
+    for (const c of spires) expect(c.j).toBe(0); // at the slot
+    for (const side of [1, -1]) {
+      const half = cols.filter((c) => c.side === side && !c.spire);
+      const mean = (j) => half.filter((c) => c.j === j).reduce((s, c) => s + c.h, 0) / half.filter((c) => c.j === j).length;
+      expect(mean(0)).toBeGreaterThan(mean(2)); // stepping down away from the slot
+    }
+    const rest = cols.filter((c) => !c.spire);
+    for (const s of spires) expect(Math.max(...rest.filter((c) => c.side === s.side).map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
+    expect(Math.min(...rest.map((c) => c.h))).toBeLessThanOrEqual(3); // steps at the bottom
+    expect(rest.length).toBeGreaterThan(20);
   });
 });

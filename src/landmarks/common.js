@@ -4,10 +4,11 @@ import * as THREE from 'three';
 /**
  * @typedef {{ world: import('../World.js').World, x: number, y: number, z: number, ry: number, rng: () => number }} LandmarkSite
  * Where a landmark stands: world position of its base (on its flat pad), turned by ry about y.
- * @typedef {{ name: string, radius: number, build(site: LandmarkSite): LandmarkBuilt }} Landmark
- * `radius`: the flat ground it needs (and keeps clear of trees).
- * @typedef {{ spot: THREE.Vector3, view: number, system?: import('../types').System }} LandmarkBuilt
- * `spot`: where the camera looks when flying to it; `view`: how far back it stands (× the usual).
+ * @typedef {{ name: string, radius: number | ((scale: { map: number, props: number }) => number), build(site: LandmarkSite): LandmarkBuilt }} Landmark
+ * `radius`: the flat ground it needs (and keeps clear of trees), units — or from the world's scale.
+ * @typedef {{ spot: THREE.Vector3, view: number, ring?: number, system?: import('../types').System }} LandmarkBuilt
+ * `spot`: where the camera looks when flying to it; `view`: how far back it stands (× the usual);
+ * `ring`: how far out people walk round it (default: most of its pad).
  */
 
 /**

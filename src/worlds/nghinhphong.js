@@ -18,7 +18,7 @@ export default defineGeoWorld({
   cell: 1.5, // the ground in finer triangles: a smooth shore
   landcover: { fields: false }, // the town's open ground is grass, not rice paddies
   stops: [],
-  landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong' }], // walkway to the sea: east (+x)
+  landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong', rotation: 'sea' }], // its square's round side to the sea
   features: [
     'landmarks', 'streets', 'buildings', 'trees', 'clouds',
     'strollers', // people on the pavements and round the square

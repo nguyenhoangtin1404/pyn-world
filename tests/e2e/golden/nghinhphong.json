@@ -1,8 +1,8 @@
 {
   "meshes": 98,
-  "geometry": "dc1d8953",
-  "instances": "7425a9a1",
-  "colliders": 1461,
+  "geometry": "e84789b8",
+  "instances": "68e809f0",
+  "colliders": 1516,
   "stations": [],
   "people": 0,
   "followables": [
@@ -10,6 +10,6 @@
     12
   ],
   "spots": {},
-  "drawCalls": 150,
-  "programs": 25
+  "drawCalls": 149,
+  "programs": 26
 }

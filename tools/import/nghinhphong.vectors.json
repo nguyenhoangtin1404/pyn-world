@@ -7,6 +7,7 @@
   "verticalScale": 1,
   "smooth": 3,
   "coast": 2,
+  "seaGrow": 240,
   "grid": 101,
   "sea": ["east"],
   "sources": {
