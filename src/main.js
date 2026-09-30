@@ -205,6 +205,7 @@ async function buildWorld(cfg) {
 function show(next) {
   world = next;
   state.mode = 'overview';
+  hud?.setWorld(world);
   world.sky.setHour(state.hour, true);
   world.weather.set(state.weather);
   world.sky.sun.castShadow = state.shadows;
@@ -254,6 +255,7 @@ async function boot() {
   show(first);
 
   hud = initHud(state, actions, SHOWN);
+  hud.setWorld(world);
   addEventListener('keydown', onKey);
   addEventListener('resize', resize);
   addEventListener('pointerdown', () => audio.init(), { once: true });

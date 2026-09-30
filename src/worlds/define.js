@@ -89,7 +89,7 @@ export function defineGeoWorld(recipe) {
         return { id: place, name: pl.name, model, p, h, rotation };
       });
       const town = (recipe.landcover?.town ?? []).map(({ at, radius }) => ({ p: d.projection.toWorld(at[0], at[1]), r: d.projection.length(radius) }));
-      cfg.landcover = createLandCover(d, { town, buildings: d.buildings, size: recipe.size });
+      cfg.landcover = createLandCover(d, { town, buildings: d.buildings, size: recipe.size, fields: recipe.landcover?.fields ?? true });
       cfg.latitude = d.projection.center[0];
       cfg.sunDay = recipe.sunDay ?? 80;
     },

@@ -72,11 +72,11 @@ export default {
     const roads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
     const ground = terrain.meshHeightAt;
     const deck = WATER_Y + 0.9; // bridges: over the water, level with the banks
-    const half = world.size / 2 - 2;
     const pads = cfg.pads ?? [];
-    // Where no street goes: off the diorama, the station yards, the landmarks' squares.
-    const keepOff = (/** @type {number} */ x, /** @type {number} */ z) =>
-      Math.abs(x) > half || Math.abs(z) > half || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24 * track.k) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
+    // Where no street goes: off the diorama (the whole street and its pavements inside the edge,
+    // `margin` in from it), the station yards, the landmarks' squares.
+    const keepOff = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ margin) =>
+      Math.abs(x) > world.size / 2 - margin || Math.abs(z) > world.size / 2 - margin || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24 * track.k) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
     const paint = new Paint();
     const piers = [];
     const lane = world.scale.fit(SIZES.lane);
@@ -106,7 +106,7 @@ export default {
         const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / STEP));
         for (let k = i === 1 ? 0 : 1; k <= n; k++) {
           const x = ax + ((bx - ax) * k) / n, z = az + ((bz - az) * k) / n;
-          if (keepOff(x, z)) {
+          if (keepOff(x, z, hw + pavement + 1)) {
             if (runs.at(-1)?.length) runs.push([]);
           } else runs.at(-1)?.push([x, z]);
         }

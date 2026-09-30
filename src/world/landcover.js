@@ -13,10 +13,11 @@ const TOWN_DENSITY = 0.05; // of the ground under roofs, round a cell and its ne
 /**
  * @param {{ elevationAt(x: number, z: number): number, seaDistanceAt(x: number, z: number): number }} data
  * @param {{ town?: { p: [number, number], r: number }[], buildings?: { x: number, z: number, length: number, width: number }[],
- *   size?: number }} [o] town circles and buildings in world units; `size` of the diorama (for the buildings)
+ *   size?: number, fields?: boolean }} [o] town circles and buildings in world units; `size` of the diorama (for the
+ *   buildings); fields: false — low open land is grass, not paddies
  * @returns {(x: number, z: number) => import('../types').LandCover}
  */
-export function createLandCover(data, { town = [], buildings = [], size = 0 } = {}) {
+export function createLandCover(data, { town = [], buildings = [], size = 0, fields = true } = {}) {
   const built = builtUp(buildings, size);
   return (x, z) => {
     const m = data.elevationAt(x, z);
@@ -27,7 +28,7 @@ export function createLandCover(data, { town = [], buildings = [], size = 0 } = 
     // The town's edge wanders (no circle drawn with compasses).
     if (built(x, z) || town.some(({ p, r }) => Math.hypot(x - p[0], z - p[1]) < r * (1 + 0.35 * fbm(x, z, 2, 0.012, 7.3)))) return 'town';
     if (m > 25) return 'forest';
-    if (m < 12) return 'field';
+    if (m < 12 && fields) return 'field';
     return 'grass';
   };
 }

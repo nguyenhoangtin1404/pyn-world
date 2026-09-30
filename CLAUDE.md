@@ -242,6 +242,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Xe không quay đầu trong ngã tư**: phố có xe mà kết thúc ở chỗ cắt phố khác thì bị cắt ngắn (`trimEnds` + `crossedAt`:
   cách phố kia nửa bề rộng + bề rộng phố mình + 1) — quay đầu giữa ngã tư làm xe cắt ngang xe khác quá gần để kịp phanh.
   Luật: chỉ bỏ qua xe **ngược chiều và lệch sang bên** (`gapTo`: `cos < −0,7` và cách trục làn mình > `LANE / 2`).
+- **Rà cảnh NGHINH PHONG** (2026-09-30): đất trống thấp giữa phố thành cỏ, không phải ruộng lúa kẻ ô
+  (`landcover: { fields: false }` trong công thức, `createLandCover({ fields })`); phố + vỉa hè dừng cách mép sa bàn
+  nửa bề rộng + vỉa hè + 1 (đầu phố tròn từng chìa ra ngoài mép); HUD chỉ hiện điều khiển world dùng được
+  (`hud.setWorld`: không tàu → ẩn máy quay 2/4/5 và thanh tốc độ tàu, không cầu → ẩn 3, không người/chim/xe → ẩn 6/7/8;
+  phím vẫn chạy và báo "không có gì để theo"; CSS `[hidden]` thắng `display` của `.chip`).
 - **NGHINH PHONG** (`src/worlds/nghinhphong.js`): 2 × 2 km quanh Tháp Nghinh Phong (tâm = tháp,
   `halfExtent` 1000), 400 đơn vị → 5 m/đơn vị, `props` 0,6; lưới 101 (20 m), `verticalScale` 1, `smooth` 3, `coast` 2; 96 phố, 870 nhà (Overture ở khu này
   thưa). **World đầu tiên không có đường ray**: công thức ghi `rail: null` (và `stops: []`) → `cfg.track` null,

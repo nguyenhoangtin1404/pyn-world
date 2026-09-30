@@ -72,7 +72,9 @@ export interface GeoRecipe {
   landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
   /** Land cover from the data: extra town circles (the town is also wherever the data's buildings
    *  stand close together; the rest follows height and the coast). */
-  landcover?: { town?: { at: [number, number]; radius: number }[] };
+  /** town: circles of town besides where the buildings stand close; fields: false — low open land is
+   *  grass, not rice paddies (a town's open ground). */
+  landcover?: { town?: { at: [number, number]; radius: number }[]; fields?: boolean };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
   features: FeatureEntry[];

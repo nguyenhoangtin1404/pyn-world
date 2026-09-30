@@ -149,5 +149,17 @@ export function initHud(state, actions, worlds) {
   }
 
   sync();
-  return { sync, toast, toggleHud, setClock };
+  // Only the controls this world has a use for: no train cameras or train speed without a train,
+  // no bridge camera without a bridge, no following what isn't there.
+  function setWorld(world) {
+    const has = {
+      train: !!world.train, passenger: !!world.train, driver: !!world.train,
+      bridge: world.bridges.length > 0,
+      person: world.followables.people.length > 0, bird: world.followables.birds.length > 0, vehicle: world.followables.vehicles.length > 0,
+    };
+    for (const [id, b] of camBtns) b.hidden = has[id] === false;
+    speed.closest('label').hidden = !world.train;
+  }
+
+  return { sync, toast, toggleHud, setClock, setWorld };
 }

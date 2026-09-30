@@ -16,6 +16,7 @@ export default defineGeoWorld({
   data: () => import('./data/nghinhphong.json'),
   rail: null,
   cell: 1.5, // the ground in finer triangles: a smooth shore
+  landcover: { fields: false }, // the town's open ground is grass, not rice paddies
   stops: [],
   landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong' }], // walkway to the sea: east (+x)
   features: [
