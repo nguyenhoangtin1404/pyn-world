@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { Walker } from '../world/walker.js';
 import { PERSON_HEIGHT } from '../world/people.js';
+import { CLAIM } from '../world/site.js';
+import { PAVEMENT } from './streets.js';
 
 // People out and about in a town from map data: walking the pavements of its streets
 // (world.streets, from features/streets.js) — along one side, a pause at the end, then back — and
@@ -34,22 +36,29 @@ export default {
       if (walkers.length === 1) world.scale.note('person', PERSON_HEIGHT * w.group.scale.y, 'strollers');
     };
 
+    // Anywhere within a person's reach of (x, z) on a carriageway (the claims are half-unit cells:
+    // one point alone can read a cell whose middle is just off the street while it stands on it).
+    const onCarriageway = (/** @type {number} */ x, /** @type {number} */ z) => {
+      const r = 0.3, { site } = world;
+      for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) if (site.claimAt(x + dx, z + dz) === CLAIM.CARRIAGEWAY) return true;
+      return false;
+    };
     // On the pavement: a street chosen by length (longer ones have more people), one side of it.
+    // (The diorama's edge counts as a street's: nobody walks off it.)
+    const edge = world.size / 2 - 3;
+    const offLimits = (/** @type {number} */ x, /** @type {number} */ z) => Math.abs(x) > edge || Math.abs(z) > edge || onCarriageway(x, z);
     const total = streets.reduce((sum, s) => sum + s.length, 0);
-    for (let n = 0; n < count; n++) {
+    for (let n = 0, tries = 0; n < count && tries < count * 5; tries++) {
       let r = rng() * total, st = streets[0];
       for (const s of streets) if ((r -= s.length) < 0) {
         st = s;
         break;
       }
-      const side = rng() < 0.5 ? 1 : -1, off = side * (st.width / 2 + 0.35 * k);
-      const pts = st.points;
-      const route = pts.map((p, i) => {
-        const [ax, az] = pts[Math.max(0, i - 1)], [bx, bz] = pts[Math.min(pts.length - 1, i + 1)];
-        const len = Math.hypot(bx - ax, bz - az) || 1;
-        return new THREE.Vector3(p[0] - ((bz - az) / len) * off, 0, p[1] + ((bx - ax) / len) * off);
-      });
-      add(route, st.heightAt, 'Người đi dạo');
+      const side = rng() < 0.5 ? 1 : -1;
+      const route = pavementRoute(st.points, st.width / 2 + (PAVEMENT * k) / 2, side, offLimits);
+      if (route.length < 8) continue; // a walk worth the name: another street
+      add(route, st.pavementAt, 'Người đi dạo');
+      n++;
     }
     // Round each landmark's square.
     for (const lm of world.landmarks) {
@@ -84,3 +93,50 @@ export default {
     };
   },
 };
+
+/**
+ * A walk along one side of a street, `off` from its middle (the middle of the pavement): points
+ * that land on a carriageway (another street drawn over this pavement) are pushed further out,
+ * up to 0.8 of a unit, and if that isn't enough they are a crossing — kept, unless at the ends: the
+ * walk starts and ends on a pavement, not in the middle of the street it meets.
+ * @param {[number, number][]} pts @param {number} off @param {1 | -1} side
+ * @param {(x: number, z: number) => boolean} onCarriageway
+ * @param {number} [maxCrossing] most points in a row a crossing takes
+ * @returns {THREE.Vector3[]}
+ */
+export function pavementRoute(pts, off, side, onCarriageway, maxCrossing = 4) {
+  const route = pts.map((p, i) => {
+    // The right-hand side (side 1) or left, from the direction over a few points either side.
+    const [ax, az] = pts[Math.max(0, i - 3)], [bx, bz] = pts[Math.min(pts.length - 1, i + 3)];
+    const len = Math.hypot(bx - ax, bz - az) || 1;
+    const nx = (-(bz - az) / len) * side, nz = ((bx - ax) / len) * side;
+    let d = off;
+    while (d < off + 0.8 && onCarriageway(p[0] + nx * d, p[1] + nz * d)) d += 0.1;
+    if (onCarriageway(p[0] + nx * d, p[1] + nz * d)) d = off;
+    return new THREE.Vector3(p[0] + nx * d, 0, p[1] + nz * d);
+  });
+  // A crossing is a few points at most; a longer stretch on a carriageway is another street running
+  // alongside (a dual carriageway drawn as two): the walk is cut there, and the longest piece kept.
+  const on = route.map((p) => onCarriageway(p.x, p.z));
+  /** @type {[number, number][]} */
+  const pieces = [];
+  let from = -1;
+  for (let i = 0; i <= route.length; i++) {
+    const end = i === route.length;
+    if (!end && !on[i]) {
+      if (from < 0) from = i;
+      continue;
+    }
+    // Here a stretch on a carriageway starts (or the route ends): long enough to be a street along?
+    let j = i;
+    while (j < route.length && on[j]) j++;
+    if (end || j - i > maxCrossing || j === route.length) {
+      if (from >= 0) pieces.push([from, i]);
+      from = -1;
+    }
+    if (end) break;
+    i = j - 1;
+  }
+  const [a, b] = pieces.reduce((best, p) => (p[1] - p[0] > best[1] - best[0] ? p : best), [0, 0]);
+  return route.slice(a, b);
+}

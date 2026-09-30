@@ -76,7 +76,7 @@ export class World {
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
-    /** @type {{ kind: string, name: string, width: number, lanes: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js) */
+    /** @type {{ kind: string, name: string, width: number, lanes: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
     this.streets = [];
     /** @type {{ pos: THREE.Vector3 }[]} people on foot about the town who don't take the train (features/strollers.js) */
     this.pedestrians = [];

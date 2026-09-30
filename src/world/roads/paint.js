@@ -20,10 +20,21 @@ const UP = [0, 1, 0];
 
 export class Paint {
   constructor() {
-    /** @type {number[]} */
-    this.pos = [];
-    /** @type {number[]} */
-    this.col = [];
+    // Positions and colours, 9 floats a triangle, in buffers that double as they fill (a town's
+    // streets are a few hundred thousand triangles: pushing onto plain arrays was most of the time).
+    this.pos = new Float32Array(9 * 1024);
+    this.col = new Float32Array(9 * 1024);
+    this.n = 0; // floats used in each
+  }
+
+  /** Room for one more triangle. */
+  grow() {
+    if (this.n + 9 <= this.pos.length) return;
+    for (const key of /** @type {const} */ (['pos', 'col'])) {
+      const bigger = new Float32Array(this[key].length * 2);
+      bigger.set(this[key]);
+      this[key] = bigger;
+    }
   }
 
   /**
@@ -38,10 +49,19 @@ export class Paint {
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const flip = nx * want[0] + ny * want[1] + nz * want[2] < 0;
     const p = flip ? c : b, q = flip ? b : c;
-    this.pos.push(a[0], a[1], a[2], p[0], p[1], p[2], q[0], q[1], q[2]);
+    this.grow();
+    const P = this.pos, C = this.col, i = this.n;
+    P[i] = a[0], P[i + 1] = a[1], P[i + 2] = a[2];
+    P[i + 3] = p[0], P[i + 4] = p[1], P[i + 5] = p[2];
+    P[i + 6] = q[0], P[i + 7] = q[1], P[i + 8] = q[2];
     let v = rgb.get(color);
     if (!v) rgb.set(color, (v = [col.set(color).r, col.g, col.b]));
-    this.col.push(v[0], v[1], v[2], v[0], v[1], v[2], v[0], v[1], v[2]);
+    for (let k = 0; k < 9; k += 3) {
+      C[i + k] = v[0];
+      C[i + k + 1] = v[1];
+      C[i + k + 2] = v[2];
+    }
+    this.n += 9;
   }
 
   /**
@@ -164,10 +184,10 @@ export class Paint {
 
   /** Everything painted so far, as one geometry (null if nothing was). */
   geometry() {
-    if (!this.pos.length) return null;
+    if (!this.n) return null;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos.slice(0, this.n), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n), 3));
     g.computeVertexNormals();
     return g;
   }

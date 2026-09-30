@@ -191,6 +191,16 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     chọn theo lớp phủ đất (`Flock` nhận `center`).
   E2E tua 300 s với Tuy Hòa: không xe nào chồng nhau (hình chữ nhật × `v.k`), không xe nào kẹt, đèn phanh
   và đèn pha có bật.
+- **Phố sạch sẽ**: `site.claimRect(…, kind)` nhớ **loại** đất (`CLAIM`: `TAKEN` 1 < `PAVEMENT` 2 <
+  `CARRIAGEWAY` 3, ô giữ loại cao nhất; `site.claimAt`). `streets` claim lòng đường + vỉa hè (`PAVEMENT`
+  = 1,5 m × props mỗi bên, vẽ màu xám nhạt ở lượt đầu, thấp hơn mọi lòng đường nên lòng phố cắt ngang
+  che vỉa hè ở miệng phố). Nhà (`fitOffStreets`): thử 15 điểm trên móng, chạm vỉa hè/lòng đường thì cắt
+  bớt phía giáp phố (còn 75 % / 55 % chiều dài hoặc rộng), không được thì bỏ. Người đi dạo
+  (`pavementRoute`): đi giữa vỉa hè, điểm rơi vào lòng phố khác thì đẩy ra ≤ 0,5, không được thì là chỗ
+  băng qua đường (giữ), trừ ở hai đầu — không bắt đầu/kết thúc giữa lòng đường. **San mặt đường**
+  (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
+  ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
+  world có `cfg.roads`), không san chỗ nước (cầu).
 - Chưa làm: đèn giao thông ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
   (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
 
