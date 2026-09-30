@@ -7,7 +7,9 @@ import { box, ball, cyl, torus, keep } from '../lowpoly.js';
 // darkened by the tint too, so glass and tyres stay dark). Wheels are separate so they can turn.
 //
 //   wheels: [x, y, z] centres (radius `wheelR`), rider: where a Person sits (bicycle, motorbike),
-//   speed: [min, max] cruising speed (units/s), length (for keeping distance), colors: paint choices.
+//   speed: [min, max] cruising speed (units/s), length (for keeping distance), colors: paint choices,
+//   lamps: { head, tail } — where the head and tail lights are, lit by the fleet at night (and the
+//   tail lights when braking).
 
 export const PAINT = '#ffffff';
 const GLASS = '#2d3a48';
@@ -31,6 +33,12 @@ function lightsAndBumpers(w, y, zFront, zBack) {
   ];
 }
 
+// Where lightsAndBumpers() puts the lamps, for lighting them up.
+const lampsAt = (w, y, zFront, zBack) => ({
+  head: [[-w * 0.34, y, zFront + 0.06], [w * 0.34, y, zFront + 0.06]],
+  tail: [[-w * 0.36, y, zBack - 0.06], [w * 0.36, y, zBack - 0.06]],
+});
+
 // A glass band round a cabin: slightly wider and longer than the painted block so it shows on all
 // four sides, and lower than it so the roof and the sills stay painted.
 const windows = (w, h, d, [x, y, z]) => box(w + 0.04, h, d + 0.04, GLASS, [x, y, z]);
@@ -53,7 +61,10 @@ export const KINDS = {
       cyl(0.015, 0.015, 0.5, DARK, [0, 0.95, 0.4], ACROSS, 5), // handlebar
       box(0.1, 0.05, 0.22, DARK, [0, 0.95, -0.2]), // saddle
       cyl(0.07, 0.07, 0.04, CHROME, [0, 0.36, -0.08], ACROSS, 8), // chainring
+      box(0.08, 0.07, 0.06, LAMP, [0, 0.86, 0.5]), // lamp on the handlebar
+      box(0.08, 0.06, 0.03, TAIL, [0, 0.72, -0.56]), // rear light
     ],
+    lamps: { head: [[0, 0.86, 0.54]], tail: [[0, 0.72, -0.58]] },
     // Rim in the wheel's plane (y, z), two spokes across it; the wheel turns about x.
     wheel: (r) => [torus(r, 0.03, TYRE, [0, 0, 0], { ry: Math.PI / 2 }), box(0.02, r * 1.9, 0.02, CHROME), box(0.02, 0.02, r * 1.9, CHROME)],
   },
@@ -78,6 +89,7 @@ export const KINDS = {
       box(0.3, 0.08, 0.4, PAINT, [0, 0.62, -0.6]), // rear mudguard
       box(0.12, 0.06, 0.04, TAIL, [0, 0.68, -0.82]),
     ],
+    lamps: { head: [[0, 0.88, 0.66]], tail: [[0, 0.68, -0.85]] },
     wheel: (r) => [cyl(r, r, 0.12, TYRE, [0, 0, 0], ACROSS, 12), cyl(r * 0.55, r * 0.55, 0.14, CHROME, [0, 0, 0], ACROSS, 10)],
   },
 
@@ -97,6 +109,7 @@ export const KINDS = {
       box(0.05, 0.1, 0.18, DARK, [0.86, 0.95, 0.75]), // mirrors
       box(0.05, 0.1, 0.18, DARK, [-0.86, 0.95, 0.75]),
     ],
+    lamps: lampsAt(1.7, 0.72, 2.0, -2.0),
     wheel: carWheel,
   },
 
@@ -118,6 +131,7 @@ export const KINDS = {
       box(0.9, 0.25, 0.7, '#a8744a', [0.2, 1.25, -1.1]), // a crate in the back
       ...lightsAndBumpers(1.8, 0.9, 2.4, -2.4),
     ],
+    lamps: lampsAt(1.8, 0.9, 2.4, -2.4),
     wheel: carWheel,
   },
 
@@ -137,6 +151,7 @@ export const KINDS = {
       box(2.32, 0.2, 4.92, PAINT, [0, 3.25, -1.1]), // painted stripe along the top
       ...lightsAndBumpers(2.1, 1.1, 3.55, -3.6),
     ],
+    lamps: lampsAt(2.1, 1.1, 3.55, -3.6),
     wheel: carWheel,
   },
 

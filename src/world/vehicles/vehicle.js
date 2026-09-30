@@ -34,7 +34,9 @@ export class Vehicle {
     this.limit = Infinity;
     this.stops = undefined; // stop points on its route (world/vehicles/traffic.js), set by the traffic
     this.color = this.spec.colors[Math.floor(rng() * this.spec.colors.length)];
-    const { group, wheels, prop } = fleet.add(kind, this.color);
+    const { group, wheels, prop, lamps } = fleet.add(kind, this.color);
+    this.lamps = lamps; // head/tail light anchors and the pool of light ahead (fleet.js), or null
+    this.braking = false;
     this.group = group; // the anchor the fleet draws the body at (in the scene)
     this.wheels = wheels;
     this.prop = prop;
@@ -50,6 +52,8 @@ export class Vehicle {
   update(dt) {
     if (dt === 0) return;
     const want = Math.min(this.cruise, this.limit);
+    // Brake lights: slowing down hard, or held at a standstill.
+    this.braking = want < this.v - 0.5 || (this.v < 0.2 && this.limit < 0.5);
     this.v = approach(this.v, want, (want > this.v ? 2.5 : 9) * dt);
     const ds = this.v * dt;
     this.s = this.path.wrap(this.s + ds);
@@ -60,6 +64,19 @@ export class Vehicle {
       pedal(this.rider.person, this.crank);
     }
     this.place();
+  }
+
+  /**
+   * Head lights (and the pool of light they cast) on or off; tail lights on with them, and
+   * whenever braking.
+   * @param {boolean} on
+   */
+  light(on) {
+    const l = this.lamps;
+    if (!l) return;
+    for (const a of l.head) a.visible = on;
+    for (const a of l.tail) a.visible = on || this.braking;
+    l.beam.visible = on;
   }
 
   place() {

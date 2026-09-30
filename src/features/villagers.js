@@ -9,14 +9,16 @@ import { stepChild } from './villagers/kids.js';
 // People living around each stop (world.stations): they walk between their homes and the platform,
 // routed around obstacles on a nav grid per stop (villagers/areas.js), and ride the train to another
 // stop, where they then go about their day (villagers/riding.js). Children tag along beside a
-// grown-up (villagers/kids.js). Umbrellas go up when it rains, except indoors.
+// grown-up (villagers/kids.js). Umbrellas go up when it rains, except indoors. They keep off the
+// carriageway except at crosswalks (the nav grid knows the roads), and wait at the kerb until the
+// crosswalk's lights say walk (or the level crossing is clear).
 // Options: perStop (grown-ups at each stop; the last number counts for the stops after it: [12, 10]),
 // kids (children, same way: [4, 3]).
 
 /**
  * A Walker living around a stop, with its plans (areas.js) and its train journey (riding.js).
  * @typedef {Walker & { area: any, stop: any, path: THREE.Vector3[] | null, pi: number, plan: (w: Villager) => void,
- *   mode?: string | null, door?: any, car?: THREE.Object3D, fixedY?: number | null }} Villager
+ *   mode?: string | null, door?: any, car?: THREE.Object3D, fixedY?: number | null, waiting?: boolean }} Villager
  * A child following a grown-up (kids.js).
  * @typedef {Walker & { parent: Villager, side: number, spot: THREE.Vector3, path?: THREE.Vector3[] | null, pi?: number,
  *   moving?: boolean, replan?: number, fixedY?: number | null }} Child
@@ -64,6 +66,19 @@ export default {
     // Doors open for them (houses.js), pigeons flee from them (birds).
     world.people.push(...villagers, ...kids);
     const riding = createRiding({ train, villagers, areas, rng });
+    // A crosswalk just ahead, that someone not on it yet may not start across now?
+    const ahead = new THREE.Vector3();
+    const mustWait = (/** @type {Villager} */ w, /** @type {THREE.Vector3} */ target) => {
+      const nav = w.area.nav;
+      if (!site.crossings.length || nav.crossingAt(w.pos.x, w.pos.z) >= 0) return false;
+      const d = Math.hypot(target.x - w.pos.x, target.z - w.pos.z) || 1;
+      for (const k of [0.5, 1, 1.5]) {
+        ahead.set(w.pos.x + ((target.x - w.pos.x) / d) * Math.min(k, d), 0, w.pos.z + ((target.z - w.pos.z) / d) * Math.min(k, d));
+        const c = nav.crossingAt(ahead.x, ahead.z);
+        if (c >= 0) return !site.crossings[c].walk();
+      }
+      return false;
+    };
 
     // Who the follow cameras can ride along with. Someone on the train is followed via their carriage.
     world.followables.people.push(
@@ -91,6 +106,15 @@ export default {
           }
           if (!w.path) {
             w.plan(w);
+            continue;
+          }
+          w.waiting = mustWait(w, w.path[w.pi]);
+          if (w.waiting) {
+            // At the kerb, facing the way across, until the lights say walk.
+            const to = w.path[w.pi];
+            w.heading = turnToward(w.heading, Math.atan2(to.x - w.pos.x, to.z - w.pos.z), Math.min(1, dt * 4));
+            w.sync();
+            w.idle(t);
             continue;
           }
           if (w.step(w.path[w.pi], dt, t)) {

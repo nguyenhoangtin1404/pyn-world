@@ -15,7 +15,7 @@ export class SignalCycle {
     this.green = green;
     this.yellow = yellow;
     this.red = red;
-    this.t = offset;
+    this.t = ((offset % this.period) + this.period) % this.period;
   }
 
   get period() {
@@ -43,6 +43,27 @@ export class SignalCycle {
     const s = this.state;
     return s === 'red' || (s === 'yellow' && d > (v * v) / 12);
   }
+
+  /**
+   * May people start across the road here? While the cars have red, and only while there are still
+   * `margin` seconds of it left to get to the other side.
+   * @param {number} [margin]
+   */
+  walk(margin = 4) {
+    return this.state === 'red' && this.period - this.t > margin;
+  }
+}
+
+/**
+ * The lights of a crossroads: one cycle for each road, taking turns. While one road has green and
+ * yellow the other has red, and both have red for `clear` seconds in between, so whoever went
+ * through on yellow is across before the other way goes.
+ * @param {{ green?: number, yellow?: number, clear?: number, offset?: number }} [o] seconds
+ * @returns {[SignalCycle, SignalCycle]}
+ */
+export function crossroads({ green = 12, yellow = 3, clear = 2, offset = 0 } = {}) {
+  const red = green + yellow + 2 * clear;
+  return [new SignalCycle({ green, yellow, red, offset }), new SignalCycle({ green, yellow, red, offset: offset + green + yellow + clear })];
 }
 
 const WARN = 2.5; // seconds of flashing lights before the arms start down

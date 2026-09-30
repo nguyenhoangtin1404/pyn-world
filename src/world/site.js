@@ -12,6 +12,8 @@ const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0); // instance matrix of a c
 // - solids: what blocks a line of sight (follow cameras): boxes {x, z, w, d, cos, sin, y0, y1}
 //   and upright cylinders {x, z, r, y0, y1}; tree crowns and rocks come from `colliders`
 // - surfaces: extra ground to walk on — (x, z) → height, or -Infinity (platforms, house floors)
+// - walkMaps: sidewalks, carriageways (people keep off) and crosswalks by the roads
+//   (world/roads/walkmap.js); crossings: each crosswalk's { walk() } — may people start across?
 export class Site {
   // `yards`: points kept clear around the stops with a yard (cfg.stops[].yard).
   constructor({ cfg, track, heightAt, tunnel, yards }) {
@@ -25,6 +27,26 @@ export class Site {
     this.colliders = [];
     this.solids = [];
     this.surfaces = [];
+    /** @type {import('./roads/walkmap.js').WalkMap[]} */
+    this.walkMaps = [];
+    /** @type {{ walk(): boolean }[]} */
+    this.crossings = [];
+  }
+
+  // What the roads make of (x, z) for someone on foot: 0, SIDEWALK, CARRIAGEWAY or CROSSWALK.
+  roadAt(x, z) {
+    let k = 0;
+    for (const m of this.walkMaps) k = Math.max(k, m.at(x, z));
+    return k;
+  }
+
+  // The crosswalk at (x, z): its index in `crossings`, -1 for none.
+  crossingAt(x, z) {
+    for (const m of this.walkMaps) {
+      const c = m.crossingAt(x, z);
+      if (c >= 0) return c;
+    }
+    return -1;
   }
 
   // Ground height at (x, z) if something may be put there, else null: inside the diorama, not

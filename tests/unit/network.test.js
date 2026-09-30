@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { roundedRect } from '../../src/world/vehicles/path.js';
-import { angleOf, layoutRoads, wrapAngle } from '../../src/world/roads/network.js';
+import { angleOf, layoutRoads, layoutStreet, wrapAngle } from '../../src/world/roads/network.js';
 
 // A 60 × 40 ring (x = a, z = b), a roundabout in the middle of its far end (z = 40) and a branch
 // 30 long straight out (+z) from it.
@@ -75,5 +75,27 @@ describe('layoutRoads', () => {
 
   it('says so when the roundabout is not on the ring', () => {
     expect(() => layoutRoads({ ring, width: 5, roundabout: { c: [30, 20], out: [0, 1] } })).toThrow(/nằm trên đường vòng/);
+  });
+});
+
+describe('layoutStreet', () => {
+  // Across the ring's side z = 0 at x = 30, 18 in (-z) and 16 out (+z).
+  const st = layoutStreet({ id: 'street 1', c: [30, 0], dir: [0, 1], back: 18, ahead: 16 });
+  const { path } = st.route;
+
+  it('has a turning circle at each end', () => {
+    expect(st.from).toEqual([30, -18]);
+    expect(st.to).toEqual([30, 16]);
+    for (const T of [st.from, st.to]) expect(Math.min(...path.points.map((p) => Math.abs(dist(p, T) - 5)))).toBeLessThan(0.3);
+  });
+
+  it('crosses the ring both ways, keeping right', () => {
+    const crossings = [];
+    for (let s = 0; s < path.length; s += 0.5) {
+      const [x, z] = path.pointAt(s), [, z2] = path.pointAt(s + 0.5);
+      if (Math.sign(z) !== Math.sign(z2) && z !== 0) crossings.push({ x, out: z2 > z });
+    }
+    expect(crossings).toHaveLength(2);
+    for (const { x, out } of crossings) expect(x).toBeCloseTo(out ? 28.5 : 31.5, 1); // going +z, right is -x
   });
 });

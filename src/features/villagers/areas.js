@@ -34,7 +34,7 @@ export function buildAreas(world) {
     b.minZ = Math.max(b.minZ, -lim);
     b.maxX = Math.min(b.maxX, lim);
     b.maxZ = Math.min(b.maxZ, lim);
-    const nav = new NavGrid(b, site.walkHeight, site.colliders);
+    const nav = new NavGrid(b, site.walkHeight, site.colliders, { site });
     // Snap every stop onto a walkable cell, and keep only stops reachable from the platform.
     let stops = rawStops.map((s) => ({ ...s, p: nav.nearestFree(s.p.x, s.p.z) })).filter((s) => s.p);
     const anchor = stops.find((s) => s.face != null) || stops[0];

@@ -28,12 +28,25 @@ for (const { id } of WORLDS) {
       if (life.vehicles > 0) expect(life.vehiclesMoved, 'vehicles drive and fly').toBeGreaterThan(life.vehicles / 2);
       if (life.road) {
         const r = life.road;
-        expect(r.overlaps, 'no two vehicles ever overlap').toBe(0);
-        expect(r.longestStop, 'nothing waits for ever (no gridlock)').toBeLessThan(60);
-        if (r.gates) expect(r.gateClosings, 'level-crossing barriers come down for the train').toBeGreaterThan(0);
-        if (r.gates) expect(r.carsAtGate, '…and cars wait at them').toBeGreaterThan(0);
-        if (r.signals) expect(r.carsAtRed, 'cars stop at red lights').toBeGreaterThan(0);
-        if (r.branches) expect(r.carsOnBranch, 'cars take the branch off the roundabout').toBeGreaterThan(0);
+        const why = (what) => `${what} — ${JSON.stringify(r)}`; // the numbers, if it ever goes red
+        expect(r.overlaps, why('no two vehicles ever overlap')).toBe(0);
+        expect(r.longestStop, why('nothing waits for ever (no gridlock)')).toBeLessThan(60);
+        if (r.gates) expect(r.gateClosings, why('level-crossing barriers come down for the train')).toBeGreaterThan(0);
+        if (r.gates) expect(r.carsAtGate, why('…and cars wait at them')).toBeGreaterThan(0);
+        if (r.signals) expect(r.carsAtRed, why('cars stop at red lights')).toBeGreaterThan(0);
+        if (r.branches) expect(r.carsOnBranch, why('cars take the branch off the roundabout')).toBeGreaterThan(0);
+        if (r.junctions) expect(r.boxConflicts, why('the crossroads lights keep the two roads apart')).toBe(0);
+        if (r.junctions) expect(r.junctionCrossings, why('cars on the street go across the crossroads')).toBeGreaterThan(0);
+        expect(r.brakeLights, why('brake lights come on')).toBeGreaterThan(0);
+        expect(r.headlightsInRain, why('head lights come on in the rain')).toBeGreaterThan(0);
+      }
+      if (life.feet) {
+        const f = life.feet;
+        const why = (what) => `${what} — ${JSON.stringify(f)}`;
+        expect(f.onCarriageway, why('people keep off the carriageway but for the crosswalks')).toBe(0);
+        expect(f.redCrossings, why('nobody starts across while the lights say wait')).toBe(0);
+        expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
+        expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }
       expect(page.errors).toEqual([]);
     });

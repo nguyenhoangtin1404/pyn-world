@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CrossingGate, SignalCycle, trainNear } from '../../src/world/roads/signals.js';
+import { CrossingGate, SignalCycle, crossroads, trainNear } from '../../src/world/roads/signals.js';
 
 describe('SignalCycle', () => {
   it('goes green, yellow, red and round again', () => {
@@ -75,5 +75,40 @@ describe('trainNear', () => {
   it('works across the end of the loop', () => {
     expect(trainNear({ s: 690, v: 10 }, len, 20, L)).toBe(true);
     expect(trainNear({ s: 10, v: 10 }, len, 690, L)).toBe(true);
+  });
+});
+
+describe('crossroads', () => {
+  it('the two roads take turns, with red both ways in between', () => {
+    const [a, b] = crossroads({ green: 10, yellow: 3, clear: 2, offset: 5 });
+    let aGreen = 0, bGreen = 0, bothRed = 0;
+    for (let t = 0; t < 120; t += 0.1) {
+      expect(a.state === 'red' || b.state === 'red').toBe(true); // never both going
+      if (a.state === 'green') aGreen++;
+      if (b.state === 'green') bGreen++;
+      if (a.state === 'red' && b.state === 'red') bothRed++;
+      a.update(0.1);
+      b.update(0.1);
+    }
+    expect(aGreen).toBeGreaterThan(200);
+    expect(bGreen).toBeGreaterThan(200);
+    expect(bothRed).toBeGreaterThan(80); // 2 × 2 s every 34 s cycle
+  });
+
+  it('an offset past a whole cycle wraps round', () => {
+    expect(new SignalCycle({ green: 10, yellow: 2, red: 5, offset: 17 + 11 }).state).toBe('yellow');
+  });
+});
+
+describe('SignalCycle.walk', () => {
+  it('lets people start across only while the cars have red, and not in its last seconds', () => {
+    const s = new SignalCycle({ green: 10, yellow: 2, red: 8 });
+    expect(s.walk()).toBe(false); // green for the cars
+    s.t = 11; // yellow
+    expect(s.walk()).toBe(false);
+    s.t = 13; // red, 7 s left
+    expect(s.walk()).toBe(true);
+    s.t = 17; // red, 3 s left: not enough to get across
+    expect(s.walk()).toBe(false);
   });
 });

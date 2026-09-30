@@ -73,6 +73,22 @@ export class SignalProps {
   }
 
   /**
+   * A pedestrian light on a short pole: red (don't walk) above green (walk), for people who come
+   * along heading h (who look at it from across the road).
+   * @param {number} x @param {number} y ground @param {number} z @param {number} h
+   */
+  walkSignal(x, y, z, h) {
+    const o = this.frame(x, y, z, h);
+    this.batch.add([
+      cyl(0.05, 0.06, 2.5, '#3b3f45', [0, 1.25, 0]),
+      box(0.3, 0.62, 0.22, '#24272c', [0, 2.3, 0]),
+      ball(0.1, DIM.red, [0, 2.44, 0.1], { sz: 0.4 }),
+      ball(0.1, DIM.green, [0, 2.16, 0.1], { sz: 0.4 }),
+    ]);
+    return { stop: this.lamp(o, 0, 2.44, 0.13, LIT.red), walk: this.lamp(o, 0, 2.16, 0.13, LIT.green) };
+  }
+
+  /**
    * A level-crossing post for traffic coming along heading h: a crossbuck, two red lamps that take
    * turns, and a barrier arm that swings down across the lane to the post's left (as the drivers
    * see it), `reach` long.

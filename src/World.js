@@ -61,7 +61,9 @@ export class World {
     this.followables = { people: [], birds: [], vehicles: [] };
     /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
      *   signals: import('./world/roads/signals.js').SignalCycle[], gates: import('./world/roads/signals.js').CrossingGate[],
-     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[] }[] }[]} roads (features/road.js) */
+     *   junctions: { p: [number, number], signals: import('./world/roads/signals.js').SignalCycle[] }[],
+     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[],
+     *     group: string, start: number }[] }[]} roads (features/road.js) */
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
