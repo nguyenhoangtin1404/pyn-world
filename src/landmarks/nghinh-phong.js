@@ -6,6 +6,7 @@ import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
 import { WATER_Y } from '../config.js';
 import { toWorld } from './common.js';
+import { guard, sealTexture, tamper } from '../world/seal.js';
 
 // Tháp Nghinh Phong, Tuy Hòa (HUNI architectes, 2021), after Gành Đá Đĩa's basalt columns and the
 // legend of Lạc Long Quân and Âu Cơ: two towers of 50 hexagonal stone columns each (basalt-like prisms, as at Gành Đá Đĩa), packed close
@@ -88,30 +89,6 @@ function flagTexture() {
   }
   const t = new THREE.CanvasTexture(flagCanvas);
   t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-// The letters on the sea: bold Arial, red with a white edge to stand out from the water.
-function seaTextTexture() {
-  const c = document.createElement('canvas');
-  c.width = 2048;
-  c.height = 256;
-  const g = c.getContext('2d');
-  const text = 'HOÀNG SA, TRƯỜNG SA LÀ CỦA VIỆT NAM';
-  g.font = 'bold 120px Arial, Helvetica, sans-serif'; // (all on one line: shrunk to fit if need be)
-  const size = Math.min(120, (120 * 1960) / g.measureText(text).width);
-  g.font = `bold ${size}px Arial, Helvetica, sans-serif`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.lineJoin = 'round';
-  g.lineWidth = size * 0.13;
-  g.strokeStyle = '#ffffff';
-  g.fillStyle = '#e60012';
-  g.strokeText(text, 1024, 128);
-  g.fillText(text, 1024, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
   return t;
 }
 
@@ -272,6 +249,7 @@ export default {
     const flagMat = new THREE.MeshLambertMaterial({ map: flagTexture(), emissiveMap: flagTexture(), emissive: '#ffffff', emissiveIntensity: 0, side: THREE.DoubleSide });
     // The ripple runs in the vertex shader (uTime), the further from the pole the stronger.
     const flagTime = { value: 0 };
+    let frames = 0;
     flagMat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = flagTime;
       shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
@@ -292,20 +270,21 @@ export default {
     let seaText = null;
     /** @type {number[] | null} */
     let sea = null;
-    for (let d = 60; d <= 600 && !sea; d += 10) {
+    for (let d = 60; d <= 900 && !sea; d += 10) {
       const [ex, , ez] = L(d * map, 0);
       if (ground(ex, ez) < WATER_Y - 1) sea = [d + 45];
     }
     if (sea) {
       const [tx, , tz] = L(sea[0] * map, 0), tw = 320 * map, th = tw * 0.125;
       const tg = new THREE.PlaneGeometry(tw, th).rotateX(-Math.PI / 2);
-      const tm = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ map: seaTextTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      const tm = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ map: sealTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
       tm.position.set(tx, WATER_Y + 0.35, tz);
       tm.rotation.y = site.ry - Math.PI / 2;
       tm.renderOrder = 3;
       tm.castShadow = tm.receiveShadow = false;
       seaText = tm;
-    }
+      world.seal = guard(tm);
+    } else tamper('T7');
 
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
@@ -335,6 +314,7 @@ export default {
         group: new THREE.Group().add(glow, beam, flag, ...(seaText ? [seaText] : [])),
         lateUpdate({ lights, t }) {
           flagTime.value = t;
+          if (++frames % 60 === 0) world.seal?.check();
           flagMat.emissiveIntensity = Math.max(0, Math.min(1.1, (lights - 0.15) * 2.2));
           const o = Math.max(0, Math.min(0.85, (lights - 0.2) * 2));
           ledMat.opacity = o;
