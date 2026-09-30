@@ -239,7 +239,7 @@ export default {
     // a pole with the traffic light and, below it, the light for the people crossing.
     // The markings are painted (world/roads/paint.js) on whichever street is on top at each corner,
     // so they lie on the road wherever it tilts.
-    const props = new SignalProps(world.batch, k);
+    const props = new SignalProps(world.batch, k, { square: true });
     const paint = new Paint();
     /** @type {{ signal: import('../world/roads/signals.js').SignalCycle, heads: import('../world/roads/props.js').LightHead[], walks: { stop: THREE.Object3D, walk: THREE.Object3D, margin: number }[] }[]} */
     const signals = [];

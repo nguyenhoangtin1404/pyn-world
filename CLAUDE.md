@@ -203,7 +203,9 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     Vị trí đo **dọc theo chính phố** (`alongFrom`: từ chỗ phố đi gần ngã tư nhất, đi ± d theo polyline), không theo
     đường thẳng qua tâm; phố hết trước khi tới đó (phố cụt ở ngã ba) thì không có nhánh ấy — từng vẽ vạch giữa ngã tư.
     Làm hết vạch sang đường của một ngã tư trước, rồi vạch dừng (bỏ vạch dừng đè lên vạch sang đường hay lòng phố khác —
-    xe vẫn dừng). **Đèn đi bộ chung trụ với đèn xe** (`props.walkOnPole`: dưới đầu đèn xe, quay sang bên kia đường,
+    xe vẫn dừng). **Đèn hình hộp, mặt kính vuông** (`new SignalProps(batch, k, { square: true })` — chỉ đèn ở phố thật; đèn MAPLE vẫn
+    kính tròn, golden giữ nguyên). **Đèn đi bộ chung trụ với đèn xe** (`props.walkOnPole`: hộp riêng trước trụ, đỏ trên xanh
+    dưới, dưới đầu đèn xe, quay sang bên kia đường,
     xanh khi `signal.walk(bề rộng / tốc độ + 1)`); một trụ mỗi làn (trụ cách trụ cùng hướng < 1,5 thì bỏ). Vạch giữa
     đứt của phố (`streets`) dừng **trước** phố cắt ngang (lưới đoạn phố, góc > 30°; đại lộ hai nửa vẫn giữ vạch), lùi
     nửa bề rộng phố kia + vỉa hè + 5 m × props (chỗ cho vạch sang đường 3 m + vạch dừng), đo vuông góc với phố kia —
