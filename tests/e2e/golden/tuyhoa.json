@@ -1,8 +1,8 @@
 {
-  "meshes": 272,
-  "geometry": "87b738bb",
-  "instances": "21e5d523",
-  "colliders": 1076,
+  "meshes": 270,
+  "geometry": "11d0e586",
+  "instances": "756ab83a",
+  "colliders": 1153,
   "stations": [
     "tuyhoa"
   ],
@@ -12,6 +12,6 @@
     15
   ],
   "spots": {},
-  "drawCalls": 113,
+  "drawCalls": 106,
   "programs": 27
 }

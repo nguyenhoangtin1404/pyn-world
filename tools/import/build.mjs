@@ -38,12 +38,34 @@ export function inWater(w, lat, lon) {
 }
 const EARTH = 6371008.8, RAD = Math.PI / 180;
 
+const SPIKE = 12; // metres above every neighbour: not a hill, a glitch (or a tower block the radar saw)
+
+/**
+ * Lone spikes in the elevation (a single point far above all 8 neighbours — radar noise, a tall
+ * building) brought down to the middle of their neighbours; twice, for a spike two points wide.
+ * A real summit always has a neighbour nearly as high, so it stays.
+ * @param {Int16Array} h n × n metres @param {number} n
+ */
+export function despike(h, n) {
+  for (let pass = 0; pass < 2; pass++) {
+    const src = Int16Array.from(h);
+    for (let r = 1; r < n - 1; r++) {
+      for (let c = 1; c < n - 1; c++) {
+        const around = [];
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (dr || dc) around.push(src[(r + dr) * n + c + dc]);
+        if (src[r * n + c] > Math.max(...around) + SPIKE) h[r * n + c] = around.sort((a, b) => a - b)[4];
+      }
+    }
+  }
+}
+
 /** The grid of metres (row 0 = north) with the sea marked, from any elevation(lat, lon). */
 export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = []) {
   const h = new Int16Array(n * n);
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) h[r * n + c] = Math.round(elevationAt(north - ((north - south) * r) / (n - 1), west + ((east - west) * c) / (n - 1)));
   }
+  despike(h, n);
   // Flood the sea in from the open edges, over everything at or below 0 m.
   const sea = new Uint8Array(n * n);
   const stack = [];
@@ -70,6 +92,32 @@ export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdge
     }
   }
   return h;
+}
+
+const EARTH_M = (a, b) => Math.hypot((a[0] - b[0]) * EARTH * RAD, (a[1] - b[1]) * EARTH * RAD * Math.cos(a[0] * RAD));
+const plain = (/** @type {string} */ s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * The recipe's hand-placed places against the map's named places: for each one whose name (or a
+ * part of it, "Núi Nhạn – Tháp Nhạn") the map has, how far off the nearest of those is — a line
+ * for each more than `tolerance` metres off (or not on the map at all).
+ * @param {{ id: string, name: string, at: [number, number] }[]} places
+ * @param {{ elements?: any[] }} osm
+ */
+export function checkPlaces(places, osm, tolerance = 200) {
+  const named = (osm.elements ?? []).filter((e) => e.type === 'node' && e.tags?.name).map((e) => ({ name: e.tags.name, key: plain(e.tags.name), at: [e.lat, e.lon] }));
+  const out = [];
+  for (const p of places) {
+    const parts = p.name.split(/\s[–-]\s/).map(plain).filter(Boolean);
+    const same = named.filter((n) => parts.some((q) => n.key.includes(q)));
+    if (!same.length) {
+      out.push(`"${p.id}" (${p.name}): bản đồ không có nơi nào tên như vậy`);
+      continue;
+    }
+    const best = same.map((n) => ({ ...n, d: EARTH_M(p.at, n.at) })).sort((a, b) => a.d - b.d)[0];
+    if (best.d > tolerance) out.push(`"${p.id}" (${p.name}) cách "${best.name}" trên bản đồ ${Math.round(best.d)} m — ở [${best.at.map((v) => v.toFixed(5)).join(', ')}]`);
+  }
+  return out;
 }
 
 export async function build(recipe, { osm = null, demDir = '.cache/dem', elevationAt = null } = {}) {
@@ -116,5 +164,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const out = opt('--out') ?? `src/worlds/data/${recipe.id}.json`;
   writeFileSync(out, JSON.stringify(data) + '\n');
   console.log(`${out}: ${data.heights.rows}×${data.heights.cols} độ cao, ${data.rivers.length} sông, ${data.rails.length} đường ray, ${data.roads?.length ?? 0} đường phố, ${data.buildings?.count ?? 0} nhà, ${data.places.length} địa danh`);
+  if (osmFile) for (const w of checkPlaces(recipe.places ?? [], JSON.parse(readFileSync(osmFile, 'utf8')))) console.warn(`  ⚠ ${w}`);
   if (osmFile) console.log(`  mặt nước từ bản đồ: ${osmToVectors(JSON.parse(readFileSync(osmFile, 'utf8'))).water.map((w) => w.name ?? w.kind).join(', ') || 'không có'}`);
 }

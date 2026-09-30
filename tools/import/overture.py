@@ -11,7 +11,9 @@ OpenStreetMap servers are not. Only the parts overlapping the box are read (HTTP
 Tags written (OSM names, so osm.mjs reads either source the same way):
   highway=<class> (+ name), railway=rail, waterway=<class>, building=<class or yes> (+ height,
   building:levels, name); rivers, lakes and ponds as areas: multipolygon relations tagged
-  natural=water, water=<class> (+ name), their islands as inner members. Licences: see https://docs.overturemaps.org/attribution (ODbL for the
+  natural=water, water=<class> (+ name), their islands as inner members; named places as nodes
+  (name, overture:category only: Overture's categories are too loose to make places from — a
+  café tagged as a historic site — so build.mjs only checks the recipe's places against them). Licences: see https://docs.overturemaps.org/attribution (ODbL for the
   OpenStreetMap-derived themes).
 """
 import json, math, sys
@@ -85,6 +87,14 @@ def main():
             members += [{'type': 'way', 'role': 'inner', 'geometry': geom(r.coords)} for r in p.interiors]
             tags = {'type': 'multipolygon', 'natural': 'water', 'water': row['class'] or row['subtype'], 'name': name(row)}
             elements.append({'type': 'relation', 'id': nid, 'tags': {k: v for k, v in tags.items() if v is not None}, 'members': members})
+
+    for row in read(s3, 'places', 'place', b, ['names', 'basic_category', 'geometry']):
+        if not name(row):
+            continue
+        p = wkb.loads(row['geometry'])
+        nid += 1
+        tags = {'name': name(row), 'overture:category': row['basic_category']}
+        elements.append({'type': 'node', 'id': nid, 'lat': round(p.y, 7), 'lon': round(p.x, 7), 'tags': {k: v for k, v in tags.items() if v is not None}})
 
     json.dump({'generator': f'Overture Maps {RELEASE} (tools/import/overture.py)', 'elements': elements}, sys.stdout, separators=(',', ':'))
     print(f'{len(elements)} phần tử', file=sys.stderr)

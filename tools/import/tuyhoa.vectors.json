@@ -1,8 +1,8 @@
 {
   "id": "tuyhoa",
   "name": "TUY HÒA",
-  "center": [13.088, 109.312],
-  "halfExtent": 2700,
+  "center": [13.093, 109.309],
+  "halfExtent": 3000,
   "size": 600,
   "verticalScale": 3,
   "grid": 181,
@@ -27,9 +27,9 @@
     }
   ],
   "places": [
-    { "id": "nghinh-phong", "name": "Tháp Nghinh Phong", "kind": "landmark", "at": [13.0917, 109.3262] },
-    { "id": "thap-nhan", "name": "Núi Nhạn – Tháp Nhạn", "kind": "landmark", "at": [13.0819, 109.3014] },
-    { "id": "ga-tuy-hoa", "name": "Ga Tuy Hòa", "kind": "station", "at": [13.0882, 109.2973] },
-    { "id": "chop-chai", "name": "Núi Chóp Chài", "kind": "peak", "at": [13.1133, 109.2725] }
+    { "id": "nghinh-phong", "name": "Tháp Nghinh Phong", "kind": "landmark", "at": [13.1163, 109.3076] },
+    { "id": "thap-nhan", "name": "Núi Nhạn – Tháp Nhạn", "kind": "landmark", "at": [13.0823, 109.3018] },
+    { "id": "ga-tuy-hoa", "name": "Ga Tuy Hòa", "kind": "station", "at": [13.0881, 109.2973] },
+    { "id": "chop-chai", "name": "Chóp Chài", "kind": "peak", "at": [13.1066, 109.2837] }
   ]
 }
