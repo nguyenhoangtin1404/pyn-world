@@ -1,13 +1,14 @@
 // @ts-check
 import * as THREE from 'three';
-import { box, segment } from '../world/lowpoly.js';
+import { box, cyl, segment } from '../world/lowpoly.js';
 import { lamps } from '../features/lamps.js';
 import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
 import { toWorld } from './common.js';
 
 // Tháp Nghinh Phong, Tuy Hòa (HUNI architectes, 2021), after Gành Đá Đĩa's basalt columns and the
-// legend of Lạc Long Quân and Âu Cơ: two towers of 50 square stone columns each, packed close and
+// legend of Lạc Long Quân and Âu Cơ: two towers of 50 hexagonal stone columns each (basalt-like prisms, as at Gành Đá Đĩa), packed close
+// in a honeycomb and
 // stepping up from low to high, to a spire of 35 m (Lạc Long Quân) and one of 30 m (Âu Cơ). Between
 // them the "wind-welcoming" slot, 2 m wide and 15 m long, open to the sea, reliefs of the legend on
 // its walls. It stands on the April 1st square: a half circle of granite (7 190 m²: a radius of
@@ -19,7 +20,7 @@ import { toWorld } from './common.js';
 
 const R_M = 68; // metres, the half circle's radius
 const BACK_M = 48; // metres from the tower landward to the square's straight side (its centre)
-const CELL_M = 2.5; // metres, a column's side: 6 of them make the slot's 15 m
+const CELL_M = 2.5; // metres, a column across its flats: 6 of them make the slot's 15 m
 const SLOT_M = 2; // metres, the slot's width
 const TOWER = 1.5; // the tower drawn this many times the map scale
 const STONE = ['#7c8791', '#86919b', '#727d87', '#8e99a2'];
@@ -31,8 +32,8 @@ const LED = ['#ff3b5c', '#ffb830', '#3bff7a', '#33c2ff', '#8a5bff', '#ff5bd6'];
  * The tower's columns. Two halves either side of the slot, which runs from the land to the sea: `i`
  * along it (6 columns, towards the sea), `j` out from it (0 at the slot, 9 columns), `side` which
  * half (+1 on the right seen from the land). Each half is 50 columns — its 6 × 9 less the four
- * outermost corners — stepping up towards the slot, where its spire stands mid-way along it with a
- * shorter column beside it; heights in metres.
+ * outermost corners — stepping up towards the slot and towards the sea, where its spire stands near the seaward end with a
+ * shorter column beside it, and down to low steps at the land side (the front); heights in metres.
  * @returns {{ i: number, j: number, side: 1 | -1, h: number, spire: boolean }[]}
  */
 export function columns() {
@@ -42,11 +43,14 @@ export function columns() {
     for (let i = 0; i < 6; i++) {
       for (let j = 0; j < 9; j++) {
         if (j >= 7 && (i === 0 || i === 5)) continue; // the corners stepped off (50 a half)
-        let h = 0.55 * top - 2.4 * j - 2.2 * Math.abs(i - 2.5) + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 5) - 2) * 0.5;
+        // Steps down from the spire in every direction across the tower, and all the way down to the
+        // land side, its front: from high to low, one step a column, no two in a row alike.
+        const drop = 2.4 * j + 3.1 * Math.max(0, 4 - i) + 2.0 * Math.max(0, i - 4);
+        let h = 0.62 * top - drop + (((i * 7 + j * 13 + (side > 0 ? 3 : 0)) % 3) - 1) * 0.4;
         h = Math.max(1.2, Math.round(h / 1.2) * 1.2);
-        const spire = i === 3 && j === 0;
+        const spire = i === 4 && j === 0;
         if (spire) h = top;
-        else if (i === 2 && j === 0) h = Math.round((top * 0.7) / 1.2) * 1.2; // the column beside the spire
+        else if (i === 3 && j === 0) h = Math.round((top * 0.72) / 1.2) * 1.2; // the column beside the spire
         out.push({ i, j, side, h, spire });
       }
     }
@@ -128,22 +132,24 @@ export default {
     // The tower: each column flush with the slot on its inner face; the spires slimmer. On the
     // slot's walls, the reliefs.
     const cols = columns();
-    const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 2.5) * cell, side * (slot / 2 + (j + 0.5) * cell)];
+    // A honeycomb: rows along the slot, each row out from it offset by half a column and 0.87 of one
+    // further out (hexagons, their flats towards their neighbours in the row, a corner to the slot).
+    const at = (/** @type {number} */ i, /** @type {number} */ j, /** @type {number} */ side) => [(i - 2.5 + (j % 2) * 0.5) * cell, side * (slot / 2 + (0.58 + j * 0.866) * cell)];
     batch.at(site.x, top, site.z, site.ry);
     const led = [];
     let peak = 0;
     for (const { i, j, side, h, spire } of cols) {
-      const w = cell * (spire ? 0.74 : 0.97), hy = h * k;
-      const [x, z0] = at(i, j, side), z = j === 0 ? z0 - (side * (cell - w)) / 2 : z0;
-      batch.add(box(w, hy, w, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2, z]));
+      const w = cell * (spire ? 0.78 : 0.97), hy = h * k, r = w / Math.sqrt(3) * 1.0001; // corner radius of a hexagon w across its flats
+      const [x, z0] = at(i, j, side), z = j === 0 ? z0 - side * (cell - w) * 0.58 : z0; // (the slot's edge kept straight)
+      batch.add(cyl(r, r, hy, STONE[(i * 3 + j + (side > 0 ? 1 : 0)) % STONE.length], [x, hy / 2, z], {}, 6));
       peak = Math.max(peak, hy);
       if (j === 0 && !spire) {
         const rh = Math.min(hy, 10 * k) * 0.7;
         batch.add(box(w * 0.8, rh, 0.04, RELIEF, [x, rh / 2 + 0.3 * k, side * (slot / 2 - 0.02)]));
       }
       // At night: the lower columns in colours, the spires' tips red.
-      if (!spire && h <= 14) led.push(box(w * 1.03, hy * 0.7, w * 1.03, LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length], [x, hy * 0.35, z]));
-      if (spire) led.push(box(w * 1.06, 0.6 * k, w * 1.06, '#ff2b2b', [x, hy - 0.4 * k, z]));
+      if (!spire && h <= 14) led.push(cyl(r * 1.03, r * 1.03, hy * 0.7, LED[(i + 2 * j + (side > 0 ? 3 : 0)) % LED.length], [x, hy * 0.35, z], {}, 6));
+      if (spire) led.push(cyl(r * 1.06, r * 1.06, 0.6 * k, '#ff2b2b', [x, hy - 0.4 * k, z], {}, 6));
       const [cx, , cz] = W(x, z);
       worldSite.colliders.push({ x: cx, z: cz, r: cell * 0.7 });
     }
@@ -161,6 +167,7 @@ export default {
 
     // Lamp posts along the straight side and inside the railing.
     const post = (/** @type {number} */ lx, /** @type {number} */ lz) => {
+      if (Math.abs(lx) < 3.5 * cell + 1 && Math.abs(lz) < slot / 2 + 8.5 * cell + 1) return; // not in the tower's steps
       const [px, , pz] = W(lx, lz), hy = 7 * Math.max(map, k * 0.6);
       batch.at(px, top, pz, 0).add([box(0.24 * k, hy, 0.24 * k, '#3b3f45', [0, hy / 2, 0]), box(k, 0.08, k, '#2c2f33', [0, hy + 0.05, 0])]);
       batch.add(box(0.72 * k, 0.2, 0.72 * k, '#fff4d6', [0, hy - 0.12, 0]), lampMat);

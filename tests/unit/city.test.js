@@ -326,6 +326,10 @@ describe('Tháp Nghinh Phong (columns)', () => {
       expect(Math.max(...half.map((c) => c.h))).toBeLessThan(s.h * 0.75); // each spire stands clear
       const mean = (j) => half.filter((c) => c.j === j).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.j === j).length;
       expect(mean(0)).toBeGreaterThan(mean(4)); // stepping down away from the slot
+      // Down the land side, the front: from the spire's row to the first, each row lower.
+      const row = (i) => half.filter((c) => c.i === i).reduce((t, c) => t + c.h, 0) / half.filter((c) => c.i === i).length;
+      for (const i of [4, 3, 2, 1]) expect(row(i)).toBeGreaterThan(row(i - 1));
+      expect(Math.min(...half.filter((c) => c.i === 0 && c.j === 0).map((c) => c.h))).toBeLessThan(s.h * 0.4);
       expect(Math.min(...half.map((c) => c.h))).toBeLessThanOrEqual(2.4); // low steps at the edge
     }
     expect(new Set(cols.map((c) => c.i)).size).toBe(6); // 6 columns of 2.5 m: the slot's 15 m

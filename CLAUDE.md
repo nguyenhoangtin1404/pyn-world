@@ -168,11 +168,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   peak? }]` (`peak`: dời lên chỗ cao nhất trong bán kính đó — Tháp Nhạn trên đỉnh Núi Nhạn); `load()`
   tạo **pad** phẳng (`cfg.pads`, bán kính = `radius`) mà địa hình san theo, feature `landmarks` dựng
   (đặt trước `trees`). Phím **V** bay lần lượt tới từng công trình (`world.landmarks`). Có: Tháp Nghinh
-  Phong (theo mô tả chính thức — HUNI architectes 2021: **hai tháp**, mỗi tháp **50 cột** đá vuông xếp từ thấp lên
+  Phong (theo mô tả chính thức — HUNI architectes 2021: **hai tháp**, mỗi tháp **50 cột** đá **lục giác** (lăng trụ như cột bazan Gành Đá Đĩa, xếp so le kiểu tổ ong) từ thấp lên
   cao, cột nhọn **35 m** (Lạc Long Quân, bên trái nhìn từ đất liền) và **30 m** (Âu Cơ, bên phải); **khe đón gió 2 m ×
   15 m** hướng ra biển, phù điêu trên hai vách khe; **quảng trường 1/4 bán nguyệt 7 190 m²** (bán kính ~68 m) lát đá
-  granite, mặt thẳng về phía phố, mặt cong có tường + lan can trên bãi cát; `columns()`: 6 × 9 cột 2,5 m mỗi tháp bỏ 4
-  góc; quảng trường theo tỉ lệ bản đồ, tháp ×1,5 bản đồ (≤ props); `rotation: 'sea'`; `walk`: người đi dạo đi vòng
+  granite, mặt thẳng về phía phố, mặt cong có tường + lan can trên bãi cát; `columns()`: 6 × 9 cột 2,5 m (ngang hai mặt phẳng) mỗi tháp bỏ 4
+  góc, hàng lệch nửa cột, cách hàng 0,866; cột nhọn ở gần đầu phía biển, các khối **hạ đều từng bậc xuống phía quảng trường** (mặt trước) và ra ngoài khe — không đối xứng hai đầu; quảng trường theo tỉ lệ bản đồ, tháp ×1,5 bản đồ (≤ props); `rotation: 'sea'`; `walk`: người đi dạo đi vòng
   tháp trên mặt lát; ban đêm cột thấp sáng nhiều màu, đỉnh đèn đỏ), Tháp Nhạn (tháp Chăm
   gạch, cao hơn thật ×3–5 cho dễ nhìn trên sa bàn). **Bờ biển SRTM** tính cồn cát là đất: ở Nghinh Phong bờ nằm
   cách tháp 360 m trong khi ngoài đời quảng trường ở ngay bãi cát — `seaGrow` (mét, công thức dữ liệu, `growSea`)
