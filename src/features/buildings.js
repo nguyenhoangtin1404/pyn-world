@@ -10,7 +10,8 @@ import { CLAIM } from '../world/site.js';
 // block standing on the ground, as tall as its floors (from the map, or a likely number for a
 // Vietnamese town: narrow tube houses of 2–4 floors, big sheds and schools lower), each storey as
 // tall as the people and props are drawn (world.scale.fit: taller than the map scale on a small map,
-// or a storey would be shorter than a person). Walls in the pale colours of the street, schools yellow; some of the low houses
+// or a storey would be shorter than a person) — but never taller than 2.5 times its narrower side
+// (drawnHeight: a small house would stand like a stick). Walls in the pale colours of the street, schools yellow; some of the low houses
 // get a tiled hip roof, the rest the flat roof terrace. A band of windows on the taller ones glows
 // after dark (lamps(world).windowMat). Every building of a kind shares an InstancedMesh: 3 draw
 // calls (and their shadows) for the whole town. Buildings on a street, in the water, on the
@@ -57,7 +58,7 @@ export default {
       }
       if (foot < WATER_Y + 0.5) continue;
       const floors = b.floors || likelyFloors(b.kind, length * width * mpu * mpu, rng);
-      const height = b.kind === 'shelter' ? shed : floors * storey + parapet;
+      const height = drawnHeight(b.kind === 'shelter' ? shed : floors * storey + parapet, Math.min(length, width), storey);
       kept.push({ b, foot: foot - 0.1, height: height + (head - foot), floors });
       site.claimRect(x, z, length, width, angle, 0.4);
     }
@@ -143,6 +144,20 @@ export function fitOffStreets(b, onStreet) {
     }
   }
   return null;
+}
+
+const SLENDER = 2.5; // tallest a building is drawn, times its narrower side: a tower, not a needle
+
+/**
+ * How tall a building is drawn. Its storeys are at the props scale (people fit through the doors),
+ * its footprint at the map's (it stands where it does): on a small map (Tuy Hòa: props 3 × map) a
+ * narrow town house would stand three times as tall for its width as it is — a stick. No taller
+ * than SLENDER × its narrower side, then, and fewer storeys it seems to have; but never lower than
+ * most of a storey.
+ * @param {number} want its floors' height @param {number} narrow its narrower side @param {number} storey
+ */
+export function drawnHeight(want, narrow, storey) {
+  return Math.min(want, Math.max(SLENDER * narrow, 0.6 * storey));
 }
 
 /**

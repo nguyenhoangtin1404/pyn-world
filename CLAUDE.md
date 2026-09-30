@@ -197,7 +197,15 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     (phố cắt chéo, hai ngã tư sát nhau, `overlaps` — trừ hai đầu, vì vạch hai nhánh gặp nhau ở góc) thì bỏ. Mỗi vạch vào `world.crosswalks` `{ x, z, h, half, depth,
     signal }`; người đi dạo (`strollers`, `crosswalkAt`) tới mép thì chờ (`walker.waiting`) tới khi xe trên
     phố đó đỏ **đủ lâu để qua hết** (`signal.walk(bề rộng / tốc độ + 1)`). E2E: không ai bước lên vạch khi
-    xe chưa đỏ, có người chờ, có người qua. Tuy Hòa: 106 vạch (≈ 20 trùng vạch khác bị bỏ — một phố có thể là nhiều đoạn trong `world.streets`).
+    xe chưa đỏ, có người chờ, có người qua. Tuy Hòa: 100 vạch (vạch trùng vạch khác bị bỏ — một phố có thể là nhiều đoạn trong `world.streets`).
+    **Vạch kẻ vẽ bằng `Paint`** (tam giác theo mặt đường, ô ≤ 0,5, độ cao = mặt phố **đang nằm trên cùng** ở mỗi góc —
+    phố nào có lòng phủ điểm đó, `distanceToLine`), không phải hộp phẳng đặt theo độ cao tâm (từng chìm/nổi trên dốc).
+    Vị trí đo **dọc theo chính phố** (`alongFrom`: từ chỗ phố đi gần ngã tư nhất, đi ± d theo polyline), không theo
+    đường thẳng qua tâm; phố hết trước khi tới đó (phố cụt ở ngã ba) thì không có nhánh ấy — từng vẽ vạch giữa ngã tư.
+    Làm hết vạch sang đường của một ngã tư trước, rồi vạch dừng (bỏ vạch dừng đè lên vạch sang đường hay lòng phố khác —
+    xe vẫn dừng). **Đèn đi bộ chung trụ với đèn xe** (`props.walkOnPole`: dưới đầu đèn xe, quay sang bên kia đường,
+    xanh khi `signal.walk(bề rộng / tốc độ + 1)`); một trụ mỗi làn (trụ cách trụ cùng hướng < 1,5 thì bỏ). Vạch giữa
+    đứt của phố (`streets`) dừng chỗ cắt ngang phố khác (lưới đoạn phố, góc > 30°; đại lộ hai nửa vẫn giữ vạch).
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
@@ -232,7 +240,10 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   **Phố trùng**: một con đường có thể nằm hai lần trong `world.streets` (vẽ hai lần trên bản đồ, hay đại lộ hai
   nửa) → hai tuyến xe ngược chiều trên cùng làn (luật giao thông bỏ qua xe ngược chiều) → đâm nhau. `citytraffic`
   bỏ phố có > 30 % điểm nằm sát một phố đã chọn (`alongside`).
-- Chưa làm: đèn đi bộ ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
+- **Nhà không mảnh như cây tăm** (`drawnHeight`): tầng theo tỉ lệ đồ vật (`scale.fit`) còn móng theo bản đồ → trên bản
+  đồ nhỏ nhà cao gấp 3 so với thật (Tuy Hòa: nhà 4 × 4 m 4 tầng cao 4 đơn vị trên móng 0,35 — 11 000 / 31 000 nhà cao
+  > 5 lần cạnh ngắn). Giờ cao ≤ 2,5 × cạnh ngắn, nhưng ≥ 0,6 tầng.
+- Chưa làm: xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
   (chữ L…), sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)

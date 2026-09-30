@@ -76,6 +76,22 @@ export class SignalProps {
   }
 
   /**
+   * A pedestrian light on the pole of a traffic light at (x, z) (no pole of its own), a little
+   * below the traffic light's head, facing the people who come across the road along heading h
+   * (from the far kerb).
+   * @param {number} x @param {number} y ground @param {number} z @param {number} h
+   */
+  walkOnPole(x, y, z, h) {
+    const o = this.frame(x, y, z, h);
+    this.batch.add([
+      box(0.3, 0.62, 0.22, '#24272c', [0, 2.2, 0.16]),
+      ball(0.1, DIM.red, [0, 2.34, 0.27], { sz: 0.4 }),
+      ball(0.1, DIM.green, [0, 2.06, 0.27], { sz: 0.4 }),
+    ]);
+    return { stop: this.lamp(o, 0, 2.34, 0.3, LIT.red), walk: this.lamp(o, 0, 2.06, 0.3, LIT.green) };
+  }
+
+  /**
    * A pedestrian light on a short pole: red (don't walk) above green (walk), for people who come
    * along heading h (who look at it from across the road).
    * @param {number} x @param {number} y ground @param {number} z @param {number} h

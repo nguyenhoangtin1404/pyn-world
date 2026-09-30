@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createRivers } from '../../src/world/rivers.js';
 import { Site, CLAIM } from '../../src/world/site.js';
 import { createGrade } from '../../src/world/grade.js';
-import { fitOffStreets } from '../../src/features/buildings.js';
+import { drawnHeight, fitOffStreets } from '../../src/features/buildings.js';
 import { crosswalkAt, pavementRoute } from '../../src/features/strollers.js';
-import { alongside, findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
+import { alongFrom, alongside, findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
 import { LoopPath } from '../../src/world/vehicles/path.js';
 
 // A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
@@ -164,5 +164,32 @@ describe('the same road twice (alongside)', () => {
     expect(alongside({ width: 3, points: line(0, 4.5, 60, 4.5) }, road)).toBe(1); // the other carriageway
     expect(alongside({ width: 3, points: line(30, -30, 30, 30) }, road)).toBeLessThan(0.3); // across it
     expect(alongside({ width: 3, points: line(0, 20, 60, 20) }, road)).toBe(0); // a street away
+  });
+});
+
+describe('buildings drawn to a shape (drawnHeight)', () => {
+  it('keeps a building no taller than 2.5 times its narrow side, but at least most of a storey', () => {
+    expect(drawnHeight(3, 2, 1)).toBe(3); // a block: as tall as its floors
+    expect(drawnHeight(4, 0.35, 0.96)).toBeCloseTo(0.875); // a 4 m house of 4 floors on a small map: not a stick
+    expect(drawnHeight(4, 0.1, 1)).toBeCloseTo(0.6); // a sliver: still most of a storey
+    expect(drawnHeight(0.5, 0.1, 1)).toBe(0.5); // never taller than its floors
+  });
+});
+
+describe('along a street from a crossing (alongFrom)', () => {
+  // A street bending round a corner: east along z = 0 to (10, 0), then north (−z) to (10, −10).
+  const pts = [[0, 0], [5, 0], [10, 0], [10, -5], [10, -10]];
+  it('follows the street round its bends, both ways, with its heading there', () => {
+    const [x, z, h] = alongFrom(pts, [5, 0.3], 7);
+    expect(x).toBeCloseTo(10);
+    expect(z).toBeCloseTo(-2);
+    expect(Math.abs(h - Math.PI)).toBeLessThan(0.01); // heading north (−z)
+    const back = alongFrom(pts, [5, 0], -3);
+    expect(back[0]).toBeCloseTo(2);
+    expect(back[1]).toBeCloseTo(0);
+  });
+  it('is nothing past the end of the street (a street ending at the crossing has one arm)', () => {
+    expect(alongFrom(pts, [5, 0], -6)).toBeNull();
+    expect(alongFrom(pts, [5, 0], 16)).toBeNull();
   });
 });
