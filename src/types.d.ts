@@ -62,8 +62,9 @@ export interface GeoRecipe {
   size: number;
   /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
   data(): Promise<any>;
-  /** id of the railway in the data the train runs on (default: the first). */
-  rail?: string;
+  /** id of the railway in the data the train runs on (default: the first); null for none — a town
+   *  away from the line: no train, no stations, no stops. */
+  rail?: string | null;
   stops: GeoStopConfig[];
   /** Landmarks (src/landmarks/) at named places; `peak`: on the highest ground within that many units. */
   landmarks?: { model: string; place: string; rotation?: number; peak?: number }[];
@@ -84,7 +85,8 @@ export interface WorldConfig {
   name: string;
   seed: number;
   size: number;
-  track(): [number, number][];
+  /** The railway's points — null for a world without one (defineGeoWorld with `rail: null`). */
+  track: (() => [number, number][]) | null;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
   trackClosed?: boolean;
   stops: StopConfig[];

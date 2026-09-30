@@ -167,7 +167,7 @@ function frame() {
   world.lateUpdate({ raw, camera, focus: rig.focus });
 
   audio.update(raw, {
-    trainDistance: camera.position.distanceTo(world.train.locoPos),
+    trainDistance: world.train ? camera.position.distanceTo(world.train.locoPos) : Infinity,
     rain: world.weather.rain,
     day: world.sky.lights < 0.3,
     paused: dt === 0,
@@ -209,9 +209,11 @@ function show(next) {
   world.weather.set(state.weather);
   world.sky.sun.castShadow = state.shadows;
   // Station departure whistle, chuffs and rail joints drive the synthesised sound.
-  world.train.events.chuff = (k) => audio.chuff(k);
-  world.train.events.clack = () => audio.clack();
-  world.train.events.whistle = () => audio.whistle();
+  if (world.train) {
+    world.train.events.chuff = (k) => audio.chuff(k);
+    world.train.events.clack = () => audio.clack();
+    world.train.events.whistle = () => audio.whistle();
+  }
 }
 
 async function switchWorld(id) {

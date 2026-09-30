@@ -4,7 +4,7 @@ import { Site, CLAIM } from '../../src/world/site.js';
 import { createGrade } from '../../src/world/grade.js';
 import { fitOffStreets } from '../../src/features/buildings.js';
 import { crosswalkAt, pavementRoute } from '../../src/features/strollers.js';
-import { findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
+import { alongside, findJunctions, overlaps, passes } from '../../src/features/citytraffic.js';
 import { LoopPath } from '../../src/world/vehicles/path.js';
 
 // A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
@@ -153,5 +153,16 @@ describe('crosswalks that would lie on each other (overlaps)', () => {
     expect(overlaps({ x: 0.5, z: 0.3, h: 0.5, half: 2, depth: 1 }, a)).toBe(true);
     // A small one inside a big one: seen from the small one.
     expect(overlaps({ x: 0, z: 0, h: 0, half: 0.5, depth: 0.2 }, a)).toBe(true);
+  });
+});
+
+describe('the same road twice (alongside)', () => {
+  const line = (x0, z0, x1, z1, n = 20) => Array.from({ length: n + 1 }, (_, i) => [x0 + ((x1 - x0) * i) / n, z0 + ((z1 - z0) * i) / n]);
+  it('tells a road drawn twice, or the other half of a dual carriageway, from a street crossing it', () => {
+    const road = { width: 3, points: line(0, 0, 60, 0) };
+    expect(alongside({ width: 3, points: line(60, 1, 0, 1) }, road)).toBe(1); // the same road, the other way
+    expect(alongside({ width: 3, points: line(0, 4.5, 60, 4.5) }, road)).toBe(1); // the other carriageway
+    expect(alongside({ width: 3, points: line(30, -30, 30, 30) }, road)).toBeLessThan(0.3); // across it
+    expect(alongside({ width: 3, points: line(0, 20, 60, 20) }, road)).toBe(0); // a street away
   });
 });

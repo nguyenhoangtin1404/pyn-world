@@ -180,7 +180,8 @@ export function simulate() {
       }
     }
   }
-  s.trainStops = W.train.stopId;
+  s.train = !!W.train;
+  s.trainStops = W.train?.stopId ?? 0;
   s.umbrellas = W.people.filter((w) => w.person.umbrella.scale.x > 0).length;
   s.hikersMoved = hikers.filter((h, i) => h.position.distanceTo(start[i]) > 1).length;
   s.vehicles = W.vehicles.length;

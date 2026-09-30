@@ -41,31 +41,42 @@ const EARTH = 6371008.8, RAD = Math.PI / 180;
 const SPIKE = 12; // metres above every neighbour: not a hill, a glitch (or a tower block the radar saw)
 
 /**
- * Lone spikes in the elevation (a single point far above all 8 neighbours — radar noise, a tall
- * building) brought down to the middle of their neighbours; twice, for a spike two points wide.
- * A real summit always has a neighbour nearly as high, so it stays.
- * @param {Int16Array} h n × n metres @param {number} n
+ * Spikes in the elevation (a sample or a small cluster of them far above the ground around — radar
+ * noise, a block of tall buildings) brought down to the middle of what is around. A point is one
+ * if it stands SPIKE above all but the highest point of the ring round it (so a neighbouring spike
+ * sample can't hide it); again until nothing changes, for clusters. A real summit or ridge always
+ * has ground nearly as high on two sides, so it stays. `reach`: grid points to an elevation sample
+ * (a grid finer than SRTM's 30 m repeats each sample over a block of points: the points `reach`
+ * away are the ones round the block).
+ * @param {Int16Array} h n × n metres @param {number} n @param {number} [reach]
  */
-export function despike(h, n) {
-  for (let pass = 0; pass < 2; pass++) {
+export function despike(h, n, reach = 1) {
+  const R = reach;
+  for (let pass = 0; pass < 4; pass++) {
     const src = Int16Array.from(h);
-    for (let r = 1; r < n - 1; r++) {
-      for (let c = 1; c < n - 1; c++) {
-        const around = [];
-        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (dr || dc) around.push(src[(r + dr) * n + c + dc]);
-        if (src[r * n + c] > Math.max(...around) + SPIKE) h[r * n + c] = around.sort((a, b) => a - b)[4];
+    let changed = false;
+    for (let r = R; r < n - R; r++) {
+      for (let c = R; c < n - R; c++) {
+        const around = []; // the ring R away
+        for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) if (Math.max(Math.abs(dr), Math.abs(dc)) === R) around.push(src[(r + dr) * n + c + dc]);
+        around.sort((a, b) => a - b);
+        if (src[r * n + c] > around[around.length - 2] + SPIKE) {
+          h[r * n + c] = around[around.length >> 1];
+          changed = true;
+        }
       }
     }
+    if (!changed) break;
   }
 }
 
 /** The grid of metres (row 0 = north) with the sea marked, from any elevation(lat, lon). */
-export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = []) {
+export function heightGrid({ south, west, north, east }, n, elevationAt, seaEdges = [], water = [], reach = 1) {
   const h = new Int16Array(n * n);
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) h[r * n + c] = Math.round(elevationAt(north - ((north - south) * r) / (n - 1), west + ((east - west) * c) / (n - 1)));
   }
-  despike(h, n);
+  despike(h, n, reach);
   // Flood the sea in from the open edges, over everything at or below 0 m.
   const sea = new Uint8Array(n * n);
   const stack = [];
@@ -127,7 +138,9 @@ export async function build(recipe, { osm = null, demDir = '.cache/dem', elevati
   const at = elevationAt ?? (await elevation(box, demDir));
   const n = recipe.grid;
   const map = osm ? osmToVectors(osm, { box }) : null;
-  const heights = heightGrid(box, n, at, recipe.sea ?? [], map?.water ?? []);
+  // (Grid points to an SRTM sample, 30 m: finer grids repeat samples, and spikes are wider.)
+  const reach = Math.max(1, Math.round(30 / ((2 * recipe.halfExtent) / (n - 1))));
+  const heights = heightGrid(box, n, at, recipe.sea ?? [], map?.water ?? [], reach);
   const pick = (/** @type {string} */ k) => (map?.[k]?.length ? map[k] : recipe[k] ?? []);
   const places = [...(recipe.places ?? []), ...(map?.places ?? []).filter((p) => !recipe.places?.some((q) => q.id === p.id))];
   const round = (v) => +v.toFixed(6);

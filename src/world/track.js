@@ -113,6 +113,15 @@ export class Track {
 
 // Sweep a 2D profile [[side, up], ...] along a run of track frames. `profile` may also be a
 // function of the ring index returning such a list (e.g. for ramps).
+/**
+ * A world without a railway (a town from map data away from the line): what the core and the
+ * features ask of a track, with no track anywhere — everything is infinitely far from it.
+ * @param {number} k the props scale (world.scale.props)
+ */
+export function noTrack(k = 1) {
+  return { none: true, k, gauge: GAUGE * k, railTop: TRACK_Y + 0.62 * k, length: 0, closed: false, frames: [], distanceTo: () => Infinity };
+}
+
 export function sweep(frames, start, count, profile, baseY, closed = false) {
   const M = frames.length;
   const profileAt = typeof profile === 'function' ? profile : () => profile;

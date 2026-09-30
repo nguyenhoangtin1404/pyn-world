@@ -127,8 +127,8 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   > 200 m — Tháp Nghinh Phong từng bị đặt lệch 3 km (13.0917, 109.3262 thay vì 13.1163, 109.3076, nằm ngoài
   khung cũ); đối chiếu thêm với Google Maps khi thêm địa danh. Overture có danh sách địa danh nhưng phân
   loại lỏng (quán cà phê gắn "di tích") nên chỉ dùng để kiểm tra, không đưa vào file dữ liệu.
-  **Gai độ cao** (một điểm SRTM cao hơn mọi điểm quanh > 12 m — nhiễu radar, nhà cao tầng) bị hạ về
-  trung vị các điểm quanh (`despike`); đỉnh núi thật luôn có điểm quanh gần bằng nên giữ nguyên. Ghi nguồn ODbL (`sources.map`,
+  **Gai độ cao** (một điểm SRTM cao hơn các điểm quanh > 12 m — nhiễu radar, nhà cao tầng) bị hạ về
+  trung vị các điểm quanh (`despike`, xem NGHINH PHONG bên dưới); đỉnh núi thật luôn có điểm quanh gần bằng nên giữ nguyên. Ghi nguồn ODbL (`sources.map`,
   README).
 - **Mặt nước dạng vùng** (sông Đà Rằng có cồn bãi, hồ): điểm lưới độ cao nằm trong vùng (trừ đảo) thành
   −4 m → nước tự hiện, `rivers` bỏ trống (sông vẽ tay rộng 1 km từng đè lên cả làng trên bãi bồi).
@@ -215,8 +215,25 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   (`world/grade.js`, `createGrade`): độ cao dọc phố = trung bình mặt đất ±9 đơn vị (bỏ lồi lõm SRTM × 3),
   ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
   world có `cfg.roads`), không san chỗ nước (cầu).
+- **NGHINH PHONG** (`src/worlds/nghinhphong.js`): 2 × 2 km quanh Tháp Nghinh Phong (tâm = tháp,
+  `halfExtent` 1000), 400 đơn vị → 5 m/đơn vị, `props` 0,6; lưới 101 (20 m); 96 phố, 870 nhà (Overture ở khu này
+  thưa). **World đầu tiên không có đường ray**: công thức ghi `rail: null` (và `stops: []`) → `cfg.track` null,
+  `world.track` là `noTrack(k)` (`world/track.js`: không ở đâu cả, `distanceTo` = ∞) — không dựng ray/cầu, không
+  san hành lang; `checkFeatures` không đòi `train` mà cấm `train`/`station`/`halt`. Máy quay 2/4/5 (tàu) không
+  làm gì (`setMode` trả false), âm thanh tàu im; `birds` không cần ga nữa (không ga thì không có bồ câu). E2E:
+  `trainStops` chỉ đòi khi có tàu. **World không tàu vẫn thêm một `SpotLight` tắt giống đèn pha tàu**: thiếu nó
+  thì cấu hình đèn khác, material dùng chung (`keep()`) biên dịch thêm bộ shader thứ hai và giữ luôn — e2e đổi
+  world bắt được (MAPLE lần hai 37 → 48 shader).
+  **Gai độ cao theo cụm**: lưới mịn hơn SRTM (30 m) lặp mỗi mẫu thành khối 2×2, và ở đây là một cụm mẫu cao
+  (72/65/34/33 m, nhà cao tầng?) che nhau → núi giả cạnh tháp. `despike(h, n, reach)`: so với **vòng cách
+  `reach` điểm** (`reach` = số điểm lưới mỗi mẫu SRTM, `build.mjs` tự tính) và với điểm cao **thứ nhì** của vòng
+  (một mẫu gai bên cạnh không che được), lặp tới khi không đổi (≤ 4 lượt). Tuy Hòa dựng lại chỉ lệch 1 điểm (4 → 5
+  m), đỉnh núi giữ nguyên — file dữ liệu Tuy Hòa không dựng lại.
+  **Phố trùng**: một con đường có thể nằm hai lần trong `world.streets` (vẽ hai lần trên bản đồ, hay đại lộ hai
+  nửa) → hai tuyến xe ngược chiều trên cùng làn (luật giao thông bỏ qua xe ngược chiều) → đâm nhau. `citytraffic`
+  bỏ phố có > 30 % điểm nằm sát một phố đã chọn (`alongside`).
 - Chưa làm: đèn đi bộ ở ngã tư thật, xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
-  (chữ L…), tàu không bắt buộc, sa bàn chữ nhật.
+  (chữ L…), sa bàn chữ nhật.
 
 ## Tỉ lệ (`world.scale`, `world/scale.js`)
 

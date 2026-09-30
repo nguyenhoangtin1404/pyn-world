@@ -64,6 +64,18 @@ export function untangle(pts, near) {
 }
 
 /**
+ * How much of street `a` runs alongside `b`: the share of its points within their widths (and a
+ * little) of one of b's.
+ * @param {{ points: [number, number][], width: number }} a @param {{ points: [number, number][], width: number }} b
+ */
+export function alongside(a, b) {
+  const near = (a.width + b.width) / 2 + 2;
+  let n = 0;
+  for (const [x, z] of a.points) if (b.points.some(([bx, bz]) => Math.abs(bx - x) < near && Math.abs(bz - z) < near && Math.hypot(bx - x, bz - z) < near)) n++;
+  return n / a.points.length;
+}
+
+/**
  * Where streets cross: every pair of segments of two different streets that cross at a good angle
  * (not two streets running side by side), those within `merge` of each other taken as one.
  * @param {{ points: [number, number][] }[]} streets
@@ -146,7 +158,9 @@ export default {
       .map((s) => ({ ...s, length: along(s.points) }))
       .filter((s) => s.length >= min)
       .sort((a, b) => b.length - a.length)
-      .slice(0, routeCount);
+      // Not the same road again (drawn twice in the map, or a dual carriageway as two streets side
+      // by side): its lanes would be the other's, the traffic on them head on.
+      .reduce((kept, s) => (kept.length < routeCount && !kept.some((o) => alongside(s, o) > 0.3) ? [...kept, s] : kept), /** @type {typeof world.streets} */ ([]));
     world.need(`phố chính dài ít nhất ${min} đơn vị (world.streets)`, 'citytraffic', streets.length);
     if (vehicles.car) world.scale.note('car', KINDS.car.length * k, 'citytraffic');
 

@@ -5,30 +5,32 @@ import { createSkyBirdParts, Flock } from './birds/flocks.js';
 // Pigeons pottering about the station platform (birds/pigeons.js), and flocks of birds wheeling
 // across the sky (birds/flocks.js) — all drawn with Instancer, a few InstancedMeshes in all.
 
-// size: the pigeons' (the station's size, world.scale.props). more: extra flocks, each
+// scenery: the station's platform and canopy for the pigeons (null: a world without one, no
+// pigeons). size: the pigeons' (the station's size, world.scale.props). more: extra flocks, each
 // { name, count, color, altitude, radius, speed, formation, center } (seagulls over a coast…).
 export function createBirds({ rng, scenery, nav, train, size = 1, more = [] }) {
   const group = new THREE.Group();
-  const floorY = scenery.platformPoint(0.5, 0.5).y;
+  const floorY = scenery ? scenery.platformPoint(0.5, 0.5).y : 0;
   // On the platform floor and not under a bench or against a post.
   const isFree = (x, z) => !nav || (nav.isFree(x, z) && Math.abs(nav.height[nav.index(x, z)] - floorY) < 0.1);
   const place = {
     ground: () => {
       let p;
       for (let i = 0; i < 12; i++) {
-        p = scenery.platformPoint(rng(), rng());
+        p = /** @type {any} */ (scenery).platformPoint(rng(), rng());
         if (isFree(p.x, p.z)) break;
       }
       return p;
     },
-    roof: () => scenery.canopyPoint(rng(), rng()),
+    roof: () => /** @type {any} */ (scenery).canopyPoint(rng(), rng()),
     isFree,
   };
-  const pigeonParts = createPigeonParts(9);
+  const nPigeons = scenery ? 9 : 0;
+  const pigeonParts = nPigeons ? createPigeonParts(nPigeons) : {};
   const skyParts = createSkyBirdParts(24 + more.reduce((n, f) => n + f.count, 0));
   group.add(...[...Object.values(pigeonParts), ...Object.values(skyParts)].map((p) => p.mesh));
   const pigeons = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < nPigeons; i++) {
     const p = new Pigeon(rng, place, pigeonParts, size);
     p.foldWings();
     pigeons.push(p);

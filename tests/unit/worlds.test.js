@@ -37,7 +37,11 @@ describe('world configs', () => {
         expect(() => new World(cfg).steps()).not.toThrow();
       });
 
-      it('has a track of (x, z) points inside the diorama', () => {
+      it('has a track of (x, z) points inside the diorama, or none at all (and then no stops)', () => {
+        if (!cfg.track) {
+          expect(cfg.stops).toEqual([]);
+          return;
+        }
         const pts = cfg.track();
         expect(pts.length).toBeGreaterThanOrEqual(4);
         for (const [x, z] of pts) expect(Math.max(Math.abs(x), Math.abs(z))).toBeLessThan(cfg.size / 2);
@@ -61,6 +65,13 @@ describe('feature list checks (before building)', () => {
 
   it('needs a train', () => {
     expect(steps(['station'])).toThrow(/"train"/);
+  });
+
+  it('without a railway: no train, and nothing that runs on one', () => {
+    const noRail = (features) => () => new World({ ...pyn, track: null, stops: [], tunnel: undefined, features }).steps();
+    expect(noRail(['trees', 'birds'])).not.toThrow();
+    expect(noRail(['trees', 'train'])).toThrow(/đường ray/);
+    expect(noRail(['station'])).toThrow(/"station"/);
   });
 
   it('checks the order of needs', () => {
