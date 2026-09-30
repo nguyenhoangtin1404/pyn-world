@@ -1,6 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
-import { box, cyl, segment } from '../world/lowpoly.js';
+import { ball, box, cyl, segment } from '../world/lowpoly.js';
 import { lamps } from '../features/lamps.js';
 import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
@@ -66,6 +66,29 @@ export function columns() {
     }
   }
   return out;
+}
+
+// The flag: red with the yellow five-pointed star (drawn once on a canvas, the width 3 : 2).
+let flagCanvas;
+function flagTexture() {
+  if (!flagCanvas) {
+    flagCanvas = document.createElement('canvas');
+    flagCanvas.width = 300;
+    flagCanvas.height = 200;
+    const c = flagCanvas.getContext('2d');
+    c.fillStyle = '#da251d';
+    c.fillRect(0, 0, 300, 200);
+    c.fillStyle = '#ffff00';
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 26 : 66;
+      c.lineTo(150 + Math.cos(a) * r, 100 + Math.sin(a) * r);
+    }
+    c.fill();
+  }
+  const t = new THREE.CanvasTexture(flagCanvas);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /** @type {import('./common.js').Landmark} */
@@ -216,6 +239,29 @@ export default {
       halos.push([hx0, base0 + c.h * k * SPIRE, hz0]);
     }
 
+    // The flag of Vietnam on a pole in front of the tower, blowing off the sea (towards the street).
+    // It waves (rippling, more the further from the pole) and glows once it is dark.
+    const [fx, fy, fz] = L(-B * 0.5, 0), poleH = 11 * k, fw = 6.6 * k, fh = 4.4 * k;
+    batch.at(fx, fy, fz, 0).add([cyl(0.09 * k, 0.12 * k, poleH, '#d9d9d9', [0, poleH / 2 - 0.3, 0]), ball(0.2 * k, '#e8c34a', [0, poleH + 0.05, 0])]);
+    const flagGeo = new THREE.PlaneGeometry(fw, fh, 18, 10);
+    flagGeo.translate(-fw / 2, -fh / 2, 0); // hanging from the pole's top, streaming towards -x
+    const flagMat = new THREE.MeshLambertMaterial({ map: flagTexture(), emissiveMap: flagTexture(), emissive: '#ffffff', emissiveIntensity: 0, side: THREE.DoubleSide });
+    // The ripple runs in the vertex shader (uTime), the further from the pole the stronger.
+    const flagTime = { value: 0 };
+    flagMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = flagTime;
+      shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
+        float reach = -position.x / ${fw.toFixed(4)};
+        vec3 transformed = position;
+        transformed.z += sin(position.x * ${(-1.0 / k).toFixed(4)} - uTime * 4.0 + position.y * 0.6) * ${(0.5 * k).toFixed(4)} * reach;
+        transformed.y += -reach * reach * ${(0.25 * k).toFixed(4)} + sin(position.x * ${(-1.3 / k).toFixed(4)} - uTime * 3.0) * ${(0.3 * k).toFixed(4)} * reach;`);
+    };
+    const flag = new THREE.Mesh(flagGeo, flagMat);
+    flag.position.set(fx, fy + poleH - 0.2 * k, fz);
+    flag.rotation.y = site.ry;
+    flag.castShadow = true;
+    halos.push([fx, fy + poleH - fh / 2, fz]);
+
     // The camera can't see through the tower; trees keep off the square.
     const [sx, , sz] = W(0, 0);
     worldSite.solids.push({ x: sx, z: sz, r: 5.5 * cell, y0: base0, y1: base0 + peak });
@@ -241,8 +287,10 @@ export default {
         return H(dx * c - dz * s, dx * s + dz * c);
       },
       system: {
-        group: new THREE.Group().add(glow, beam),
-        lateUpdate({ lights }) {
+        group: new THREE.Group().add(glow, beam, flag),
+        lateUpdate({ lights, t }) {
+          flagTime.value = t;
+          flagMat.emissiveIntensity = Math.max(0, Math.min(1.1, (lights - 0.15) * 2.2));
           const o = Math.max(0, Math.min(0.85, (lights - 0.2) * 2));
           ledMat.opacity = o;
           beamMat.opacity = o * 0.5;
