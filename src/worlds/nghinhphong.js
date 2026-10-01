@@ -23,6 +23,7 @@ export default defineGeoWorld({
     'landmarks', 'streets', 'buildings', 'trees', 'clouds',
     { id: 'balloons', count: 6, near: 'landmark', big: 2 }, // hot-air balloons over the tower, two of them big
     { id: 'strollers', square: 20 }, // people on the pavements and 20 round the tower's square
+    { id: 'tourists', count: 14 }, // tourists at the tower: slow, stopping to look, taking photos, praising it in emoji
     { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
   ],

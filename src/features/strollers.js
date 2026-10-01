@@ -22,7 +22,6 @@ export default {
     const streets = world.streets.filter((s) => s.length >= 15 && s.kind !== 'track');
     world.need('phố từ dữ liệu bản đồ (world.streets)', 'strollers', streets.length);
     const group = new THREE.Group();
-    const ground = world.terrain.meshHeightAt;
     /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number, zebra?: number[] }[]} */
     const walkers = [];
     const add = (/** @type {THREE.Vector3[]} */ route, /** @type {(x: number, z: number) => number} */ heightAt, /** @type {string} */ label) => {
@@ -63,19 +62,9 @@ export default {
     }
     // Round each landmark's square.
     for (const lm of world.landmarks) {
-      const pad = world.cfg.pads?.find((p) => Math.hypot(p.x - lm.spot.x, p.z - lm.spot.z) < p.r);
-      let route, floor = ground;
-      if (lm.walk) {
-        route = [...lm.walk, lm.walk[0]]; // its own loop, on its own paving
-        const y = lm.walk[0].y;
-        floor = lm.walkHeight ?? (() => y);
-      }
-      else {
-        if (!pad || pad.r < 10) continue; // a square to walk round, not a hilltop
-        const r = pad.r * 0.62;
-        route = Array.from({ length: 25 }, (_, i) => new THREE.Vector3(pad.x + Math.sin((i / 24) * Math.PI * 2) * r, 0, pad.z + Math.cos((i / 24) * Math.PI * 2) * r));
-      }
-      for (let n = 0; n < square; n++) add(route, floor, `Khách thăm ${lm.name}`);
+      const loop = squareLoop(world, lm);
+      if (!loop) continue; // a hilltop, not a square to walk round
+      for (let n = 0; n < square; n++) add(loop.route, loop.floor, `Khách thăm ${lm.name}`);
     }
 
     return {
@@ -114,6 +103,25 @@ export default {
     };
   },
 };
+
+/**
+ * The loop people walk round a landmark on, closed (the last point is the first), and the height of
+ * what they walk on there: the landmark's own (`walk`, on its own paving), else a circle over most of
+ * its pad, on the ground. null for a landmark with no square (a pad under 10 units: a hilltop).
+ * @param {import('../World.js').World} world @param {import('../World.js').World['landmarks'][number]} lm
+ * @returns {{ route: THREE.Vector3[], floor: (x: number, z: number) => number } | null}
+ */
+export function squareLoop(world, lm) {
+  if (lm.walk) {
+    const y = lm.walk[0].y;
+    return { route: [...lm.walk, lm.walk[0]], floor: lm.walkHeight ?? (() => y) };
+  }
+  const pad = world.cfg.pads?.find((p) => Math.hypot(p.x - lm.spot.x, p.z - lm.spot.z) < p.r);
+  if (!pad || pad.r < 10) return null;
+  const r = pad.r * 0.62;
+  const route = Array.from({ length: 25 }, (_, i) => new THREE.Vector3(pad.x + Math.sin((i / 24) * Math.PI * 2) * r, 0, pad.z + Math.cos((i / 24) * Math.PI * 2) * r));
+  return { route, floor: world.terrain.meshHeightAt };
+}
 
 /**
  * The crosswalk (index in `crosswalks`) that (x, z) is on, -1 for none: on the carriageway it

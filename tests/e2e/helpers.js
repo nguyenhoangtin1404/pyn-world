@@ -112,6 +112,10 @@ export function simulate() {
   });
   const onZebra = W.pedestrians.map((w) => zebraAt(w.pos.x, w.pos.z));
   const zebra = { crosswalks: W.crosswalks.length, crossings: 0, notOnRed: 0, waits: 0 };
+  // Tourists (features/tourists.js): they photograph, speak in bubbles, and stand about more than they walk.
+  const tourists = W.pedestrians.filter((w) => w.person.camera);
+  const tour = { count: tourists.length, photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
+  const lastPos = tourists.map((w) => w.pos.clone());
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
@@ -163,6 +167,15 @@ export function simulate() {
         if (w.waiting) zebra.waits++;
       });
     }
+    tourists.forEach((w, k) => {
+      const moved = w.pos.distanceTo(lastPos[k]);
+      lastPos[k].copy(w.pos);
+      tour.samples++;
+      if (moved < 0.002) tour.standing++;
+      tour.fastest = Math.max(tour.fastest, moved / 0.1 / (w.group.scale.x / 0.85)); // m/s as drawn at scale k
+      if (w.person.camera.scale.x > 0) tour.photoing++;
+      if (w.sprite.visible) tour.speaking.add(k), tour.bubbles++;
+    });
     for (const c of cars) {
       if (!c.lamps) continue;
       if (i < 1500 && c.lamps.tail[0].visible) lights.brakeLights++;
@@ -190,6 +203,7 @@ export function simulate() {
   road.junctionCrossings = crossedJunction.size;
   road.longestStop = Math.round(road.longestStop);
   if (cars.length) s.road = { ...road, ...lights };
+  if (tourists.length) s.tourists = { ...tour, speaking: tour.speaking.size };
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
   W.weather.set('clear');

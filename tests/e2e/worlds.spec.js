@@ -55,6 +55,14 @@ for (const { id } of WORLDS) {
         expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
         expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }
+      if (life.tourists) {
+        const t = life.tourists;
+        const why = (what) => `${what} — ${JSON.stringify(t)}`;
+        expect(t.photoing, why('tourists take photos')).toBeGreaterThan(0);
+        expect(t.bubbles, why('…and say something nice in a bubble')).toBeGreaterThan(0);
+        expect(t.speaking, why('…most of them')).toBeGreaterThan(t.count / 2);
+        expect(t.standing, why('they stop to look rather than keep walking')).toBeGreaterThan(t.samples / 2);
+      }
       expect(page.errors).toEqual([]);
     });
   });
