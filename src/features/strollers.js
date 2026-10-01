@@ -48,6 +48,9 @@ export default {
     const edge = world.size / 2 - 3;
     const offLimits = (/** @type {number} */ x, /** @type {number} */ z) => Math.abs(x) > edge || Math.abs(z) > edge || onCarriageway(x, z);
     const total = streets.reduce((sum, s) => sum + s.length, 0);
+    // Crossing a boulevard (four lanes and a median, over 8 units) takes more points than the usual 4.
+    const widest = Math.max(0, ...streets.map((s) => (s.median ? s.width : 0)));
+    const maxCrossing = widest ? Math.max(4, Math.ceil(((widest + 2 * PAVEMENT * k) / 1.2) * 1.4)) : 4;
     for (let n = 0, tries = 0; n < count && tries < count * 5; tries++) {
       let r = rng() * total, st = streets[0];
       for (const s of streets) if ((r -= s.length) < 0) {
@@ -55,7 +58,7 @@ export default {
         break;
       }
       const side = rng() < 0.5 ? 1 : -1;
-      const route = pavementRoute(st.points, st.width / 2 + (PAVEMENT * k) / 2, side, offLimits);
+      const route = pavementRoute(st.points, st.width / 2 + (PAVEMENT * k) / 2, side, offLimits, maxCrossing);
       if (route.length < 8) continue; // a walk worth the name: another street
       add(route, st.pavementAt, 'Người đi dạo');
       n++;

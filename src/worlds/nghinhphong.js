@@ -16,6 +16,7 @@ export default defineGeoWorld({
   data: () => import('./data/nghinhphong.json'),
   rail: null,
   cell: 1.5, // the ground in finer triangles: a smooth shore
+  boulevards: true, // the big roads: four lanes round a planted, lit median; the tower's axis along the centre line of the street that meets its square
   landcover: { fields: false }, // the town's open ground is grass, not rice paddies
   stops: [],
   landmarks: [{ model: 'nghinh-phong', place: 'nghinh-phong', rotation: 'street' }], // its square's straight side flush with the street, the round side away from it (to the sea)

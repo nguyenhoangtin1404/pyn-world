@@ -5,7 +5,9 @@ import { createLandCover } from '../world/landcover.js';
 import { LANDMARKS } from '../landmarks/index.js';
 import { createScale, SIZES } from '../world/scale.js';
 import { PAVEMENT } from '../features/streets.js';
+import { alignToCrossStreet, boulevards } from '../world/divided.js';
 
+const MEDIAN_M = 3; // metres across a boulevard's median
 const STREETS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'road']); // streets a landmark can lie along
 
 // A WorldConfig is the recipe for one world: everything that differs between worlds (layout,
@@ -43,7 +45,7 @@ export function defineWorld(cfg) {
  */
 export function defineGeoWorld(recipe) {
   // (The recipe's landmarks and landcover are resolved by load() into the config's own.)
-  const { landmarks: _landmarks, landcover: _landcover, ...rest } = recipe;
+  const { landmarks: _landmarks, landcover: _landcover, boulevards: _boulevards, ...rest } = recipe;
   /** @type {import('../types').WorldConfig} */
   const cfg = {
     ...rest,
@@ -64,7 +66,9 @@ export function defineGeoWorld(recipe) {
       cfg.heights = d.heightAt;
       cfg.rivers = d.rivers;
       cfg.places = d.places;
-      cfg.roads = d.roads;
+      const scale = createScale({ metersPerUnit: d.projection.metersPerUnit, scale: recipe.scale });
+      // Boulevards: the big roads with four lanes round a median (units at the world's scale).
+      cfg.roads = recipe.boulevards ? boulevards(d.roads, { lane: scale.fit(SIZES.lane), median: scale.fit(MEDIAN_M) }) : d.roads;
       cfg.buildings = d.buildings;
       cfg.metersPerUnit = d.projection.metersPerUnit;
       const line = rail ? clipToSquare(rail.points, recipe.size / 2 - 12) : []; // ends a little inside the edge
@@ -78,7 +82,6 @@ export function defineGeoWorld(recipe) {
       });
       // Landmarks at their places (or on the highest ground near them), each on a flat pad.
       cfg.pads = [];
-      const scale = createScale({ metersPerUnit: d.projection.metersPerUnit, scale: recipe.scale });
       cfg.landmarks = (recipe.landmarks ?? []).map(({ model, place, rotation: turn = 0, peak = 0 }) => {
         const pl = d.places[place];
         if (!pl) throw new Error(`World "${recipe.id}": công trình "${model}" cần nơi "${place}" trong dữ liệu`);
@@ -93,12 +96,18 @@ export function defineGeoWorld(recipe) {
         // 'street': its straight side (local −x, `back` from its centre) along the nearest street, flush
         // with its pavement, its front (local +x) away from the street.
         let rotation = 0;
-        const frame = turn === 'street' ? streetFrame(d.roads ?? [], p, STREETS, along * scale.map) : null;
+        const frame = turn === 'street' ? streetFrame(cfg.roads ?? [], p, STREETS, along * scale.map) : null;
+        let axis = null; // (the way it faces, if the street that meets that one has it lined up)
         if (frame) {
           const lane = Math.max(frame.half, scale.fit(SIZES.lane)); // (streets.js: at least two lanes wide)
           const edge = lane + 0.4 * PAVEMENT * scale.props; // its side over the outer part of the pavement: no gap, the kerb still shows
-          p = [frame.q[0] + frame.n[0] * (edge + back * scale.map), frame.q[1] + frame.n[1] * (edge + back * scale.map)];
-          rotation = Math.atan2(-frame.n[1], frame.n[0]);
+          const dist = edge + back * scale.map;
+          p = [frame.q[0] + frame.n[0] * dist, frame.q[1] + frame.n[1] * dist];
+          axis = frame.n;
+          // The street that meets this one square on: the centres of the tower and of its half circle on its centre line.
+          const aligned = recipe.boulevards ? alignToCrossStreet((cfg.roads ?? []).filter((r) => STREETS.has(r.kind)), frame, p, dist, { reach: along * scale.map, mouth: frame.half + 3 }) : null;
+          if (aligned) [p, axis] = [aligned.p, aligned.n];
+          rotation = Math.atan2(-axis[1], axis[0]);
         }
         const h = d.heightAt(p[0], p[1]);
         cfg.pads.push({ x: p[0], z: p[1], r: typeof radius === 'function' ? radius(scale) : radius, h });

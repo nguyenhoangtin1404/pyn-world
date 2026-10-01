@@ -80,6 +80,10 @@ export interface GeoRecipe {
   landcover?: { town?: { at: [number, number]; radius: number }[]; fields?: boolean };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
+  /** The big roads as boulevards: four lanes round a planted median (world/divided.js), a divided
+   *  road drawn as two streets in the map becoming one; a landmark along a street lines up with the
+   *  centre line of the street that meets it. */
+  boulevards?: boolean;
   features: FeatureEntry[];
 }
 
@@ -112,7 +116,7 @@ export interface WorldConfig {
   rivers?: { id: string; name: string; width: number; points: [number, number][] }[];
   places?: Record<string, { id: string; name: string; kind: string; at: [number, number]; p: [number, number] }>;
   /** Worlds from map data, after load(): the streets (real width in units) and the buildings. */
-  roads?: { kind: string; name: string; width: number; points: [number, number][] }[];
+  roads?: { kind: string; name: string; width: number; points: [number, number][]; median?: number }[];
   buildings?: import('./world/geodata.js').Building[];
   /** Worlds from map data: metres in one world unit (the map scale; 1 if absent). */
   metersPerUnit?: number;
