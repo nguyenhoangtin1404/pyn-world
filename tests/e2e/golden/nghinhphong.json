@@ -1,7 +1,7 @@
 {
-  "meshes": 143,
-  "geometry": "6aa109b9",
-  "instances": "2d6f0d89",
+  "meshes": 144,
+  "geometry": "280defc8",
+  "instances": "a348f658",
   "colliders": 1560,
   "stations": [],
   "people": 0,
@@ -10,6 +10,6 @@
     18
   ],
   "spots": {},
-  "drawCalls": 225,
-  "programs": 31
+  "drawCalls": 228,
+  "programs": 32
 }

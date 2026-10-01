@@ -140,8 +140,12 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   `streets` (`features/streets.js`): vẽ bằng `Paint` vào `world.batch` theo `meshHeightAt`, rộng bằng
   bề rộng thật hoặc số làn × `scale.fit(làn)` nếu rộng hơn, đường lớn đè đường nhỏ, vạch giữa đứt; qua nước thành cầu (mặt cầu ngang bờ,
   thành cầu, trụ), qua ray thì dốc lên đỉnh ray; tránh sân ga, pad công trình. Feature `buildings`
-  (`features/buildings.js`): 3 InstancedMesh (khối nhà, mái ngói chóp cho nhà thấp < 220 m², dải cửa sổ
-  dùng `lamps(world).windowMat` → sáng ban đêm); cao = số tầng (bản đồ hoặc `likelyFloors`) ×
+  (`features/buildings.js`): 5 InstancedMesh (khối nhà, mái ngói chóp cho nhà thấp < 220 m², gờ mái + bồn nước
+  cho mái bằng); **chi tiết tường vẽ trong shader** của vật liệu khối nhà (`facadeMaterial`: kẻ sàn, cửa sổ có
+  khung — vài cái có cửa chớp, vài cái để trống —, cửa ra vào có mái hiên + ban công ở một mặt; ~một nửa cửa sổ sáng
+  ban đêm theo `uNight` do `lateUpdate` đặt; không thêm tam giác nào). Mỗi nhà một `aInfo` (số tầng vẽ, độ chênh
+  nền, hạt giống, chiều cao gờ); các số này nội suy giữa đỉnh nên **làm tròn trước khi băm** (không thì cửa sổ nhấp nháy
+  lấm tấm); cao = số tầng (bản đồ hoặc `likelyFloors`) ×
   `scale.fit(tầng)`; bỏ nhà trên phố, dưới nước, sát ray, trong sân ga/pad. Cả hai **claim** mặt đất
   (`site.claimRect`, lưới ô 0,5 → `spotOK` từ chối) để cây không mọc lên phố/nhà — nhiều nghìn vật,
   không dùng `obstacles` (quét tuyến tính). Thứ tự: `'station', 'landmarks', 'streets', 'buildings',
