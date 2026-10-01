@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loopPath, partySizes } from '../../src/world/tourist.js';
+import { loopPath, partySizes, pointAlong } from '../../src/world/tourist.js';
 
 describe('loopPath', () => {
   it('goes the shorter way round a closed loop, leaving the start out', () => {
@@ -23,5 +23,15 @@ describe('partySizes', () => {
       expect(sizes.every((n) => n >= 1 && n <= 3)).toBe(true);
     }
     expect(new Set(partySizes(rng, 300))).toEqual(new Set([1, 2, 3]));
+  });
+});
+
+describe('pointAlong', () => {
+  const square = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }];
+  it('follows the loop round its corners, either way', () => {
+    expect(pointAlong(square, 0, 4)).toEqual([4, 0]);
+    expect(pointAlong(square, 0, 13)).toEqual([10, 3]);
+    expect(pointAlong(square, 0, -3)).toEqual([0, 3]);
+    expect(pointAlong(square, 2, 0)).toEqual([10, 10]);
   });
 });

@@ -114,7 +114,18 @@ export function simulate() {
   const zebra = { crosswalks: W.crosswalks.length, crossings: 0, notOnRed: 0, waits: 0 };
   // Tourists (features/tourists.js): they photograph, speak in bubbles, and stand about more than they walk.
   const tourists = W.pedestrians.filter((w) => w.person.camera);
-  const tour = { count: tourists.length, photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
+  const loop = W.landmarks.find((l) => l.walk)?.walk ?? []; // the paved loop round the tower, inside its railing
+  const inLoop = (x, z) => {
+    let inside = false, near = Infinity;
+    for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+      const a = loop[i], b = loop[j];
+      if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+      const dx = b.x - a.x, dz = b.z - a.z, t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+      near = Math.min(near, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
+    }
+    return inside || near < 0.3;
+  };
+  const tour = { count: tourists.length, outside: 0, photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
   const lastPos = tourists.map((w) => w.pos.clone());
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   for (let i = 0; i < 3000; i++) {
@@ -172,6 +183,7 @@ export function simulate() {
       lastPos[k].copy(w.pos);
       tour.samples++;
       if (moved < 0.002) tour.standing++;
+      if (loop.length && !inLoop(w.pos.x, w.pos.z)) tour.outside++;
       tour.fastest = Math.max(tour.fastest, moved / 0.1 / (w.group.scale.x / 0.85)); // m/s as drawn at scale k
       if (w.person.camera.scale.x > 0) tour.photoing++;
       if (w.sprite.visible) tour.speaking.add(k), tour.bubbles++;

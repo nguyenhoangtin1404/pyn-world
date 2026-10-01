@@ -58,6 +58,7 @@ for (const { id } of WORLDS) {
       if (life.tourists) {
         const t = life.tourists;
         const why = (what) => `${what} — ${JSON.stringify(t)}`;
+        expect(t.outside, why('tourists keep inside the railing (no walking through it, no standing on air)')).toBe(0);
         expect(t.photoing, why('tourists take photos')).toBeGreaterThan(0);
         expect(t.bubbles, why('…and say something nice in a bubble')).toBeGreaterThan(0);
         expect(t.speaking, why('…most of them')).toBeGreaterThan(t.count / 2);

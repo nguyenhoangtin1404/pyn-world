@@ -27,7 +27,9 @@ export default {
     for (const lm of world.landmarks) {
       const loop = squareLoop(world, lm);
       if (!loop) continue;
-      const area = { pts: loop.route.slice(0, -1), center: lm.spot, parties, rng, k };
+      const pts = loop.route.slice(0, -1);
+      const inside = { x: pts.reduce((t, p) => t + p.x, 0) / pts.length, z: pts.reduce((t, p) => t + p.z, 0) / pts.length };
+      const area = { pts, center: lm.spot, inside, parties, rng, k };
       for (const size of partySizes(rng, count)) {
         const members = Array.from({ length: size }, () => {
           const t = new Tourist(rng, loop.floor, { speed: speed * k, k, speech });

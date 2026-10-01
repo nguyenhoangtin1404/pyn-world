@@ -73,6 +73,29 @@ export function loopPath(n, from, to, flip = false) {
   return Array.from({ length: steps }, (_, i) => (from + dir * (i + 1) + n * 2) % n);
 }
 
+/**
+ * The point at signed distance `d` along a closed loop from its vertex `i` (so a row of people
+ * keeps to the loop's curve instead of leaving it along the tangent).
+ * @param {{ x: number, z: number }[]} pts @param {number} i @param {number} d
+ * @returns {[number, number]}
+ */
+export function pointAlong(pts, i, d) {
+  const n = pts.length;
+  let at = i, left = Math.abs(d);
+  const dir = d < 0 ? -1 : 1;
+  for (let guard = 0; guard < n * 4; guard++) {
+    const a = pts[at], b = pts[(at + dir + n) % n];
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    if (left <= len || len === 0) {
+      const u = len ? left / len : 0;
+      return [a.x + (b.x - a.x) * u, a.z + (b.z - a.z) * u];
+    }
+    left -= len;
+    at = (at + dir + n) % n;
+  }
+  return [pts[i].x, pts[i].z];
+}
+
 /** How many people in each party, summing to `total`: singles, pairs and threes. */
 export function partySizes(rng, total) {
   const sizes = [];
@@ -149,8 +172,8 @@ export class Tourist extends Walker {
 export class Party {
   /**
    * @param {Tourist[]} members
-   * @param {{ pts: THREE.Vector3[], center: { x: number, z: number }, parties: Party[], rng: () => number, k: number }} area
-   *   pts: the loop round the landmark (distinct points, closed), center: what they look at
+   * @param {{ pts: THREE.Vector3[], center: { x: number, z: number }, inside: { x: number, z: number }, parties: Party[], rng: () => number, k: number }} area
+   *   pts: the loop round the landmark (distinct points, closed), center: what they look at, inside: a point inside the loop
    */
   constructor(members, area, start) {
     this.members = members;
@@ -173,20 +196,25 @@ export class Party {
 
   /** Where member `m` stands at viewpoint `i`: in a row along the loop, shoulder to shoulder. */
   slot(i, m) {
-    const p = this.area.pts[i], [tx, tz] = this.tangent(i);
     const o = (m - (this.members.length - 1) / 2) * 1.15 * this.area.k;
-    return new THREE.Vector3(p.x + tx * o, 0, p.z + tz * o);
+    const [x, z] = pointAlong(this.area.pts, i, o);
+    return new THREE.Vector3(x, 0, z);
   }
 
-  /** Everyone's route to viewpoint `to` from where the party is: along the loop, side by side. */
+  /**
+   * Everyone's route to viewpoint `to` from where the party is: along the loop, side by side — the
+   * others a step further in from the loop (the loop runs just inside the railing: never outwards).
+   */
   route(from, to) {
-    const { pts, rng } = this.area, n = pts.length;
+    const { pts, rng, inside } = this.area, n = pts.length;
     const path = loopPath(n, from, to, rng() < 0.15);
     this.members.forEach((m, mi) => {
-      const lateral = (mi - (this.members.length - 1) / 2) * 0.6 * this.area.k;
+      const step = mi * 0.6 * this.area.k;
       m.route = path.slice(0, -1).map((idx) => {
         const p = pts[idx], [tx, tz] = this.tangent(idx);
-        return new THREE.Vector3(p.x - tz * lateral, 0, p.z + tx * lateral);
+        let nx = -tz, nz = tx;
+        if (nx * (inside.x - p.x) + nz * (inside.z - p.z) < 0) [nx, nz] = [-nx, -nz]; // towards the middle of the loop
+        return new THREE.Vector3(p.x + nx * step, 0, p.z + nz * step);
       });
       m.route.push(this.slot(to, mi));
       m.ri = 0;
@@ -233,7 +261,7 @@ export class Party {
       }
       if (done) {
         this.phase = 'look';
-        this.timer = 18 + rng() * 14; // a good look: not on the move all the time
+        this.timer = 22 + rng() * 14; // a good look: not on the move all the time
         for (const m of this.members) {
           m.act = 'gaze';
           m.actT = 0.8 + rng() * 2.5;
