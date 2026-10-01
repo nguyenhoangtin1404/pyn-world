@@ -8,9 +8,10 @@ import * as THREE from 'three';
  * `radius`: the flat ground it needs (and keeps clear of trees), units — or from the world's scale.
  * `back`: metres from its centre to its straight side, `along`: half the length of that side, for a
  * landmark set along a street (rotation 'street').
- * @typedef {{ spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number, system?: import('../types').System }} LandmarkBuilt
+ * @typedef {{ spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], plaza?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number, system?: import('../types').System }} LandmarkBuilt
  * `spot`: where the camera looks when flying to it; `view`: how far back it stands (× the usual);
  * `walk`: a loop people walk round it on (default: a circle over most of its pad, on the ground);
+ * `plaza`: the ground visitors may stand and wander on (a polygon, inside its railings; default: most of its pad),
  * `walkHeight`: the height of what they walk on there (default: the ground).
  */
 

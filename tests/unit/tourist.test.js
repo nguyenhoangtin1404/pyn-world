@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loopPath, partySizes, pointAlong } from '../../src/world/tourist.js';
+import { clearOf, inside, loopPath, partySizes } from '../../src/world/tourist.js';
 
 describe('loopPath', () => {
   it('goes the shorter way round a closed loop, leaving the start out', () => {
@@ -26,12 +26,16 @@ describe('partySizes', () => {
   });
 });
 
-describe('pointAlong', () => {
+describe('inside / clearOf', () => {
   const square = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }];
-  it('follows the loop round its corners, either way', () => {
-    expect(pointAlong(square, 0, 4)).toEqual([4, 0]);
-    expect(pointAlong(square, 0, 13)).toEqual([10, 3]);
-    expect(pointAlong(square, 0, -3)).toEqual([0, 3]);
-    expect(pointAlong(square, 2, 0)).toEqual([10, 10]);
+  it('tells what is in a polygon', () => {
+    expect(inside(square, 5, 5)).toBe(true);
+    expect(inside(square, 11, 5)).toBe(false);
+  });
+  it('lets one walk past a footprint but not through it', () => {
+    expect(clearOf(square, { x: -5, z: -5 }, { x: 15, z: -5 })).toBe(true);
+    expect(clearOf(square, { x: -5, z: 5 }, { x: 15, z: 5 })).toBe(false);
+    expect(clearOf(square, { x: -5, z: -5 }, { x: 15, z: 15 })).toBe(false);
+    expect(clearOf(square, { x: -5, z: 12 }, { x: 5, z: 15 })).toBe(true);
   });
 });

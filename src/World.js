@@ -68,7 +68,7 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
-    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number }[]} famous buildings (features/landmarks.js), key V; walk: a loop round it for people on foot */
+    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], plaza?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number }[]} famous buildings (features/landmarks.js), key V; walk: a loop round it for people on foot, plaza: the ground they may wander on */
     this.landmarks = [];
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[] }} keys 6, 7 and 8 */
     this.followables = { people: [], birds: [], vehicles: [] };

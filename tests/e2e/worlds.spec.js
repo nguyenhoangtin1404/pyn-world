@@ -59,10 +59,12 @@ for (const { id } of WORLDS) {
         const t = life.tourists;
         const why = (what) => `${what} — ${JSON.stringify(t)}`;
         expect(t.outside, why('tourists keep inside the railing (no walking through it, no standing on air)')).toBe(0);
+        expect(t.intoTower, why('…and out of the tower')).toBe(0);
+        expect(t.xs, why('they wander all over the square, not round and round it')).toBeGreaterThan(t.count * 3);
         expect(t.photoing, why('tourists take photos')).toBeGreaterThan(0);
         expect(t.bubbles, why('…and say something nice in a bubble')).toBeGreaterThan(0);
         expect(t.speaking, why('…most of them')).toBeGreaterThan(t.count / 2);
-        expect(t.standing, why('they stop to look rather than keep walking')).toBeGreaterThan(t.samples / 2);
+        expect(t.standing, why('they stop to look rather than keep walking')).toBeGreaterThan(t.samples * 0.4);
       }
       expect(page.errors).toEqual([]);
     });

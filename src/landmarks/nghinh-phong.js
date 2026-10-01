@@ -301,10 +301,19 @@ export default {
       return new THREE.Vector3(wx, wy, wz); // (y: the paving they walk on)
     });
 
+    // Where visitors may wander: the half circle inside its railing, and off the street's pavement along the straight side.
+    const rim = R - 1.4 * world.scale.props, kerb = -B + 2 * world.scale.props;
+    const plaza = Array.from({ length: 25 }, (_, i) => {
+      const a = -Math.PI / 2 + (Math.PI * i) / 24;
+      const [wx, wy, wz] = W(Math.max(kerb, -B + rim * Math.cos(a)), rim * Math.sin(a));
+      return new THREE.Vector3(wx, wy, wz);
+    });
+
     return {
       spot: new THREE.Vector3(sx, base0 + peak * 0.4, sz),
       view: 3.2,
       walk,
+      plaza,
       walkHeight: (/** @type {number} */ x, /** @type {number} */ z) => {
         // The paving under (x, z): its height by the plane, in the landmark's own frame.
         const dx = x - site.x, dz = z - site.z, c = Math.cos(site.ry), s = Math.sin(site.ry);
