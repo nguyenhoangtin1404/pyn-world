@@ -254,8 +254,11 @@ export default {
     if (vehicles.car) world.scale.note('car', KINDS.car.length * k, 'citytraffic');
 
     // Each street a loop in the model's units: its right-hand lane along it, then back on the other side.
-    const routes = streets.map((st) => {
-      const off = st.width / 4;
+    // (A boulevard — four lanes, a median between: from the middle, the median's half and then the
+    // lanes of the carriageway, the inner or the outer by street in turn; else the middle of the right half.)
+    const laneOff = (/** @type {typeof world.streets[number]} */ st, /** @type {number} */ i = 0) => (st.median ? st.median / 2 + ((i % 2) + 0.5) * ((st.width - st.median) / 4) : st.width / 4);
+    const routes = streets.map((st, si) => {
+      const off = laneOff(st, si);
       const pts = st.points;
       /** @param {number} i @returns {[number, number]} the right-hand side going along (the direction
        *  over a few points either side, so the two lanes don't fold into each other at a sharp bend) */
@@ -274,7 +277,7 @@ export default {
         const [rx, rz] = right(i);
         loop.push([(pts[i][0] - rx * off) / k, (pts[i][1] - rz * off) / k]);
       }
-      return { path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
+      return { off, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
     });
 
     // Traffic lights where the main streets cross: two phases (roads.signals.crossroads), each
@@ -390,10 +393,11 @@ export default {
           const x = mx * k, z = mz * k;
           // The stop line across the lane — unless that is on a crossing or another street (streets
           // meeting at a sharp angle): the cars still stop there.
-          const line = { x, z, h, half: half / 2, depth: 0.4 * k };
+          const lineHalf = st.median ? (st.width - st.median) / 8 : half / 2; // a boulevard: across the one lane the cars are in
+          const line = { x, z, h, half: lineHalf, depth: 0.4 * k };
           const clear = !world.crosswalks.some((c) => overlaps(line, c) || overlaps(c, line)) && !here.some((o) => o !== st && distanceToLine(o.points, x, z) < o.width / 2);
-          if (clear) mark(x, z, h, 0.2 * k, half / 2 - 0.05);
-          const out = st.width / 4 + (PAVEMENT * k) / 2; // from the lane to the middle of the pavement, on the right
+          if (clear) mark(x, z, h, 0.2 * k, lineHalf - 0.05);
+          const out = half - route.off + (PAVEMENT * k) / 2; // from the lane to the middle of the pavement, on the right
           pole(x - Math.cos(h) * out, z + Math.sin(h) * out, h, st, phase);
         }
       }

@@ -4,6 +4,7 @@ import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
 import { SIZES } from '../world/scale.js';
 import { CLAIM } from '../world/site.js';
+import { plantMedian } from './median.js';
 
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
 // is drawn (terrain.meshHeightAt), a little wider than life so the small ones still show, busier
@@ -66,7 +67,7 @@ function openLine(pts) {
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang trải đường phố',
-  build(world) {
+  build(world, { rng }) {
     const { cfg, site, terrain, track, batch } = world;
     world.need('đường phố từ dữ liệu bản đồ (cfg.roads)', 'streets', cfg.roads?.length);
     const roads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
@@ -85,8 +86,9 @@ export default {
     const laid = [];
     for (const road of ordered) {
       const rank = Math.max(0, RANK.indexOf(road.kind));
-      const lanes = LANES[road.kind] ?? 2;
-      const w = Math.max(road.width, lanes * lane), hw = w / 2;
+      const median = road.median ?? 0; // a boulevard: four lanes (cfg.roads has the whole width), the median between the carriageways
+      const lanes = median ? 4 : LANES[road.kind] ?? 2;
+      const w = Math.max(road.width, lanes * lane + median), hw = w / 2;
       if (lanes === 2) world.scale.note('lane', w / 2, 'streets');
       // Over the rails: up to the rail tops, ramping down either side (like a level crossing).
       const surface = (/** @type {number} */ lift) => (/** @type {number} */ x, /** @type {number} */ z) => {
@@ -111,7 +113,7 @@ export default {
           } else runs.at(-1)?.push([x, z]);
         }
       }
-      for (const run of runs) if (run.length >= 2) laid.push({ road, rank, lanes, w, hw, run, line: openLine(run), top, color, surface });
+      for (const run of runs) if (run.length >= 2) laid.push({ road, rank, lanes, median, w, hw, run, line: openLine(run), top, color, surface });
     }
     // The pavements first, a little lower than any carriageway: where a street meets another, the
     // other's carriageway covers this one's pavement across its mouth.
@@ -156,13 +158,18 @@ export default {
       }
       return false;
     };
-    for (const [id, { road, rank, lanes, w, hw, run, line, top, color, surface }] of laid.entries()) {
-      world.streets.push({ kind: road.kind, name: road.name, width: w, lanes, points: run, length: line.length, heightAt: top, pavementAt: surface(0.04) });
+    for (const [id, { road, rank, lanes, median, w, hw, run, line, top, color, surface }] of laid.entries()) {
+      world.streets.push({ kind: road.kind, name: road.name, width: w, lanes, median, points: run, length: line.length, heightAt: top, pavementAt: surface(0.04) });
       paint.strip(line, 0, line.length, -hw, hw, top, color);
       // Round ends, so streets meet without gaps.
       for (const s of [0, line.length]) paint.ring(line.pointAt(s), 0, hw, 0, 0, top, color);
-      if (MAIN.has(road.kind) && line.length > 6) {
-        const skip = (/** @type {number} */ s) => onOther(id, ...line.pointAt(s), line.headingAt(s)) || onOther(id, ...line.pointAt(s + 1.2), line.headingAt(s + 1.2));
+      const skip = (/** @type {number} */ s) => onOther(id, ...line.pointAt(s), line.headingAt(s)) || onOther(id, ...line.pointAt(s + 1.2), line.headingAt(s + 1.2));
+      if (median && line.length > 6) {
+        // Dashes between the two lanes of each carriageway; the median, planted and lit, between them.
+        const lift = 0.075 + rank * 0.012, between = median / 2 + (w - median) / 4;
+        for (const side of [-1, 1]) paint.dashes(line, 1, line.length - 1, side * between - 0.07, side * between + 0.07, surface(lift), '#ecebe4', 1.2, 2.8, skip);
+        plantMedian(world, { paint, line, median, lane, surface, lift: 0.06 + rank * 0.012, blocked: (s) => skip(s), rng });
+      } else if (MAIN.has(road.kind) && line.length > 6) {
         paint.dashes(line, 1, line.length - 1, -0.07, 0.07, surface(0.075 + rank * 0.012), '#ecebe4', 1.2, 2.8, skip);
       }
       for (let i = 1; i < run.length; i++) {

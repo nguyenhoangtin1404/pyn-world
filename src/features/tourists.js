@@ -5,7 +5,7 @@ import { Party, Tourist, createSpeech, partySizes } from '../world/tourist.js';
 import { squareLoop } from './strollers.js';
 
 // Tourists at each landmark (world.landmarks): they walk slowly (not like the strollers, who keep
-// going), stop at viewpoints scattered round the landmark to look, take photos with a camera and
+// going), stop at places picked at random over the landmark's grounds to look, take photos with a camera and
 // say how lovely it is in a speech bubble with emoji; alone or in parties of two or three who walk
 // together, stand in a row and talk (world/tourist.js). Drawn at world.scale like the strollers; in
 // the rain they put their umbrellas up and stop taking photos. Like them they are world.pedestrians
@@ -27,7 +27,13 @@ export default {
     for (const lm of world.landmarks) {
       const loop = squareLoop(world, lm);
       if (!loop) continue;
-      const area = { pts: loop.route.slice(0, -1), center: lm.spot, parties, rng, k };
+      // The ground they wander on, and the landmark's footprint (the loop round it) they keep out of:
+      // its own, or on a plain pad most of the pad and a small circle in the middle.
+      const pad = world.cfg.pads?.find((p) => Math.hypot(p.x - lm.spot.x, p.z - lm.spot.z) < p.r);
+      const ring = (/** @type {number} */ r) => Array.from({ length: 24 }, (_, i) => new THREE.Vector3((pad?.x ?? lm.spot.x) + Math.sin((i / 24) * Math.PI * 2) * r, 0, (pad?.z ?? lm.spot.z) + Math.cos((i / 24) * Math.PI * 2) * r));
+      const plaza = lm.plaza ?? ring((pad?.r ?? 10) * 0.85);
+      const keepOut = lm.walk ? lm.walk : ring((pad?.r ?? 10) * 0.3);
+      const area = { plaza, keepOut, center: lm.spot, parties, rng, k };
       for (const size of partySizes(rng, count)) {
         const members = Array.from({ length: size }, () => {
           const t = new Tourist(rng, loop.floor, { speed: speed * k, k, speech });
@@ -35,7 +41,7 @@ export default {
           group.add(t.group, t.sprite);
           return t;
         });
-        const party = new Party(members, area, Math.floor(rng() * area.pts.length));
+        const party = new Party(members, area);
         parties.push(party);
         for (const t of members) {
           tourists.push(t);

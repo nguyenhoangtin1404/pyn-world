@@ -73,6 +73,30 @@ export function loopPath(n, from, to, flip = false) {
   return Array.from({ length: steps }, (_, i) => (from + dir * (i + 1) + n * 2) % n);
 }
 
+/** Is (x, z) inside the polygon? @param {{ x: number, z: number }[]} poly @param {number} x @param {number} z */
+export function inside(poly, x, z) {
+  let in_ = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if (a.z > z !== b.z > z && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) in_ = !in_;
+  }
+  return in_;
+}
+
+/**
+ * Can one walk straight from a to b without going through the polygon (the tower's footprint)?
+ * @param {{ x: number, z: number }[]} poly @param {{ x: number, z: number }} a @param {{ x: number, z: number }} b
+ */
+export function clearOf(poly, a, b) {
+  if (inside(poly, a.x, a.z) || inside(poly, b.x, b.z) || inside(poly, (a.x + b.x) / 2, (a.z + b.z) / 2)) return false;
+  const side = (/** @type {{ x: number, z: number }} */ p, /** @type {{ x: number, z: number }} */ q, /** @type {{ x: number, z: number }} */ r) => Math.sign((q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x));
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const c = poly[i], d = poly[j];
+    if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return false;
+  }
+  return true;
+}
+
 /** How many people in each party, summing to `total`: singles, pairs and threes. */
 export function partySizes(rng, total) {
   const sizes = [];
@@ -149,63 +173,89 @@ export class Tourist extends Walker {
 export class Party {
   /**
    * @param {Tourist[]} members
-   * @param {{ pts: THREE.Vector3[], center: { x: number, z: number }, parties: Party[], rng: () => number, k: number }} area
-   *   pts: the loop round the landmark (distinct points, closed), center: what they look at
+   * @param {{ plaza: { x: number, z: number }[], keepOut: THREE.Vector3[], center: { x: number, z: number }, parties: Party[], rng: () => number, k: number }} area
+   *   plaza: the ground they may be on (a polygon), keepOut: the landmark's footprint (a closed loop
+   *   round it, which they go round), center: what they look at
    */
-  constructor(members, area, start) {
+  constructor(members, area) {
     this.members = members;
     this.area = area;
-    this.i = start; // the viewpoint (loop index) they are at or heading for
     this.phase = 'go';
     this.timer = 0;
     this.lastLine = '';
-    members.forEach((m, mi) => (m.lift = (mi % 2) * 1.2 * area.k));
-    this.plan(start);
-    for (const m of members) m.place(this.slot(start, members.indexOf(m)));
-  }
-
-  tangent(i) {
-    const { pts } = this.area, n = pts.length;
-    const a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
-    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-    return [(b.x - a.x) / len, (b.z - a.z) / len];
-  }
-
-  /** Where member `m` stands at viewpoint `i`: in a row along the loop, shoulder to shoulder. */
-  slot(i, m) {
-    const p = this.area.pts[i], [tx, tz] = this.tangent(i);
-    const o = (m - (this.members.length - 1) / 2) * 1.15 * this.area.k;
-    return new THREE.Vector3(p.x + tx * o, 0, p.z + tz * o);
-  }
-
-  /** Everyone's route to viewpoint `to` from where the party is: along the loop, side by side. */
-  route(from, to) {
-    const { pts, rng } = this.area, n = pts.length;
-    const path = loopPath(n, from, to, rng() < 0.15);
-    this.members.forEach((m, mi) => {
-      const lateral = (mi - (this.members.length - 1) / 2) * 0.6 * this.area.k;
-      m.route = path.slice(0, -1).map((idx) => {
-        const p = pts[idx], [tx, tz] = this.tangent(idx);
-        return new THREE.Vector3(p.x - tz * lateral, 0, p.z + tx * lateral);
-      });
-      m.route.push(this.slot(to, mi));
+    this.spot = this.pick();
+    members.forEach((m, mi) => {
+      const p = this.slot(this.spot, mi);
+      m.place(p);
+      m.route = [p];
       m.ri = 0;
     });
   }
 
-  plan(i) {
-    this.route(i, i);
+  /** Where member `m` stands at a viewpoint: in a row across the way they look, shoulder to shoulder. */
+  slot(/** @type {{ x: number, z: number }} */ at, /** @type {number} */ m) {
+    const { center, k } = this.area;
+    const fx = center.x - at.x, fz = center.z - at.z, len = Math.hypot(fx, fz) || 1;
+    const o = (m - (this.members.length - 1) / 2) * 1.15 * k;
+    return new THREE.Vector3(at.x - (fz / len) * o, 0, at.z + (fx / len) * o);
   }
 
-  /** The next viewpoint: a few steps along the loop (they dawdle, not cross the square), not close to another party's. */
-  pickSpot() {
-    const { pts, parties, rng } = this.area, n = pts.length;
-    const gap = (a, b) => Math.min((a - b + n) % n, (b - a + n) % n);
-    for (let tries = 0; tries < 12; tries++) {
-      const i = (this.i + (rng() < 0.5 ? 1 : -1) * (2 + Math.floor(rng() * 3)) + n * 2) % n;
-      if (parties.every((p) => p === this || gap(i, p.i) >= 2)) return i;
+  /** Can the whole party stand at `at` (inside the plaza, off the landmark)? */
+  fits(/** @type {{ x: number, z: number }} */ at) {
+    const { plaza, keepOut } = this.area;
+    return this.members.every((_, mi) => {
+      const p = this.slot(at, mi);
+      return inside(plaza, p.x, p.z) && !inside(keepOut, p.x, p.z);
+    });
+  }
+
+  /** A viewpoint anywhere on the plaza, away from the other parties and from where this one is. */
+  pick() {
+    const { plaza, parties, rng, k } = this.area;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of plaza) [x0, x1, z0, z1] = [Math.min(x0, p.x), Math.max(x1, p.x), Math.min(z0, p.z), Math.max(z1, p.z)];
+    const here = this.spot;
+    for (let tries = 0; tries < 80; tries++) {
+      const at = { x: x0 + rng() * (x1 - x0), z: z0 + rng() * (z1 - z0) };
+      const apart = 9 * k * (1 - tries / 100); // (less and less choosy)
+      if (!this.fits(at)) continue;
+      if (parties.some((o) => o !== this && o.spot && Math.hypot(o.spot.x - at.x, o.spot.z - at.z) < apart)) continue;
+      if (here && Math.hypot(here.x - at.x, here.z - at.z) < 3 * k) continue;
+      return at;
     }
-    return (this.i + 2) % n;
+    return here ?? { x: (x0 + x1) / 2, z: (z0 + z1) / 2 };
+  }
+
+  /** The way from a to b: straight if the landmark isn't in it, else round it along its loop. */
+  way(/** @type {THREE.Vector3} */ a, /** @type {THREE.Vector3} */ b) {
+    const { keepOut } = this.area;
+    if (clearOf(keepOut, a, b)) return [b];
+    const near = (/** @type {THREE.Vector3} */ p) => keepOut.reduce((best, q, i) => (Math.hypot(q.x - p.x, q.z - p.z) < Math.hypot(keepOut[best].x - p.x, keepOut[best].z - p.z) ? i : best), 0);
+    const i = near(a), j = near(b);
+    return [keepOut[i], ...loopPath(keepOut.length, i, j, false).map((q) => keepOut[q]), b].map((p) => new THREE.Vector3(p.x, 0, p.z));
+  }
+
+  /** Everyone's route to viewpoint `to`: straight over the plaza (round the landmark if it is in the way), the party together; now and then by way of a place they fancy looking at. */
+  route(/** @type {{ x: number, z: number }} */ to) {
+    const { rng, plaza, keepOut, k } = this.area;
+    let via = null;
+    if (rng() < 0.4) {
+      for (let tries = 0; tries < 12 && !via; tries++) {
+        const lead = this.members[0].pos, c = { x: (lead.x + to.x) / 2 + (rng() - 0.5) * 10 * k, z: (lead.z + to.z) / 2 + (rng() - 0.5) * 10 * k };
+        if (inside(plaza, c.x, c.z) && !inside(keepOut, c.x, c.z) && this.fits(c)) via = c;
+      }
+    }
+    this.members.forEach((m, mi) => {
+      const goal = this.slot(to, mi);
+      const stops = via ? [this.slot(via, mi), goal] : [goal];
+      let from = new THREE.Vector3(m.pos.x, 0, m.pos.z);
+      m.route = stops.flatMap((p) => {
+        const w = this.way(from, p);
+        from = p;
+        return w;
+      });
+      m.ri = 0;
+    });
   }
 
   /** What they say: now and then to each other, else about the view. */
@@ -233,7 +283,7 @@ export class Party {
       }
       if (done) {
         this.phase = 'look';
-        this.timer = 18 + rng() * 14; // a good look: not on the move all the time
+        this.timer = 12 + rng() * 22; // a good look: not on the move all the time
         for (const m of this.members) {
           m.act = 'gaze';
           m.actT = 0.8 + rng() * 2.5;
@@ -267,9 +317,8 @@ export class Party {
       }
     }
     if (this.timer <= 0) {
-      const to = this.pickSpot();
-      this.route(this.i, to);
-      this.i = to;
+      this.spot = this.pick();
+      this.route(this.spot);
       this.phase = 'go';
     }
   }
