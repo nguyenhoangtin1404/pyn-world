@@ -69,6 +69,7 @@ function resize() {
 }
 
 let hud;
+let landmarkIndex = -1;
 const actions = {
   setWorld(id) {
     switchWorld(id);
@@ -82,6 +83,20 @@ const actions = {
     state.mode = id;
     hud.sync();
     return true;
+  },
+  // Famous buildings (worlds from map data): fly to the next one.
+  flyToLandmark() {
+    const list = world?.landmarks ?? [];
+    if (!list.length) {
+      hud.toast('Thế giới này không có công trình nổi tiếng');
+      return;
+    }
+    landmarkIndex = (landmarkIndex + 1) % list.length;
+    const lm = list[landmarkIndex];
+    rig.flyToSpot(lm.spot, lm.view);
+    state.mode = 'overview';
+    hud.sync();
+    hud.toast(`Bay tới ${lm.name} 🏛`);
   },
   // Jump the clock to a preset's hour (the automatic cycle keeps running from there).
   setTime(id) {

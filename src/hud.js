@@ -38,6 +38,9 @@ export function initHud(state, actions, worlds) {
     $('camera-modes').append(b);
     return [m.id, b];
   });
+  // The famous building: fly to it (V; again for the next one).
+  const landmarkBtn = chip('<kbd>V</kbd>Tháp', () => actions.flyToLandmark());
+  $('camera-modes').append(landmarkBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
   clockEl.setAttribute('aria-label', 'Giờ trong ngày');
@@ -156,8 +159,10 @@ export function initHud(state, actions, worlds) {
       train: !!world.train, passenger: !!world.train, driver: !!world.train,
       bridge: world.bridges.length > 0,
       person: world.followables.people.length > 0, bird: world.followables.birds.length > 0, vehicle: world.followables.vehicles.length > 0,
+      tourist: world.followables.tourists.length > 0, balloon: world.followables.balloons.length > 0,
     };
     for (const [id, b] of camBtns) b.hidden = has[id] === false;
+    landmarkBtn.hidden = world.landmarks.length === 0;
     speed.closest('label').hidden = !world.train;
   }
 

@@ -13,6 +13,8 @@ export const CAMERA_MODES = [
   { id: 'person', label: 'Theo người', key: '6' },
   { id: 'bird', label: 'Theo chim', key: '7' },
   { id: 'vehicle', label: 'Theo xe', key: '8' },
+  { id: 'tourist', label: 'Du khách', key: '9' },
+  { id: 'balloon', label: 'Khinh khí cầu', key: '0' },
 ];
 
 // Chase-camera framing for the follow modes: distance behind, height above, and the point looked at.
@@ -20,6 +22,8 @@ const FOLLOW = {
   person: { back: 6, up: 2.6, look: 1.3, list: 'people' },
   bird: { back: 7, up: 1.8, look: 0.2, list: 'birds' },
   vehicle: { back: 11, up: 4.5, look: 1.2, list: 'vehicles' },
+  tourist: { back: 4.5, up: 1.9, look: 0.9, list: 'tourists' },
+  balloon: { back: 15, up: 3, look: 0, list: 'balloons' },
 };
 
 const LOOK_MODES = new Set(['passenger', 'driver']);
@@ -99,8 +103,8 @@ export class CameraRig {
     this.train = train;
     this.bridges = bridges;
     this.heightAt = heightAt;
-    // { people: [...], birds: [...] }, each entry { label, anchor() → Object3D }
-    this.followables = followables || { people: [], birds: [], vehicles: [] };
+    // { people: [...], birds: [...], vehicles, tourists, balloons }, each entry { label, anchor() → Object3D }
+    this.followables = followables || { people: [], birds: [], vehicles: [], tourists: [], balloons: [] };
     this.occludes = occludes || (() => false); // (a, b) → is the view blocked by scenery?
     this.size = size;
     this.homePos = HOME_POS.clone().multiplyScalar(size / HOME_SIZE);
