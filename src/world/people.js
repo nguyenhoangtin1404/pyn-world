@@ -28,7 +28,7 @@ export const PERSON_HEIGHT = 2.2;
 
 export class Person {
   /**
-   * kind: 'villager' | 'hiker' | 'child' | 'passenger'
+   * kind: 'villager' | 'hiker' | 'child' | 'passenger' | 'tourist' (a villager with a camera: photo())
    */
   constructor(rng, { kind = 'villager', indoor = false } = {}) {
     const pick = (a) => a[Math.floor(rng() * a.length)];
@@ -191,6 +191,15 @@ export class Person {
     );
     this.root.add(this.umbrella);
 
+    // ---- a tourist's camera, in front of the face while taking a photo (scaled to nothing otherwise)
+    if (kind === 'tourist') {
+      this.camera = new THREE.Bone();
+      this.camera.position.set(0, 1.58, 0.5);
+      this.camera.add(segment([box(0.3, 0.2, 0.12, '#2a2a2e', [0, 0, 0]), box(0.12, 0.05, 0.1, '#c9c9c9', [-0.08, 0.12, 0]), ball(0.075, '#3b4a66', [0, 0, 0.08], {}, 0)], mat));
+      this.root.add(this.camera);
+      this.camera.scale.setScalar(0);
+    }
+
     // Bake every segment into one skinned mesh (one draw call per person); the bones stay posable.
     this.mesh = skinFigure(this.group, this.root, mat);
     // A bone can't be hidden, so the folded-away umbrella is scaled to nothing instead.
@@ -218,12 +227,14 @@ export class Person {
   // 0.55 rad in one frame, which read as a blur of limbs.
   walk(p) {
     this.gaitP = p;
+    this.photoing = false;
     this.stride = (this.stride ?? 0) + (1 - (this.stride ?? 0)) * 0.2;
     this.pose();
     this.head.rotation.y *= 0.9;
   }
 
   idle(t) {
+    this.photoing = false;
     this.idleT = t;
     this.stride = (this.stride ?? 0) * 0.8;
     this.pose();
@@ -252,8 +263,24 @@ export class Person {
       this.elbows[0].rotation.x = -0.6;
       this.shoulders[0].rotation.x = -0.15 * w;
     }
+    if (this.photoing) {
+      // Both hands up in front of the face holding the camera.
+      this.shoulders[0].rotation.set(-1.35, 0, -0.2);
+      this.shoulders[1].rotation.set(-1.35, 0, 0.2);
+      this.elbows.forEach((e) => (e.rotation.x = -1.45));
+    }
+    if (this.camera) this.camera.scale.setScalar(this.photoing ? 1 : 0);
     if (this.umbrellaOn) this.holdUmbrella();
     this.root.position.y = Math.abs(Math.cos(p)) * 0.05 * w;
+  }
+
+  // Taking a photo (tourists): standing, the camera up.
+  photo(t) {
+    this.photoing = true;
+    this.idleT = t;
+    this.stride = (this.stride ?? 0) * 0.8;
+    this.pose();
+    this.head.rotation.y *= 0.8;
   }
 
   wave(t) {
