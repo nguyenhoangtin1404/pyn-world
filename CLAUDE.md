@@ -194,7 +194,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
 - **Xe, người, chim trên phố thật** (`streets` để lại `world.streets`: từng đoạn phố đã vẽ — điểm, bề rộng,
   số làn, mặt đường `heightAt`):
-  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải chạy
+  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải, xe buýt (`bus`, 10,6 m, mặc định 2) chạy
     lên xuống các phố chính dài nhất (`routes`, mặc định 10): làn bên phải, quay đầu ở cuối phố. `Vehicle`
     nhận `k` — đường đi, tốc độ và luật giao thông (`updateTraffic`) chạy **trong đơn vị mô hình** như lịch
     tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một
@@ -231,6 +231,14 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     nửa bề rộng phố kia + vỉa hè + 5 m × props (chỗ cho vạch sang đường 3 m + vạch dừng), đo vuông góc với phố kia —
     ngã ba chéo tự lùi xa hơn, như vạch sang đường.
   - **Xe rẽ phải** (`turns`, mặc định 0,35; `world/vehicles/turns.js`): ở ngã tư giữa hai phố chính đều có xe, xe có thể rẽ phải sang làn của phố kia theo đường cong Bézier (`rightTurn`), vào làn khi không có xe sát đó (`turn()` trong `citytraffic`). Chỉ rẽ phải (chưa rẽ trái); Tuy Hòa không có ngã tư nào giữa hai tuyến nên không có xe rẽ — e2e đòi `road.turned > 0` ở NGHINH PHONG.
+  - **Bến xe buýt** (`features/busstop.js`, đặt SAU `tourists` và `citytraffic`): xe buýt chạy trên phố gần quảng trường công trình nhất
+    (`citytraffic` đặt chúng ở đó, không rẽ) và dừng ở một điểm trên phố đó — chỗ gần quảng trường nhất, thẳng, cách vạch sang đường
+    và vạch dừng khác. Điểm dừng là `StopPoint` thường (`world.cityRoutes[r].stops`); cửa xe ở bên phải (local −x, phía vỉa hè).
+    Khách không sinh thêm: **cùng các nhóm `Party` của `tourists`** lên xe (ẩn đi, `phase: 'ride'`) rồi xuống ở lượt sau — xe đầu
+    tiên chở sẵn `riders` nhóm. Nhóm trên quảng trường ở `phase: 'look'` thỉnh thoảng đi ra đứng chờ ở vỉa hè (`wait`, `then:
+    'wait'`), xe tới thì xuống khách (so le 2,5 s) rồi nhóm đang chờ đi tới cửa và lên (`then: 'ride'`); xe đợi ≥ `dwell` s và tới khi
+    ai sắp lên xong (tối đa 40 s). `Tourist.trip` = đang ở ngoài quảng trường vì chuyến xe (e2e không tính là "ra ngoài lan can");
+    trên vỉa hè họ đứng ở độ cao `pavementAt` của phố. `world.busStop` đếm lượt dừng / lên / xuống — e2e đòi cả ba > 0 ở NGHINH PHONG. Bến có mái che (mái + 4 cột, không có tường kính — khách đi thẳng từ quảng trường tới chỗ chờ, tường sẽ bị xuyên qua) và cột biển báo xanh ngay trước cửa xe, vẽ vào `world.batch` theo mét × k.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

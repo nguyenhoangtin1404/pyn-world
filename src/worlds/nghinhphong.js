@@ -27,5 +27,6 @@ export default defineGeoWorld({
     { id: 'tourists', count: 22 }, // tourists at the tower: slow, stopping to look, taking photos, praising it in emoji
     { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
+    'busstop', // the buses stop beside the tower's square: tourists get off and some get on
   ],
 });

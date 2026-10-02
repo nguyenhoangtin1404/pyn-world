@@ -43,6 +43,11 @@ export class Vehicle {
     /** @type {{ length: number, to: number, s1: number } | null} on a connector between two streets: how long it is, where it hands the vehicle on */
     this.turn = null;
     this.turns = 0; // turns made
+    /** @type {'dwell' | 'done' | 'gone' | undefined} a bus at its stop (features/busstop.js): stopped to let people on and off, done, past the stop */
+    this.busState = undefined;
+    this.dwell = 0; // seconds stopped at the stop
+    /** @type {{ party: any, at: number }[]} passengers still to get off, and when (seconds into the stop) */
+    this.alightQ = [];
     this.color = this.spec.colors[Math.floor(rng() * this.spec.colors.length)];
     const { group, wheels, prop, lamps } = fleet.add(kind, this.color);
     this.lamps = lamps; // head/tail light anchors and the pool of light ahead (fleet.js), or null

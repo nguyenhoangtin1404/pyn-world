@@ -88,6 +88,12 @@ export class World {
     this.crosswalks = [];
     /** @type {{ pos: THREE.Vector3 }[]} people on foot about the town who don't take the train (features/strollers.js) */
     this.pedestrians = [];
+    /** @type {import('./world/tourist.js').Party[]} the tourists' parties (features/tourists.js) */
+    this.parties = [];
+    /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, in world units */
+    this.cityRoutes = [];
+    /** @type {{ boarded: number, alighted: number, stops: number } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js) */
+    this.busStop = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
     /** @type {Map<number, () => number>} random streams, see rngFor() */
