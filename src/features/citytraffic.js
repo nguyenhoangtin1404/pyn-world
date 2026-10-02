@@ -278,7 +278,7 @@ export default {
         const [rx, rz] = right(i);
         loop.push([(pts[i][0] - rx * off) / k, (pts[i][1] - rz * off) / k]);
       }
-      return { off, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
+      return { off, side: st.width / 2 - off + (PAVEMENT * k) / 2, pavementAt: st.pavementAt, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
     });
 
     // Traffic lights where the main streets cross: two phases (roads.signals.crossroads), each
@@ -436,8 +436,24 @@ export default {
     }
     // Shared out between the streets, spread evenly along each.
     const onRoute = routes.map(() => 0);
+    // Buses run on the street that passes the landmark's grounds (features/busstop.js stops them there).
+    let busRoute = -1;
+    const lm = world.landmarks?.[0];
+    if (lm) {
+      const pts = lm.plaza ?? [lm.spot];
+      let best = Infinity;
+      routes.forEach((rt, i) => {
+        for (let s = 0; s < rt.path.length; s += 3) {
+          const [x, z] = rt.path.pointAt(s);
+          for (const p of pts) {
+            const d = Math.hypot(x * k - p.x, z * k - p.z);
+            if (d < best) [best, busRoute] = [d, i];
+          }
+        }
+      });
+    }
     const picks = kinds.map((kind, i) => {
-      const r = i % routes.length;
+      const r = kind === 'bus' && busRoute >= 0 ? busRoute : i % routes.length;
       return { kind, r, n: onRoute[r]++ };
     });
     const cars = picks.map(({ kind, r, n }) => {
@@ -451,6 +467,7 @@ export default {
     group.add(props.build());
     for (const c of cars) group.add(c.group);
     world.vehicles.push(...cars);
+    world.cityRoutes.push(...routes);
     const count = {};
     world.followables.vehicles.push(
       ...cars.map((c) => {
@@ -472,6 +489,7 @@ export default {
         c.turns++;
         return;
       }
+      if (c.kind === 'bus') return; // (a bus keeps to its street: it stops at the landmark's stop)
       for (const t of turnsFrom[c.route]) {
         if (!passed(before, c.s, t.s0, c.path.length)) continue;
         if (rng() >= turns) return; // (one decision at each crossing)

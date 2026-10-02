@@ -119,6 +119,7 @@ export class Tourist extends Walker {
     this.act = 'gaze'; // gaze | photo
     this.actT = 0;
     this.photos = 0;
+    this.trip = false; // away from the grounds on the way to or from the bus, or on it (features/busstop.js)
     this.sprite = new THREE.Sprite(speech('📸').mat);
     this.sprite.visible = false;
     this.lift = 0; // the bubble's height over the head: neighbours in a party alternate so they don't overlap
@@ -180,7 +181,12 @@ export class Party {
   constructor(members, area) {
     this.members = members;
     this.area = area;
-    this.phase = 'go';
+    this.phase = 'go'; // go | look | wait (at the bus stop) | ride (on the bus, out of sight)
+    this.then = 'look'; // what a 'go' ends in
+    this.faceAt = null; // wait: what they look at (the road)
+    /** @type {any} the landmark whose grounds they are at, and the bus stop they are bound for (features/busstop.js) */
+    this.landmark = null;
+    this.dest = null;
     this.timer = 0;
     this.lastLine = '';
     this.spot = this.pick();
@@ -268,10 +274,34 @@ export class Party {
     m.say(s);
   }
 
+  /** On the way to the bus, waiting for it, on it, or on the way back. */
+  setTrip(/** @type {boolean} */ on) {
+    for (const m of this.members) m.trip = on;
+  }
+
+  /** Out of sight (on the bus), or back. */
+  hide(/** @type {boolean} */ on) {
+    for (const m of this.members) {
+      m.group.visible = !on;
+      if (on) {
+        m.sprite.visible = false;
+        m.say_.t = 0;
+      }
+    }
+  }
+
   update(dt, t, rain) {
     const { center, rng } = this.area;
     const wet = rain > 0.3;
+    if (this.phase === 'ride') return;
     for (const m of this.members) m.person.setUmbrella(wet);
+    if (this.phase === 'wait') {
+      for (const m of this.members) {
+        if (this.faceAt) m.face(this.faceAt.x, this.faceAt.z, dt);
+        m.idle(t);
+      }
+      return;
+    }
     if (this.phase === 'go') {
       let done = true;
       for (const m of this.members) {
@@ -280,6 +310,12 @@ export class Party {
           m.face(center.x, center.z, dt);
           m.idle(t);
         }
+      }
+      if (done && this.then !== 'look') {
+        this.phase = this.then; // (at the stop, or on the bus)
+        this.then = 'look';
+        if (this.phase === 'ride') this.hide(true);
+        return;
       }
       if (done) {
         this.phase = 'look';

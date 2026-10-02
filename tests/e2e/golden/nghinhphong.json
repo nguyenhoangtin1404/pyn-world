@@ -1,6 +1,6 @@
 {
   "meshes": 181,
-  "geometry": "df181507",
+  "geometry": "ac64e0ed",
   "instances": "659eb293",
   "colliders": 1560,
   "stations": [],
@@ -10,6 +10,6 @@
     18
   ],
   "spots": {},
-  "drawCalls": 284,
+  "drawCalls": 278,
   "programs": 32
 }

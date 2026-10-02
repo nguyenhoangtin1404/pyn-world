@@ -43,6 +43,8 @@ export default {
         });
         const party = new Party(members, area);
         parties.push(party);
+        world.parties.push(party);
+        party.landmark = lm;
         for (const t of members) {
           tourists.push(t);
           world.pedestrians.push(t);

@@ -187,7 +187,7 @@ export function simulate() {
       if (moved < 0.002) tour.standing++;
       if (lm) {
         const { x, z } = w.pos;
-        if (!within(lm.plaza, x, z) && !nearEdge(lm.plaza, x, z)) tour.outside++; // off the paving: through the railing, in the air
+        if (!w.trip && !within(lm.plaza, x, z) && !nearEdge(lm.plaza, x, z)) tour.outside++; // off the paving: through the railing, in the air
         if (within(lm.walk, x, z) && !nearEdge(lm.walk, x, z)) tour.intoTower++;
         if (i % 100 === 0) tour.xs.add(`${k}:${Math.round(x / 2)}:${Math.round(z / 2)}`); // (where each one has been, in cells of 2)
       }
@@ -226,6 +226,7 @@ export function simulate() {
   if (tourists.length) s.tourists = { ...tour, xs: tour.xs.size, speaking: tour.speaking.size };
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
+  if (W.busStop) s.busStop = { ...W.busStop };
   W.weather.set('clear');
   return s;
 }

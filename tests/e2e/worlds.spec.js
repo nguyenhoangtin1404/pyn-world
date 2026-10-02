@@ -56,6 +56,12 @@ for (const { id } of WORLDS) {
         expect(f.waits, why('people wait at the kerb for the lights')).toBeGreaterThan(0);
         expect(f.crossings, why('…and then cross')).toBeGreaterThan(0);
       }
+      if (life.busStop) {
+        const b = life.busStop, why = (what) => `${what} — ${JSON.stringify(b)}`;
+        expect(b.stops, why('buses stop at the tower\'s stop')).toBeGreaterThan(0);
+        expect(b.alighted, why('tourists get off the bus')).toBeGreaterThan(0);
+        expect(b.boarded, why('and some get on')).toBeGreaterThan(0);
+      }
       if (life.tourists) {
         const t = life.tourists;
         const why = (what) => `${what} — ${JSON.stringify(t)}`;
