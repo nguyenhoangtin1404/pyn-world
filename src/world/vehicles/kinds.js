@@ -66,7 +66,7 @@ export const KINDS = {
     ],
     lamps: { head: [[0, 0.86, 0.54]], tail: [[0, 0.72, -0.58]] },
     // Rim in the wheel's plane (y, z), two spokes across it; the wheel turns about x.
-    wheel: (r) => [torus(r, 0.03, TYRE, [0, 0, 0], { ry: Math.PI / 2 }), box(0.02, r * 1.9, 0.02, CHROME), box(0.02, 0.02, r * 1.9, CHROME)],
+    wheel: (r) => [torus(r, 0.03, TYRE, [0, 0, 0], { ry: Math.PI / 2 }, 24), box(0.02, r * 1.9, 0.02, CHROME), box(0.02, 0.02, r * 1.9, CHROME)],
   },
 
   motorbike: {
@@ -90,7 +90,7 @@ export const KINDS = {
       box(0.12, 0.06, 0.04, TAIL, [0, 0.68, -0.82]),
     ],
     lamps: { head: [[0, 0.88, 0.66]], tail: [[0, 0.68, -0.85]] },
-    wheel: (r) => [cyl(r, r, 0.12, TYRE, [0, 0, 0], ACROSS, 12), cyl(r * 0.55, r * 0.55, 0.14, CHROME, [0, 0, 0], ACROSS, 10)],
+    wheel: (r) => [cyl(r, r, 0.12, TYRE, [0, 0, 0], ACROSS, 20), cyl(r * 0.55, r * 0.55, 0.14, CHROME, [0, 0, 0], ACROSS, 14)],
   },
 
   car: {
@@ -211,7 +211,7 @@ export const KINDS = {
 };
 
 function carWheel(r) {
-  return [cyl(r, r, 0.26, TYRE, [0, 0, 0], ACROSS, 12), cyl(r * 0.55, r * 0.55, 0.28, CHROME, [0, 0, 0], ACROSS, 8), box(0.3, r * 0.9, 0.12, DARK)];
+  return [cyl(r, r, 0.26, TYRE, [0, 0, 0], ACROSS, 20), cyl(r * 0.55, r * 0.55, 0.28, CHROME, [0, 0, 0], ACROSS, 12), box(0.3, r * 0.9, 0.12, DARK)];
 }
 
 // Geometries are built once per kind and shared by every world (hence keep()).

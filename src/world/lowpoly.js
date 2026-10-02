@@ -52,7 +52,7 @@ export const box = (w, h, d, color, pos, opt) => shape(new THREE.BoxGeometry(w, 
 export const ball = (r, color, pos, opt, detail = 1) => shape(new THREE.IcosahedronGeometry(r, detail), color, pos, opt);
 export const cyl = (rt, rb, h, color, pos, opt, seg = 8) => shape(new THREE.CylinderGeometry(rt, rb, h, seg), color, pos, opt);
 export const cone = (r, h, color, pos, opt, seg = 8) => shape(new THREE.ConeGeometry(r, h, seg), color, pos, opt);
-export const torus = (r, tube, color, pos, opt) => shape(new THREE.TorusGeometry(r, tube, 6, 14), color, pos, opt);
+export const torus = (r, tube, color, pos, opt, seg = 14) => shape(new THREE.TorusGeometry(r, tube, 6, seg), color, pos, opt);
 
 // Triangular prism (a gable roof): w wide, h tall, d deep, base at y = 0.
 export function prism(w, h, d, color, pos, opt) {

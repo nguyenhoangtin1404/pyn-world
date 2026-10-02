@@ -28,7 +28,7 @@ function lamp(world, { x, y, z, ry, arm, height, sides, across: [px, pz], lane, 
   const bulbY = height - 0.05;
   const lo = Math.min(0, ...sides), hi = Math.max(0, ...sides);
   batch.at(x, y, z, ry).add([
-    cyl(0.05, 0.08, height, '#4b4f55', [0, height / 2, 0]),
+    cyl(0.05, 0.08, height, '#4b4f55', [0, height / 2, 0], {}, 10),
     box((hi - lo) * arm, 0.07, 0.07, '#4b4f55', [((hi + lo) * arm) / 2, height, 0]),
     ...sides.map((sg) => box(0.34, 0.09, 0.22, '#3c4046', [sg * arm, height - 0.02, 0])),
   ]);
