@@ -116,7 +116,7 @@ export interface WorldConfig {
   rivers?: { id: string; name: string; width: number; points: [number, number][] }[];
   places?: Record<string, { id: string; name: string; kind: string; at: [number, number]; p: [number, number] }>;
   /** Worlds from map data, after load(): the streets (real width in units) and the buildings. */
-  roads?: { kind: string; name: string; width: number; points: [number, number][]; median?: number }[];
+  roads?: { kind: string; name: string; width: number; points: [number, number][]; median?: number; ring?: { x: number; z: number; r: number; R: number; ri: number } }[];
   buildings?: import('./world/geodata.js').Building[];
   /** Worlds from map data: metres in one world unit (the map scale; 1 if absent). */
   metersPerUnit?: number;

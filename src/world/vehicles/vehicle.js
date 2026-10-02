@@ -2,6 +2,7 @@ import { approach, clamp, lerp } from '../../utils.js';
 import { Person } from '../people.js';
 import { KINDS } from './kinds.js';
 
+const CORNER = 3.5; // sideways acceleration a vehicle takes in a bend: v² × curvature, at most
 const G = 9.8; // how far bikes lean and planes bank in a turn: tan(angle) = v² × curvature / G
 
 // One vehicle going round a LoopPath: on the ground (following the terrain) or, for a plane, in the
@@ -57,7 +58,9 @@ export class Vehicle {
 
   update(dt) {
     if (dt === 0) return;
-    const want = Math.min(this.cruise, this.limit);
+    // Slower into a tight bend (a U-turn at a street's end): lean no more than the bike can, as the road allows.
+    const bend = this.spec.flies ? 0 : Math.max(Math.abs(this.path.curvatureAt(this.s)), Math.abs(this.path.curvatureAt(this.path.wrap(this.s + 3))));
+    const want = Math.min(this.cruise, this.limit, bend > 0 ? Math.max(1.5, Math.sqrt(CORNER / bend)) : Infinity);
     // Brake lights: slowing down hard, or held at a standstill.
     this.braking = want < this.v - 0.5 || (this.v < 0.2 && this.limit < 0.5);
     this.v = approach(this.v, want, (want > this.v ? 2.5 : 9) * dt);
@@ -99,7 +102,9 @@ export class Vehicle {
     } else {
       group.position.set(x, this.heightAt(x, z), z);
       // Two wheels lean into the turn; four wheels stay upright.
-      group.rotation.set(0, heading, this.rider ? -clamp(turn, -0.45, 0.45) : 0, 'YXZ');
+      // (Eased, and no more than 0.3 rad: a bike turning round at a street's end flicked to the stop.)
+      this.roll = (this.roll ?? 0) + ((this.rider ? -clamp(turn, -0.3, 0.3) : 0) - (this.roll ?? 0)) * 0.12;
+      group.rotation.set(0, heading, this.roll, 'YXZ');
     }
   }
 }

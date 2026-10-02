@@ -4,7 +4,7 @@ import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
 import { SIZES } from '../world/scale.js';
 import { CLAIM } from '../world/site.js';
-import { plantMedian } from './median.js';
+import { buildRoundabout, plantMedian } from './median.js';
 
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
 // is drawn (terrain.meshHeightAt), a little wider than life so the small ones still show, busier
@@ -70,18 +70,29 @@ export default {
   build(world, { rng }) {
     const { cfg, site, terrain, track, batch } = world;
     world.need('đường phố từ dữ liệu bản đồ (cfg.roads)', 'streets', cfg.roads?.length);
-    const roads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
+    const allRoads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
+    // The roundabouts (world/divided.js): drawn as such, not as roads; the streets that run into one
+    // stop at its island.
+    const rings = allRoads.flatMap((r) => (r.ring ? [r.ring] : []));
+    const roads = allRoads.filter((r) => !r.ring);
     const ground = terrain.meshHeightAt;
     const deck = WATER_Y + 0.9; // bridges: over the water, level with the banks
     const pads = cfg.pads ?? [];
     // Where no street goes: off the diorama (the whole street and its pavements inside the edge,
     // `margin` in from it), the station yards, the landmarks' squares.
     const keepOff = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ margin) =>
-      Math.abs(x) > world.size / 2 - margin || Math.abs(z) > world.size / 2 - margin || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24 * track.k) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1);
+      Math.abs(x) > world.size / 2 - margin || Math.abs(z) > world.size / 2 - margin || site.yards.some((p) => Math.hypot(x - p.x, z - p.z) < 24 * track.k) || pads.some((p) => Math.hypot(x - p.x, z - p.z) < p.r + 1) || rings.some((g) => Math.hypot(x - g.x, z - g.z) < g.ri);
     const paint = new Paint();
     const piers = [];
     const lane = world.scale.fit(SIZES.lane);
     const pavement = PAVEMENT * world.scale.props; // each side of the carriageway, for people on foot
+    // Over the rails: up to the rail tops, ramping down either side (like a level crossing).
+    const surfaceOf = (/** @type {number} */ lift) => (/** @type {number} */ x, /** @type {number} */ z) => {
+      let h = Math.max(ground(x, z), deck);
+      const d = track.distanceTo(x, z, 12);
+      if (d < 12) h = Math.max(h, track.railTop - 0.09 - Math.max(0, d - 2.8 * track.k) * 0.22);
+      return h + lift;
+    };
     const ordered = [...roads].sort((a, b) => RANK.indexOf(a.kind) - RANK.indexOf(b.kind));
     const laid = [];
     for (const road of ordered) {
@@ -90,13 +101,7 @@ export default {
       const lanes = median ? 4 : LANES[road.kind] ?? 2;
       const w = Math.max(road.width, lanes * lane + median), hw = w / 2;
       if (lanes === 2) world.scale.note('lane', w / 2, 'streets');
-      // Over the rails: up to the rail tops, ramping down either side (like a level crossing).
-      const surface = (/** @type {number} */ lift) => (/** @type {number} */ x, /** @type {number} */ z) => {
-        let h = Math.max(ground(x, z), deck);
-        const d = track.distanceTo(x, z, 12);
-        if (d < 12) h = Math.max(h, track.railTop - 0.09 - Math.max(0, d - 2.8 * track.k) * 0.22);
-        return h + lift;
-      };
+      const surface = surfaceOf;
       const top = surface(0.06 + rank * 0.012);
       const color = colorOf(road.kind);
       // Resample every STEP units and cut out the stretches that must stay clear.
@@ -168,7 +173,11 @@ export default {
         // Dashes between the two lanes of each carriageway; the median, planted and lit, between them.
         const lift = 0.075 + rank * 0.012, between = median / 2 + (w - median) / 4;
         for (const side of [-1, 1]) paint.dashes(line, 1, line.length - 1, side * between - 0.07, side * between + 0.07, surface(lift), '#ecebe4', 1.2, 2.8, skip);
-        plantMedian(world, { paint, line, median, lane, surface, lift: 0.06 + rank * 0.012, blocked: (s) => skip(s), rng });
+        const nearRing = (/** @type {number} */ s) => {
+          const [x, z] = line.pointAt(s);
+          return rings.some((g) => Math.hypot(x - g.x, z - g.z) < g.R + 0.8);
+        };
+        plantMedian(world, { paint, line, median, lane, surface, lift: 0.06 + rank * 0.012, blocked: (s) => skip(s) || nearRing(s), rng });
       } else if (MAIN.has(road.kind) && line.length > 6) {
         paint.dashes(line, 1, line.length - 1, -0.07, 0.07, surface(0.075 + rank * 0.012), '#ecebe4', 1.2, 2.8, skip);
       }
@@ -188,6 +197,20 @@ export default {
         const g = ground(x, z);
         if (g < WATER_Y - 0.3) piers.push({ x, z, y0: g, y1: top(x, z) - 0.4, w: w * 0.8, ry: line.headingAt(s) });
       }
+    }
+    // The roundabouts: above every road that runs into them.
+    const ringLift = 0.06 + (RANK.length - 1) * 0.012 + 0.004;
+    for (const ring of rings) {
+      buildRoundabout(world, { paint, ring, lane, pavement, surface: surfaceOf, lift: ringLift, color: colorOf('primary'), rng });
+      world.roundabouts.push(ring);
+      // Cars and trees keep off it: the road round the island (in pieces along it), the island itself.
+      const n = 28, mid = (ring.ri + ring.R) / 2;
+      for (let i = 0; i < n; i++) {
+        const a = ((i + 0.5) / n) * Math.PI * 2;
+        site.claimRect(ring.x + Math.cos(a) * mid, ring.z + Math.sin(a) * mid, ((Math.PI * 2 * mid) / n) * 1.15, ring.R - ring.ri, -a + Math.PI / 2, 0, CLAIM.CARRIAGEWAY);
+        site.claimRect(ring.x + Math.cos(a) * mid, ring.z + Math.sin(a) * mid, ((Math.PI * 2 * mid) / n) * 1.15, ring.R - ring.ri, -a + Math.PI / 2, pavement + 0.1, CLAIM.PAVEMENT);
+      }
+      site.claimRect(ring.x, ring.z, ring.ri * 1.5, ring.ri * 1.5, 0, 0.3);
     }
     batch.at(0, 0, 0, 0).add(paint.geometry() ?? []);
     for (const p of piers) batch.at(p.x, p.y0, p.z, p.ry).add([box(p.w, p.y1 - p.y0, 0.7, '#8f8a80', [0, (p.y1 - p.y0) / 2, 0])]);

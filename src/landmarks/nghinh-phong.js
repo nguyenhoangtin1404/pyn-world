@@ -15,7 +15,7 @@ import { guard, sealTexture, tamper } from '../world/seal.js';
 // them the "wind-welcoming" slot, 2 m wide and 15 m long, open to the sea, reliefs of the legend on
 // its walls. It stands on the April 1st square: a half circle of granite (7 190 m²: a radius of
 // about 68 m), its straight side towards the town, its round side a wall and railing above the
-// beach, hexagon tiles over it and a band of steps across it on the slant. At night the lower
+// beach, hexagon tiles over it. At night the lower
 // columns glow in colours and the spires carry red lights.
 // The square is drawn at the map's scale; the tower a little bigger than that (TOWER × the map, no
 // more than the props scale), so that it still stands tall over the people round it.
@@ -28,7 +28,7 @@ const TOWER = 1.5; // the tower drawn this many times the map scale
 const SPIRE = 1.4; // the two spires drawn this much taller than their measure, so they stand out over the steps
 const STONE = ['#7c8791', '#86919b', '#727d87', '#8e99a2'];
 const RELIEF = '#66707a';
-const PAVE = '#c9c7c1', TILE = '#8f969c', STEP = '#e8e6e0', WALL = '#b3aea4', FASCIA = '#f1efe9', RAIL = '#d9d7d0';
+const PAVE = '#c9c7c1', TILE = '#8f969c', WALL = '#b3aea4', FASCIA = '#f1efe9', RAIL = '#d9d7d0';
 const LED = ['#ff3b5c', '#ffb830', '#3bff7a', '#33c2ff', '#8a5bff', '#ff5bd6'];
 
 /**
@@ -150,13 +150,6 @@ export default {
           paint.tri(c, W(x + Math.cos(a0) * hr, z + Math.sin(a0) * hr, 0.01), W(x + Math.cos(a1) * hr, z + Math.sin(a1) * hr, 0.01), TILE);
         }
       }
-    }
-    // A band of steps across the square on the slant, from the foot of the tower towards its landward corner.
-    const A = [-4.5 * cell, 4 * cell], E = [-B + 1, R * 0.75];
-    const len = Math.hypot(E[0] - A[0], E[1] - A[1]), ux = (E[0] - A[0]) / len, uz = (E[1] - A[1]) / len, bw = 6 * map;
-    for (let s = 0, i = 0; s + 1.2 * map < len; s += 2.4 * map, i++) {
-      const q = (/** @type {number} */ t, /** @type {number} */ w) => W(A[0] + ux * t - uz * w, A[1] + uz * t + ux * w, 0.02);
-      paint.quad(q(s, -bw / 2), q(s + 1.2 * map, -bw / 2), q(s + 1.2 * map, bw / 2), q(s, bw / 2), i % 2 ? STEP : TILE);
     }
     // Edges: a wall down to the ground wherever the ground falls away, a white band along the top,
     // a railing along the round side.
