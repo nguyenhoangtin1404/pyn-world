@@ -100,6 +100,8 @@ export interface WorldConfig {
   track: (() => [number, number][]) | null;
   /** Size of the ground's grid cells, units (default 3): smaller is a smoother ground and shore, more triangles. */
   cell?: number;
+  /** Cell size (units) the ground and the static batch are cut into so what is off screen — to the camera or the sun's shadow — isn't drawn (worlds from map data: 100). */
+  chunk?: number;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
   trackClosed?: boolean;
   stops: StopConfig[];

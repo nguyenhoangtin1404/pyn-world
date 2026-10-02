@@ -4,6 +4,7 @@ import { TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';
 import { clamp, lerp, smoothstep, hash2 } from '../utils.js';
 import { createWater } from './water.js';
 import { createGrade } from './grade.js';
+import { splitByCells } from './lowpoly.js';
 
 const perlin = new ImprovedNoise();
 
@@ -303,8 +304,20 @@ export function createTerrain(cfg, track, stops, rivers) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
   const groundMat = snowCovered(geo, snowWeight);
-  const mesh = new THREE.Mesh(geo, groundMat);
-  mesh.receiveShadow = true;
+  // (A world with cfg.chunk: the ground in pieces, so the ones out of sight aren't drawn.)
+  /** @type {THREE.Object3D} */
+  let mesh;
+  if (cfg.chunk) {
+    mesh = new THREE.Group();
+    for (const g of splitByCells(geo, cfg.chunk)) {
+      const piece = new THREE.Mesh(g, groundMat);
+      piece.receiveShadow = true;
+      mesh.add(piece);
+    }
+  } else {
+    mesh = new THREE.Mesh(geo, groundMat);
+    mesh.receiveShadow = true;
+  }
 
   // Water: one faceted sheet, animated in its shader (see water.js).
   const water = createWater({ size, riverGLSL: rivers.glsl });

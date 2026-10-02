@@ -231,7 +231,7 @@ export class World {
           const person = /** @type {import('./world/people.js').Person} */ ('person' in p ? p.person : p);
           if (!person.child) this.scale.note('person', PERSON_HEIGHT * person.group.scale.y, 'people'); // (not drawn at world.scale yet)
         }
-        scene.add(this.batch.build());
+        scene.add(this.batch.build({ chunk: cfg.chunk }));
         this.checkSeal();
       }),
     ];

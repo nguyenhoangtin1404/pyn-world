@@ -49,6 +49,7 @@ export function defineGeoWorld(recipe) {
   /** @type {import('../types').WorldConfig} */
   const cfg = {
     ...rest,
+    chunk: 100, // the ground and the static batch in pieces of 100 units: the ones out of sight (the camera's, the sun's shadow) aren't drawn
     riverX: null,
     riverGLSL: NO_RIVER_GLSL,
     trackClosed: false,
