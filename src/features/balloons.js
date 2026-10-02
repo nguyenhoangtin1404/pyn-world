@@ -104,7 +104,9 @@ export default {
           b.envMat.emissiveIntensity = burning ? 0.1 + lights * 0.5 : 0;
         }
       };
-    world.followables.birds.push(...balloons.map((b, i) => ({ label: `Khinh khí cầu ${i + 1}`, anchor: () => b.group })));
+    const followed = balloons.map((b, i) => ({ label: `Khinh khí cầu ${i + 1}`, anchor: () => b.group }));
+    world.followables.birds.push(...followed); // (key 7 follows them too)
+    world.followables.balloons.push(...followed);
     return { group, update };
   },
 };

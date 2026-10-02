@@ -9,7 +9,7 @@ import { squareLoop } from './strollers.js';
 // say how lovely it is in a speech bubble with emoji; alone or in parties of two or three who walk
 // together, stand in a row and talk (world/tourist.js). Drawn at world.scale like the strollers; in
 // the rain they put their umbrellas up and stop taking photos. Like them they are world.pedestrians
-// and key 6 follows them. Options: count (tourists at each landmark, 14), speed (m/s, 0.6).
+// and key 9 follows them (6 too). Options: count (tourists at each landmark, 14), speed (m/s, 0.6).
 
 /** @type {import('../types').Feature} */
 export default {
@@ -46,7 +46,9 @@ export default {
         for (const t of members) {
           tourists.push(t);
           world.pedestrians.push(t);
-          world.followables.people.push({ label: `Du khách ${lm.name} ${tourists.length}`, anchor: () => t.group });
+          const entry = { label: `Du khách ${lm.name} ${tourists.length}`, anchor: () => t.group };
+          world.followables.people.push(entry); // (key 6 follows them too)
+          world.followables.tourists.push(entry);
         }
       }
     }

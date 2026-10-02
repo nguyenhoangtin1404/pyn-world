@@ -63,3 +63,25 @@ test('V flies to each famous building of a world from map data', async ({ page }
   await expect(toast).toHaveText('Bay tới Tháp Nghinh Phong 🏛'); // round again
   expect(page.errors).toEqual([]);
 });
+
+test('quick views: the tower, the tourists, the balloons', async ({ page }) => {
+  await openWorld(page, 'nghinhphong');
+  const state = () => page.evaluate(() => ({ ...window.__pyn.state }));
+  const toast = page.locator('#toast');
+  await page.keyboard.press('KeyV');
+  await expect(toast).toHaveText('Bay tới Tháp Nghinh Phong 🏛');
+  await page.keyboard.press('Digit9');
+  expect((await state()).mode).toBe('tourist');
+  await expect(toast).toHaveText(/^Đang theo: Du khách /);
+  const first = await toast.textContent();
+  await page.keyboard.press('Digit9');
+  await expect(toast).not.toHaveText(first); // again: the next one
+  await page.keyboard.press('Digit0');
+  expect((await state()).mode).toBe('balloon');
+  await expect(toast).toHaveText(/^Đang theo: Khinh khí cầu /);
+  // The chips: the tower's, and the new cameras', all shown in this world.
+  await expect(page.locator('#camera-modes button', { hasText: 'Tháp' })).toBeVisible();
+  await expect(page.locator('#camera-modes button', { hasText: 'Du khách' })).toBeVisible();
+  await expect(page.locator('#camera-modes button', { hasText: 'Khinh khí cầu' })).toBeVisible();
+  expect(page.errors).toEqual([]);
+});

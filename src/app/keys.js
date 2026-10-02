@@ -15,7 +15,6 @@ export const SPOT_KEYS = {
 // { state, actions, rig, audio, hud(), world(), switchWorld(id), worlds }.
 export function createKeyHandler(app) {
   const { state, actions, rig, audio, worlds } = app;
-  let landmarkIndex = -1;
   return function onKey(e) {
     const hud = app.hud(), world = app.world();
     if (e.target.closest?.('input, select, textarea')) return;
@@ -27,9 +26,10 @@ export function createKeyHandler(app) {
     }
     if (!world) return; // the next world is still being built
     audio.init();
-    const digit = /^Digit([1-9])$/.exec(e.code);
-    if (digit && CAMERA_MODES[+digit[1] - 1]) {
-      const m = CAMERA_MODES[+digit[1] - 1];
+    const digit = /^Digit([0-9])$/.exec(e.code);
+    const mode = digit && CAMERA_MODES.find((m) => m.key === digit[1]);
+    if (mode) {
+      const m = mode;
       if (!actions.setMode(m.id)) return; // nothing to follow here (it said so)
       hud.toast(rig.followLabel ? `Đang theo: ${rig.followLabel}` : `Camera: ${m.label}`);
       return;
@@ -46,21 +46,9 @@ export function createKeyHandler(app) {
       return;
     }
     switch (e.code) {
-      case 'KeyV': {
-        // Famous buildings (worlds from map data): fly to the next one.
-        const list = world.landmarks;
-        if (!list.length) {
-          hud.toast('Thế giới này không có công trình nổi tiếng');
-          break;
-        }
-        landmarkIndex = (landmarkIndex + 1) % list.length;
-        const lm = list[landmarkIndex];
-        rig.flyToSpot(lm.spot, lm.view);
-        state.mode = 'overview';
-        hud.sync();
-        hud.toast(`Bay tới ${lm.name} 🏛`);
+      case 'KeyV':
+        actions.flyToLandmark();
         break;
-      }
       case 'KeyB':
         rig.nextBridge();
         state.mode = 'bridge';
