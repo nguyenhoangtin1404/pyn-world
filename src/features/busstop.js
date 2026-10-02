@@ -1,6 +1,7 @@
 // @ts-check
 import * as THREE from 'three';
 import { inside } from '../world/tourist.js';
+import { box, cyl } from '../world/lowpoly.js';
 
 // A bus stop on the street beside a landmark's grounds (world.landmarks): the buses (citytraffic) stop
 // there with their doors to the kerb, let their passengers off — tourists, who walk over the pavement
@@ -67,6 +68,24 @@ export default {
       for (const p of parties) for (const m of p.members) {
         const floor = m.heightAt;
         m.heightAt = (/** @type {number} */ x, /** @type {number} */ z) => (inside(plaza, x, z) ? floor(x, z) : rt.pavementAt(x, z));
+      }
+      // A shelter over the pavement where they queue (a roof on four posts: nobody walks through a wall),
+      // and the stop's sign on a pole by the kerb just ahead of the door. In metres, drawn at k.
+      {
+        const { at, fwd } = door, y = rt.pavementAt(at.x, at.z);
+        const POST = '#8c9399', ROOF = '#2f8f8b', BLUE = '#2a62b8', WHITE = '#f4f1ea';
+        const x0 = 0.65, x1 = -0.9, z0 = -0.2, z1 = -5.4; // across (local +x is to the left, the road's side; the grounds' side is −x), along
+        world.batch.at(at.x, y, at.z, Math.atan2(fwd.x, fwd.y), k).add([
+          ...[[x0, z0], [x0, z1], [x1, z0], [x1, z1]].map(([x, z]) => cyl(0.04, 0.04, 2.5, POST, [x, 1.25, z], {}, 6)),
+          box(1.9, 0.14, 5.5, ROOF, [(x0 + x1) / 2, 2.57, (z0 + z1) / 2]), // roof
+          box(1.94, 0.1, 5.54, WHITE, [(x0 + x1) / 2, 2.45, (z0 + z1) / 2]), // its pale underside / fascia
+          box(0.04, 0.5, 1.2, BLUE, [x1 - 0.02, 1.5, (z0 + z1) / 2]), // a board on the far posts: the route
+          cyl(0.035, 0.035, 2.8, POST, [0.45, 1.4, 1.6], {}, 6), // the sign's pole
+          box(0.75, 0.75, 0.05, BLUE, [0.45, 2.55, 1.6]), // plate
+          box(0.5, 0.12, 0.07, WHITE, [0.45, 2.78, 1.6]), // …white band
+          box(0.46, 0.3, 0.07, WHITE, [0.45, 2.5, 1.6]), // …and a bus on it
+          box(0.38, 0.1, 0.08, BLUE, [0.45, 2.55, 1.6]),
+        ]);
       }
       places.push({ lm, rt, stop, door, parties, plaza, timer: 0, queue: /** @type {any[]} */ ([]) });
     }

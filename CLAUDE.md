@@ -238,7 +238,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     tiên chở sẵn `riders` nhóm. Nhóm trên quảng trường ở `phase: 'look'` thỉnh thoảng đi ra đứng chờ ở vỉa hè (`wait`, `then:
     'wait'`), xe tới thì xuống khách (so le 2,5 s) rồi nhóm đang chờ đi tới cửa và lên (`then: 'ride'`); xe đợi ≥ `dwell` s và tới khi
     ai sắp lên xong (tối đa 40 s). `Tourist.trip` = đang ở ngoài quảng trường vì chuyến xe (e2e không tính là "ra ngoài lan can");
-    trên vỉa hè họ đứng ở độ cao `pavementAt` của phố. `world.busStop` đếm lượt dừng / lên / xuống — e2e đòi cả ba > 0 ở NGHINH PHONG.
+    trên vỉa hè họ đứng ở độ cao `pavementAt` của phố. `world.busStop` đếm lượt dừng / lên / xuống — e2e đòi cả ba > 0 ở NGHINH PHONG. Bến có mái che (mái + 4 cột, không có tường kính — khách đi thẳng từ quảng trường tới chỗ chờ, tường sẽ bị xuyên qua) và cột biển báo xanh ngay trước cửa xe, vẽ vào `world.batch` theo mét × k.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
