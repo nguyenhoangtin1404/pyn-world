@@ -5,6 +5,7 @@ import { LoopPath } from '../world/vehicles/path.js';
 import { Vehicle } from '../world/vehicles/vehicle.js';
 import { KINDS } from '../world/vehicles/kinds.js';
 import { updateTraffic } from '../world/vehicles/traffic.js';
+import { passed, rightTurn } from '../world/vehicles/turns.js';
 import { SIZES } from '../world/scale.js';
 import { SignalProps } from '../world/roads/props.js';
 import { crossroads } from '../world/roads/signals.js';
@@ -236,7 +237,7 @@ export function overlaps(a, b) {
 export default {
   label: 'Đang cho xe ra phố',
   needs: ['streets'],
-  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2 }, routes: routeCount = 10, min = 60, lights = true }) {
+  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2 }, routes: routeCount = 10, min = 60, lights = true, turns = 0.35 }) {
     for (const kind of Object.keys(vehicles)) world.need(`loại xe có bánh (không phải "${kind}")`, 'citytraffic', KINDS[kind] && !KINDS[kind].flies);
     const k = world.scale.props;
     const along = (/** @type {[number, number][]} */ p) => p.reduce((sum, q, i) => sum + (i ? Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0), 0);
@@ -404,6 +405,27 @@ export default {
       signals.push(...phases); // every phase runs, lit or not (a stop line with no room for its light still changes)
     }
 
+    // Turns: at a crossing a vehicle may turn right into another street that has traffic, by a short
+    // curved connector (world/vehicles/turns.js) from its lane into that street's lane heading to its
+    // right (`turns`: the chance it does, at each crossing; 0 for none). One that starts the turn is on
+    // the connector until it has driven it, then on the other street's route.
+    /** @type {{ s0: number, connector: LoopPath, length: number, s1: number, to: number }[][]} */
+    const turnsFrom = routes.map(() => []);
+    if (turns > 0) {
+      for (const j of junctions) {
+        const at = /** @type {[number, number]} */ ([j.p[0] / k, j.p[1] / k]);
+        for (const a of j.streets) for (const b of j.streets) {
+          if (a === b || !routes[a] || !routes[b]) continue;
+          for (const sa of passes(routes[a].path, at, (all[a].width / 2 + 0.5) / k)) {
+            for (const sb of passes(routes[b].path, at, (all[b].width / 2 + 0.5) / k)) {
+              const t = rightTurn(routes[a].path, sa, routes[b].path, sb, 1.6);
+              if (t) turnsFrom[a].push({ ...t, to: b });
+            }
+          }
+        }
+      }
+    }
+
     const group = new THREE.Group();
     const fleet = new Fleet(vehicles);
     group.add(...fleet.meshes);
@@ -422,6 +444,7 @@ export default {
       const { path, heightAt, stops } = routes[r];
       const car = new Vehicle({ kind, fleet, path, s: ((n + rng() * 0.5) / onRoute[r]) * path.length, rng, heightAt, k });
       car.stops = stops;
+      car.route = r;
       return car;
     });
     world.batch.at(0, 0, 0, 0).add(paint.geometry() ?? []);
@@ -436,6 +459,34 @@ export default {
       }),
     );
 
+    /** Hand a vehicle on at the end of a turn, or start one where it passes the beginning of a turn. */
+    const turn = (/** @type {Vehicle} */ c, /** @type {number} */ before) => {
+      if (c.turn) {
+        if (c.s < c.turn.length) return;
+        const to = routes[c.turn.to];
+        c.path = to.path;
+        c.s = to.path.wrap(c.turn.s1);
+        c.stops = to.stops;
+        c.route = c.turn.to;
+        c.turn = null;
+        c.turns++;
+        return;
+      }
+      for (const t of turnsFrom[c.route]) {
+        if (!passed(before, c.s, t.s0, c.path.length)) continue;
+        if (rng() >= turns) return; // (one decision at each crossing)
+        const target = routes[t.to].path, half = target.length / 2;
+        // Not into a lane with someone close ahead or behind where it would join.
+        const near = cars.some((o) => o !== c && o.path === target && Math.abs(((o.s - t.s1 + half + target.length) % target.length) - half) < (o.length + c.length) / 2 + 5);
+        if (near) return;
+        c.turn = { length: t.length, to: t.to, s1: t.s1 };
+        c.path = t.connector;
+        c.s = 0;
+        c.stops = [];
+        return;
+      }
+    };
+
     const people = [];
     return {
       group,
@@ -449,7 +500,11 @@ export default {
         people.length = 0;
         for (const w of world.pedestrians) people.push({ x: w.pos.x / k, z: w.pos.z / k });
         updateTraffic(cars, people, SIZES.lane / 2);
-        for (const c of cars) c.update(dt);
+        for (const c of cars) {
+          const before = c.s;
+          c.update(dt);
+          turn(c, before);
+        }
       },
       lateUpdate({ lights, overcast }) {
         const on = lights > 0.3 || overcast > 0.6;

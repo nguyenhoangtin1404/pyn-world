@@ -39,6 +39,10 @@ export class Vehicle {
     this.v = this.spec.flies ? this.cruise : 0; // planes are already flying
     this.limit = Infinity;
     this.stops = undefined; // stop points on its route (world/vehicles/traffic.js), set by the traffic
+    this.route = 0; // which of the traffic's routes it is on (features/citytraffic.js, which turns it into another)
+    /** @type {{ length: number, to: number, s1: number } | null} on a connector between two streets: how long it is, where it hands the vehicle on */
+    this.turn = null;
+    this.turns = 0; // turns made
     this.color = this.spec.colors[Math.floor(rng() * this.spec.colors.length)];
     const { group, wheels, prop, lamps } = fleet.add(kind, this.color);
     this.lamps = lamps; // head/tail light anchors and the pool of light ahead (fleet.js), or null

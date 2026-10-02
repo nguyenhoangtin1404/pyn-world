@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import cfg from '../../src/worlds/nghinhphong.js';
+import { auditRoads } from '../../src/world/streetnet.js';
 
 describe('NGHINH PHONG', () => {
   beforeAll(() => cfg.load());
@@ -15,11 +16,15 @@ describe('NGHINH PHONG', () => {
     expect(Math.max(...off.map(Math.abs))).toBeLessThan(0.3);
   });
 
+  it('has road data with nothing left to mend (streetnet.auditRoads)', () => {
+    expect(auditRoads(cfg.roads)).toEqual([]);
+  });
+
   it('has its big roads as boulevards: four lanes and a median', () => {
     const big = cfg.roads.filter((r) => r.median);
     expect(big.length).toBeGreaterThan(5);
     for (const r of big) expect(r.width).toBeGreaterThan(r.median + 4);
-    // …and no divided road drawn twice side by side
+    // …and no streetnet road drawn twice side by side
     expect(cfg.roads.filter((r) => r.name === 'Lê Duẩn')).toHaveLength(2);
   });
 });

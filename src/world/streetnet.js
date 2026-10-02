@@ -1,10 +1,22 @@
 // @ts-check
 
-// Boulevards: the town's big roads laid out as four lanes with a planted median. The map draws a
-// divided road as two streets side by side, one per carriageway; here the pair becomes one road along
-// the middle (`mergeDualCarriageways`), and every big road — merged, or drawn once — is given its
-// width and its median (`boulevards`). features/streets.js paints the median, plants it and lights
-// it; features/citytraffic.js keeps the cars to the lanes either side of it.
+// The street network as the map data draws it, made fit to be laid out: every patch the data needs is
+// here, in one place, applied in one order by `prepareRoads` (cfg.roads of a world with
+// `boulevards: true`):
+//   1. a road drawn out along one carriageway and back along the other becomes two (`unfold`);
+//   2. two roads side by side, of one name, become one along their middle, the crossovers between them
+//      dropped (`mergeDualCarriageways`);
+//   3. the big roads — merged, primary and up, the long named tertiary ones — get four lanes round a
+//      median (`boulevards` rules in `prepareRoads`);
+//   4. a closed loop of a few units is a roundabout (`findRing`), as wide as the boulevards through it
+//      ask: a `ring`, not a road.
+// `auditRoads` lists what is still wrong with a network (a road that folds back on itself, two of one
+// name side by side, a loop that is not a ring) — a new area's data is checked with it
+// (tests/unit/streetnet.test.js, a world's own test). Landmark placement along the streets is here too
+// (`streetFrame`, `alignToCrossStreet`), and `reachesOut`, which says whether a street under a boulevard
+// comes out from under it (features/streets.js: what cuts a median).
+// features/streets.js paints the median and the roundabouts; features/citytraffic.js keeps the cars to
+// the lanes either side of the median.
 
 /**
  * @typedef {{ x: number, z: number, r: number, R: number, ri: number }} Ring a roundabout: its centre, the map's radius, and as drawn the outer radius R and the island's ri
@@ -133,7 +145,7 @@ export function findRing(r) {
  * @param {Road[]} roads @param {{ lane: number, median: number, gap?: number }} o
  * @returns {Road[]}
  */
-export function boulevards(roads, { lane, median, gap }) {
+function boulevards(roads, { lane, median, gap }) {
   const { roads: all, merged } = mergeDualCarriageways(roads, gap);
   const mapped = all.map((r) => {
     if (findRing(r)) return r;
@@ -197,3 +209,104 @@ export function alignToCrossStreet(roads, frame, p, dist, { reach = 14, tilt = 0
   }
   return best && { p: best.p, n: best.n };
 }
+
+
+/**
+ * Everything the data needs before it is laid out (see the file's header), in order.
+ * @param {Road[]} roads @param {{ lane: number, median: number, gap?: number }} o
+ * @returns {{ roads: Road[], report: { roads: number, merged: number, boulevards: number, rings: number } }}
+ */
+export function prepareRoads(roads, o) {
+  const out = boulevards(roads, o);
+  return {
+    roads: out,
+    report: { roads: out.length, merged: mergeDualCarriageways(roads, o.gap).merged.size, boulevards: out.filter((r) => r.median).length, rings: out.filter((r) => r.ring).length },
+  };
+}
+
+/**
+ * What is still wrong with a network of roads, one line each: a road that folds back on itself (out
+ * along one carriageway, back along the other), two roads of one kind and name running side by side,
+ * a closed loop that is not a roundabout (`ring`). [] for a network `prepareRoads` has made right.
+ * @param {Road[]} roads @param {number} [gap]
+ * @returns {string[]}
+ */
+export function auditRoads(roads, gap = 8) {
+  const problems = [];
+  const plain = roads.filter((r) => !r.ring);
+  for (const r of plain) if (unfold(r, gap).length > 1) problems.push(`"${r.name}" (${r.kind}) folds back on itself`);
+  const { merged } = mergeDualCarriageways(plain, gap);
+  for (const r of merged) problems.push(`"${r.name}" (${r.kind}) is drawn as two roads side by side`);
+  for (const r of roads) {
+    if (!r.ring && findRing(r)) problems.push(`a closed loop at ${r.points[0].map((v) => v.toFixed(0))} is not a roundabout`);
+  }
+  return problems;
+}
+
+/**
+ * Does road `other` come out from under road `self` — some of it beyond `self`'s kerbs (its half
+ * width `hw` and a `pavement` each side)? One that doesn't (a driveway or lane lying wholly under a
+ * boulevard) isn't there to cross it, so doesn't cut its median.
+ * @param {[number, number][]} self the laid points of the first @param {number} hw @param {number} pavement
+ * @param {[number, number][]} other the laid points of the second
+ */
+export function reachesOut(self, hw, pavement, other) {
+  return other.some(([x, z]) => nearest(self, x, z).d > hw + pavement + 0.3);
+}
+
+/** The kinds of street that cut a boulevard's median where they cross it (the ones with crossings). */
+export const CROSSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'road', 'living_street']);
+
+/**
+ * The street nearest p, and how a landmark with a straight side lies along it: a straight line fitted
+ * through the street's points over `reach` either way of where it passes nearest p (so the side is
+ * as long as that stretch, and parallel to the street over all of it — the tangent at one point, or
+ * over a few vertices, is off by a few degrees on a street with coarse points), the point of the line
+ * nearest p (q), the unit normal from it towards p (n, away from the street), the street's half width.
+ * @param {{ kind: string, width: number, points: [number, number][] }[]} roads @param {[number, number]} p
+ * @param {Set<string>} kinds the kinds of street that count
+ * @param {number} [reach] units
+ * @returns {{ q: [number, number], n: [number, number], half: number } | null}
+ */
+export function streetFrame(roads, p, kinds, reach = 12) {
+  let best = Infinity, found = null;
+  for (const r of roads) {
+    if (!kinds.has(r.kind)) continue;
+    for (let i = 1; i < r.points.length; i++) {
+      const [ax, az] = r.points[i - 1], [bx, bz] = r.points[i];
+      const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - az) * dz) / len2));
+      // (A street that ends at p — a side street running into the one the landmark lies along — counts as farther: it is not the street to lie along.)
+      const end = (i === 1 && t === 0) || (i === r.points.length - 1 && t === 1);
+      const d = Math.hypot(ax + dx * t - p[0], az + dz * t - p[1]) + (end ? 2 * reach : 0);
+      if (d < best) [best, found] = [d, { r, i, t }];
+    }
+  }
+  if (!found) return null;
+  const { r, i, t } = found, pts = r.points;
+  // The street resampled every half unit, by distance along it, and the samples within `reach` of the nearest point.
+  const at = [0];
+  for (let k = 1; k < pts.length; k++) at.push(at[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  const s0 = at[i - 1] + t * (at[i] - at[i - 1]);
+  const along = (/** @type {number} */ s) => {
+    let k = 1;
+    while (k < pts.length - 1 && at[k] < s) k++;
+    const u = at[k] > at[k - 1] ? (s - at[k - 1]) / (at[k] - at[k - 1]) : 0;
+    return [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * u, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * u];
+  };
+  /** @type {number[][]} */
+  const samples = [];
+  for (let s = Math.max(0, s0 - reach); s <= Math.min(at[at.length - 1], s0 + reach); s += 0.5) samples.push(along(s));
+  if (samples.length < 2) samples.push(along(Math.max(0, s0 - 1)), along(Math.min(at[at.length - 1], s0 + 1)));
+  // Principal direction of the samples (their covariance's long axis) and their centre.
+  const mx = samples.reduce((t2, q) => t2 + q[0], 0) / samples.length, mz = samples.reduce((t2, q) => t2 + q[1], 0) / samples.length;
+  let sxx = 0, sxz = 0, szz = 0;
+  for (const [x, z] of samples) [sxx, sxz, szz] = [sxx + (x - mx) ** 2, sxz + (x - mx) * (z - mz), szz + (z - mz) ** 2];
+  const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz), tx = Math.cos(ang), tz = Math.sin(ang);
+  let nx = -tz, nz = tx;
+  if (nx * (p[0] - mx) + nz * (p[1] - mz) < 0) [nx, nz] = [-nx, -nz];
+  // The point of the line nearest p.
+  const u = (p[0] - mx) * tx + (p[1] - mz) * tz;
+  return { q: [mx + tx * u, mz + tz * u], n: [nx, nz], half: r.width / 2 };
+}
+

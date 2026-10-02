@@ -4,6 +4,7 @@ import { box } from '../world/lowpoly.js';
 import { Paint } from '../world/roads/paint.js';
 import { SIZES } from '../world/scale.js';
 import { CLAIM } from '../world/site.js';
+import { CROSSES, reachesOut } from '../world/streetnet.js';
 import { buildRoundabout, plantMedian } from './median.js';
 
 // A town's real streets (cfg.roads, from the map data): every street painted on the ground as it
@@ -22,8 +23,6 @@ import { buildRoundabout, plantMedian } from './median.js';
 const RANK = ['track', 'service', 'pedestrian', 'living_street', 'residential', 'unclassified', 'road', 'tertiary', 'secondary', 'primary', 'trunk', 'motorway'];
 /** Traffic lanes by kind (alleys: one and a half — room to pass a motorbike). */
 const LANES = { motorway: 4, trunk: 4, primary: 4, secondary: 2, tertiary: 2, unclassified: 2, road: 2, residential: 1.5, living_street: 1, pedestrian: 1, service: 1, track: 1 };
-/** Streets that cut a boulevard's median where they cross it (the ones with crossings: not driveways, service lanes, paths). */
-const CROSSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'road', 'living_street']);
 const MAIN = new Set(['secondary', 'primary', 'trunk', 'motorway']);
 /** @param {string} kind */
 const colorOf = (kind) => (kind === 'track' ? '#a48d6a' : MAIN.has(kind) ? '#55575c' : kind === 'tertiary' ? '#65676b' : '#8e8b85');
@@ -73,7 +72,7 @@ export default {
     const { cfg, site, terrain, track, batch } = world;
     world.need('đường phố từ dữ liệu bản đồ (cfg.roads)', 'streets', cfg.roads?.length);
     const allRoads = /** @type {NonNullable<typeof cfg.roads>} */ (cfg.roads);
-    // The roundabouts (world/divided.js): drawn as such, not as roads; the streets that run into one
+    // The roundabouts (world/streetnet.js): drawn as such, not as roads; the streets that run into one
     // stop at its island.
     const rings = allRoads.flatMap((r) => (r.ring ? [r.ring] : []));
     const roads = allRoads.filter((r) => !r.ring);
@@ -153,26 +152,13 @@ export default {
     // along one meeting it at an angle, as the crossings are). A street alongside — the other half of
     // a dual carriageway — keeps its line.
     const clearance = pavement + 5 * world.scale.props;
-    // Does street `other` come out from under street `id` (some of it beyond its kerbs)? One that
-    // doesn't — a driveway or a lane lying wholly under the boulevard — isn't there to cross it.
+    // Does street `other` come out from under street `id`? (streetnet.js: one that doesn't isn't there to cross it.)
     /** @type {Map<number, boolean>} */
     const comesOut = new Map();
     const reaches = (/** @type {number} */ id, /** @type {number} */ other) => {
       const key = id * 100003 + other;
       let v = comesOut.get(key);
-      if (v === undefined) {
-        const me = laid[id];
-        v = laid[other].run.some(([x, z]) => {
-          let d = Infinity;
-          for (let i = 1; i < me.run.length; i++) {
-            const [ax, az] = me.run[i - 1], [bx, bz] = me.run[i];
-            const ux = bx - ax, uz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * ux + (z - az) * uz) / (ux * ux + uz * uz || 1)));
-            d = Math.min(d, Math.hypot(ax + ux * t - x, az + uz * t - z));
-          }
-          return d > me.hw + pavement + 0.3;
-        });
-        comesOut.set(key, v);
-      }
+      if (v === undefined) comesOut.set(key, (v = reachesOut(laid[id].run, laid[id].hw, pavement, laid[other].run)));
       return v;
     };
     // `median`: is the median of a boulevard cut here? (Only by a street that crosses it for real, with a

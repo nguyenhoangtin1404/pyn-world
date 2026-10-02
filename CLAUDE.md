@@ -25,8 +25,14 @@ E2E gồm:
 2. **Tua nhanh 300 s**: người lên/xuống tàu, cửa mở, bật ô khi mưa, người leo núi đi, tàu dừng ≥ 2 lần.
 3. **Đổi world 2 vòng**: số geometry/texture/shader trên GPU phải như lần đầu (không rò).
 4. **Tổ hợp feature**: world tối giản dựng được; thiếu thứ gì thì lỗi phải nói rõ.
+5. **Ảnh** (`tests/e2e/visual.spec.js`, ảnh chuẩn `tests/e2e/golden/*.png`): bốn góc cố định của NGHINH PHONG — tháp, vòng
+   xuyến, đại lộ, người đi xe đạp — chụp rồi so từng điểm ảnh (sai quá 0,2 %). Bắt cái golden không thấy: thiếu dải phân
+   cách, vòng xuyến thành cái đĩa, tay không cầm ghi đông, sọc kẻ trên quảng trường. Ảnh **không có thứ chuyển động** (người,
+   xe, chim, khinh khí cầu ẩn đi — vị trí của chúng tùy trang chạy bao lâu trước khi tạm dừng) và tự vẽ khung hình bằng tay
+   (`SETTLE`: GPU phần mềm chỉ chạy vòng lặp vài lần mỗi giây; bầu trời tiến dần tới trạng thái của nó nên vẽ 60 lần
+   `lateUpdate` trước). Đổi có chủ ý thứ nhìn thấy: `npm run e2e -- visual --update-snapshots`, **mở ảnh mới ra xem** rồi mới commit.
 
-Cố ý đổi một world (thêm feature, sửa config…): `npm run e2e -- --update-snapshots` ghi lại golden,
+Cố ý đổi một world (thêm feature, sửa config…): `npm run e2e -- --update-snapshots` ghi lại golden (và ảnh),
 xem diff của `tests/e2e/golden/*.json` có đúng ý không rồi commit cùng thay đổi (PR sẽ có nhãn
 `world output changed`). **Không** cập nhật golden để cho qua một lần chạy đỏ mà mình không hiểu vì
 sao — nhất là golden của PYN. Không có retry: test đỏ là lỗi thật, không phải "flaky".
@@ -224,6 +230,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     đứt của phố (`streets`) dừng **trước** phố cắt ngang (lưới đoạn phố, góc > 30°; đại lộ hai nửa vẫn giữ vạch), lùi
     nửa bề rộng phố kia + vỉa hè + 5 m × props (chỗ cho vạch sang đường 3 m + vạch dừng), đo vuông góc với phố kia —
     ngã ba chéo tự lùi xa hơn, như vạch sang đường.
+  - **Xe rẽ phải** (`turns`, mặc định 0,35; `world/vehicles/turns.js`): ở ngã tư giữa hai phố chính đều có xe, xe có thể rẽ phải sang làn của phố kia theo đường cong Bézier (`rightTurn`), vào làn khi không có xe sát đó (`turn()` trong `citytraffic`). Chỉ rẽ phải (chưa rẽ trái); Tuy Hòa không có ngã tư nào giữa hai tuyến nên không có xe rẽ — e2e đòi `road.turned > 0` ở NGHINH PHONG.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

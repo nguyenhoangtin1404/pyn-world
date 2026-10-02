@@ -80,7 +80,7 @@ export interface GeoRecipe {
   landcover?: { town?: { at: [number, number]; radius: number }[]; fields?: boolean };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
-  /** The big roads as boulevards: four lanes round a planted median (world/divided.js), a divided
+  /** The big roads as boulevards: four lanes round a planted median (world/streetnet.js), a divided
    *  road drawn as two streets in the map becoming one; a landmark along a street lines up with the
    *  centre line of the street that meets it. */
   boulevards?: boolean;
@@ -100,6 +100,8 @@ export interface WorldConfig {
   track: (() => [number, number][]) | null;
   /** Size of the ground's grid cells, units (default 3): smaller is a smoother ground and shore, more triangles. */
   cell?: number;
+  /** Cell size (units) the ground and the static batch are cut into so what is off screen — to the camera or the sun's shadow — isn't drawn (worlds from map data: 100). */
+  chunk?: number;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */
   trackClosed?: boolean;
   stops: StopConfig[];

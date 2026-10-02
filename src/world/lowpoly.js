@@ -180,6 +180,38 @@ export class Instancer {
   }
 }
 
+/**
+ * A (non-indexed) geometry cut into one geometry per square cell of `size` units (by where each
+ * triangle's centre is): the pieces can be culled one by one, by the camera and by the sun's shadow
+ * frustum, where one mesh for the whole world is always drawn whole. Every attribute is carried over.
+ * @param {THREE.BufferGeometry} geo @param {number} size
+ * @returns {THREE.BufferGeometry[]}
+ */
+export function splitByCells(geo, size) {
+  const src = geo.index ? geo.toNonIndexed() : geo;
+  const pos = src.attributes.position;
+  /** @type {Map<number, number[]>} */
+  const cells = new Map();
+  for (let t = 0; t < pos.count; t += 3) {
+    const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3, cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
+    const key = Math.floor(cx / size) * 100003 + Math.floor(cz / size);
+    const list = cells.get(key);
+    if (list) list.push(t);
+    else cells.set(key, [t]);
+  }
+  if (cells.size <= 1) return [src];
+  return [...cells.values()].map((tris) => {
+    const out = new THREE.BufferGeometry();
+    for (const [name, attr] of Object.entries(src.attributes)) {
+      const { itemSize, array } = /** @type {THREE.BufferAttribute} */ (attr);
+      const copy = new /** @type {any} */ (array.constructor)(tris.length * 3 * itemSize);
+      tris.forEach((t, i) => copy.set(array.subarray(t * itemSize, (t + 3) * itemSize), i * 3 * itemSize));
+      out.setAttribute(name, new THREE.BufferAttribute(copy, itemSize, attr.normalized));
+    }
+    return out;
+  });
+}
+
 // Collects static parts from many objects (a whole village, a station…) and bakes them into one
 // mesh per material. Parts come from the helpers above; `at(matrix)` places a group of parts, so an
 // object can be built in its own local frame.
@@ -202,14 +234,18 @@ export class StaticBatch {
     return this;
   }
 
-  build({ castShadow = true, receiveShadow = true } = {}) {
+  /** `chunk`: cut each material's mesh into cells of this many units (see splitByCells), so what is off screen isn't drawn. */
+  build({ castShadow = true, receiveShadow = true, chunk = 0 } = {}) {
     const g = new THREE.Group();
     for (const [mat, parts] of this.byMat) {
       if (!parts.length) continue;
-      const m = new THREE.Mesh(mergeGeometries(parts), mat);
-      m.castShadow = castShadow;
-      m.receiveShadow = receiveShadow;
-      g.add(m);
+      const merged = mergeGeometries(parts);
+      for (const geo of chunk > 0 ? splitByCells(merged, chunk) : [merged]) {
+        const m = new THREE.Mesh(geo, mat);
+        m.castShadow = castShadow;
+        m.receiveShadow = receiveShadow;
+        g.add(m);
+      }
     }
     this.byMat.clear();
     return g;

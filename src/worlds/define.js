@@ -5,7 +5,7 @@ import { createLandCover } from '../world/landcover.js';
 import { LANDMARKS } from '../landmarks/index.js';
 import { createScale, SIZES } from '../world/scale.js';
 import { PAVEMENT } from '../features/streets.js';
-import { alignToCrossStreet, boulevards } from '../world/divided.js';
+import { alignToCrossStreet, prepareRoads, streetFrame } from '../world/streetnet.js';
 
 const MEDIAN_M = 3; // metres across a boulevard's median
 const STREETS = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'road']); // streets a landmark can lie along
@@ -49,6 +49,7 @@ export function defineGeoWorld(recipe) {
   /** @type {import('../types').WorldConfig} */
   const cfg = {
     ...rest,
+    chunk: 100, // the ground and the static batch in pieces of 100 units: the ones out of sight (the camera's, the sun's shadow) aren't drawn
     riverX: null,
     riverGLSL: NO_RIVER_GLSL,
     trackClosed: false,
@@ -68,7 +69,7 @@ export function defineGeoWorld(recipe) {
       cfg.places = d.places;
       const scale = createScale({ metersPerUnit: d.projection.metersPerUnit, scale: recipe.scale });
       // Boulevards: the big roads with four lanes round a median (units at the world's scale).
-      cfg.roads = recipe.boulevards ? boulevards(d.roads, { lane: scale.fit(SIZES.lane), median: scale.fit(MEDIAN_M) }) : d.roads;
+      cfg.roads = recipe.boulevards ? prepareRoads(d.roads, { lane: scale.fit(SIZES.lane), median: scale.fit(MEDIAN_M) }).roads : d.roads;
       cfg.buildings = d.buildings;
       cfg.metersPerUnit = d.projection.metersPerUnit;
       const line = rail ? clipToSquare(rail.points, recipe.size / 2 - 12) : []; // ends a little inside the edge
@@ -124,59 +125,6 @@ export function defineGeoWorld(recipe) {
     },
   };
   return cfg;
-}
-
-/**
- * The street nearest p, and how a landmark with a straight side lies along it: a straight line fitted
- * through the street's points over `reach` either way of where it passes nearest p (so the side is
- * as long as that stretch, and parallel to the street over all of it — the tangent at one point, or
- * over a few vertices, is off by a few degrees on a street with coarse points), the point of the line
- * nearest p (q), the unit normal from it towards p (n, away from the street), the street's half width.
- * @param {{ kind: string, width: number, points: [number, number][] }[]} roads @param {[number, number]} p
- * @param {Set<string>} kinds the kinds of street that count
- * @param {number} [reach] units
- * @returns {{ q: [number, number], n: [number, number], half: number } | null}
- */
-export function streetFrame(roads, p, kinds, reach = 12) {
-  let best = Infinity, found = null;
-  for (const r of roads) {
-    if (!kinds.has(r.kind)) continue;
-    for (let i = 1; i < r.points.length; i++) {
-      const [ax, az] = r.points[i - 1], [bx, bz] = r.points[i];
-      const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
-      const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - az) * dz) / len2));
-      // (A street that ends at p — a side street running into the one the landmark lies along — counts as farther: it is not the street to lie along.)
-      const end = (i === 1 && t === 0) || (i === r.points.length - 1 && t === 1);
-      const d = Math.hypot(ax + dx * t - p[0], az + dz * t - p[1]) + (end ? 2 * reach : 0);
-      if (d < best) [best, found] = [d, { r, i, t }];
-    }
-  }
-  if (!found) return null;
-  const { r, i, t } = found, pts = r.points;
-  // The street resampled every half unit, by distance along it, and the samples within `reach` of the nearest point.
-  const at = [0];
-  for (let k = 1; k < pts.length; k++) at.push(at[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
-  const s0 = at[i - 1] + t * (at[i] - at[i - 1]);
-  const along = (/** @type {number} */ s) => {
-    let k = 1;
-    while (k < pts.length - 1 && at[k] < s) k++;
-    const u = at[k] > at[k - 1] ? (s - at[k - 1]) / (at[k] - at[k - 1]) : 0;
-    return [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * u, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * u];
-  };
-  /** @type {number[][]} */
-  const samples = [];
-  for (let s = Math.max(0, s0 - reach); s <= Math.min(at[at.length - 1], s0 + reach); s += 0.5) samples.push(along(s));
-  if (samples.length < 2) samples.push(along(Math.max(0, s0 - 1)), along(Math.min(at[at.length - 1], s0 + 1)));
-  // Principal direction of the samples (their covariance's long axis) and their centre.
-  const mx = samples.reduce((t2, q) => t2 + q[0], 0) / samples.length, mz = samples.reduce((t2, q) => t2 + q[1], 0) / samples.length;
-  let sxx = 0, sxz = 0, szz = 0;
-  for (const [x, z] of samples) [sxx, sxz, szz] = [sxx + (x - mx) ** 2, sxz + (x - mx) * (z - mz), szz + (z - mz) ** 2];
-  const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz), tx = Math.cos(ang), tz = Math.sin(ang);
-  let nx = -tz, nz = tx;
-  if (nx * (p[0] - mx) + nz * (p[1] - mz) < 0) [nx, nz] = [-nx, -nz];
-  // The point of the line nearest p.
-  const u = (p[0] - mx) * tx + (p[1] - mz) * tz;
-  return { q: [mx + tx * u, mz + tz * u], n: [nx, nz], half: r.width / 2 };
 }
 
 /**

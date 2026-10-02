@@ -2,7 +2,7 @@
 import { ball, box, cone, cyl } from '../world/lowpoly.js';
 import { lamps } from './lamps.js';
 
-// The median of a boulevard (a road with `median` in cfg.roads, world/divided.js): a kerbed strip of
+// The median of a boulevard (a road with `median` in cfg.roads, world/streetnet.js): a kerbed strip of
 // grass between the two carriageways, planted with bushes (a few in flower), a small tree every so
 // often and a street lamp with an arm over each carriageway, lit after dark (lamps(world): bulbs, a
 // halo, a pool of light on the road). It is broken where another street crosses (the same `blocked`
@@ -41,13 +41,13 @@ function lamp(world, { x, y, z, ry, arm, height, sides, across: [px, pz], lane, 
 }
 
 /**
- * A roundabout (a `ring` of cfg.roads, world/divided.js): two lanes round a kerbed island, with a dashed
+ * A roundabout (a `ring` of cfg.roads, world/streetnet.js): two lanes round a kerbed island, with a dashed
  * line between the lanes and a pavement outside; the island planted with a tree, a ring of bushes (a few
  * in flower) and three lamps over the road.
  * @param {import('../World.js').World} world
  * @param {object} o
  * @param {import('../world/roads/paint.js').Paint} o.paint
- * @param {import('../world/divided.js').Ring} o.ring
+ * @param {import('../world/streetnet.js').Ring} o.ring
  * @param {number} o.lane @param {number} o.pavement
  * @param {(lift: number) => (x: number, z: number) => number} o.surface
  * @param {number} o.lift the road's lift
