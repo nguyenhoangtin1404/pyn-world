@@ -6,7 +6,7 @@ import { drawnHeight, fitOffStreets } from '../../src/features/buildings.js';
 import { crosswalkAt, pavementRoute } from '../../src/features/strollers.js';
 import { alongFrom, alongside, crossedAt, findJunctions, overlaps, passes, trimEnds } from '../../src/features/citytraffic.js';
 import { LoopPath } from '../../src/world/vehicles/path.js';
-import { streetFrame } from '../../src/worlds/define.js';
+import { streetFrame } from '../../src/world/streetnet.js';
 
 // A town's houses off its streets, people on its pavements, its streets graded smooth, lights where
 // they cross.

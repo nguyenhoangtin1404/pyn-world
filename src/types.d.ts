@@ -80,7 +80,7 @@ export interface GeoRecipe {
   landcover?: { town?: { at: [number, number]; radius: number }[]; fields?: boolean };
   /** Day of the year the sun follows (default 80, the March equinox). */
   sunDay?: number;
-  /** The big roads as boulevards: four lanes round a planted median (world/divided.js), a divided
+  /** The big roads as boulevards: four lanes round a planted median (world/streetnet.js), a divided
    *  road drawn as two streets in the map becoming one; a landmark along a street lines up with the
    *  centre line of the street that meets it. */
   boulevards?: boolean;
