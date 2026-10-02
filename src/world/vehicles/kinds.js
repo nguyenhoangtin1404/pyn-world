@@ -48,7 +48,7 @@ export const KINDS = {
     label: 'Xe đạp',
     wheelR: 0.34,
     wheels: [[0, 0.34, 0.52], [0, 0.34, -0.52]],
-    rider: { seat: [0, 0.98, -0.18], lean: 0.25, pedal: true },
+    rider: { seat: [0, 0.98, -0.18], lean: 0.4, pedal: true, bar: [0.95, 0.4] }, // (hips on the saddle, hands on the handlebar)
     speed: [3.5, 5],
     length: 1.8,
     colors: ['#c8453a', '#2f5d7c', '#e0a64a', '#6d8b3a', '#8e5aa8'],
@@ -73,7 +73,7 @@ export const KINDS = {
     label: 'Xe máy',
     wheelR: 0.3,
     wheels: [[0, 0.3, 0.62], [0, 0.3, -0.6]],
-    rider: { seat: [0, 0.82, -0.2], lean: 0.35, pedal: false },
+    rider: { seat: [0, 0.82, -0.2], lean: 0.4, pedal: false, bar: [1.02, 0.46] },
     speed: [7, 10],
     length: 2.0,
     colors: ['#c8453a', '#2f5d7c', '#1f1d1c', '#e0a64a', '#f4f1ea'],

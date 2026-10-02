@@ -114,7 +114,7 @@ export function plantMedian(world, { paint, line, median, lane, surface, lift, b
     const free = !blocked(s);
     if (free && from < 0) from = s;
     if ((!free || s + 0.6 > line.length - 1) && from >= 0) {
-      if (s - from >= 3) runs.push([from, s]);
+      if (s - from >= 2) runs.push([from, s]);
       from = -1;
     }
   }
