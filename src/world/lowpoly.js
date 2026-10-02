@@ -180,9 +180,6 @@ export class Instancer {
   }
 }
 
-// Collects static parts from many objects (a whole village, a station…) and bakes them into one
-// mesh per material. Parts come from the helpers above; `at(matrix)` places a group of parts, so an
-// object can be built in its own local frame.
 /**
  * A (non-indexed) geometry cut into one geometry per square cell of `size` units (by where each
  * triangle's centre is): the pieces can be culled one by one, by the camera and by the sun's shadow
@@ -215,6 +212,9 @@ export function splitByCells(geo, size) {
   });
 }
 
+// Collects static parts from many objects (a whole village, a station…) and bakes them into one
+// mesh per material. Parts come from the helpers above; `at(matrix)` places a group of parts, so an
+// object can be built in its own local frame.
 export class StaticBatch {
   constructor() {
     this.byMat = new Map();
