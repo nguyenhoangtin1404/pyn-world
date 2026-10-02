@@ -22,6 +22,8 @@ import { buildRoundabout, plantMedian } from './median.js';
 const RANK = ['track', 'service', 'pedestrian', 'living_street', 'residential', 'unclassified', 'road', 'tertiary', 'secondary', 'primary', 'trunk', 'motorway'];
 /** Traffic lanes by kind (alleys: one and a half — room to pass a motorbike). */
 const LANES = { motorway: 4, trunk: 4, primary: 4, secondary: 2, tertiary: 2, unclassified: 2, road: 2, residential: 1.5, living_street: 1, pedestrian: 1, service: 1, track: 1 };
+/** Streets that cut a boulevard's median where they cross it (the ones with crossings: not driveways, service lanes, paths). */
+const CROSSES = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'road', 'living_street']);
 const MAIN = new Set(['secondary', 'primary', 'trunk', 'motorway']);
 /** @param {string} kind */
 const colorOf = (kind) => (kind === 'track' ? '#a48d6a' : MAIN.has(kind) ? '#55575c' : kind === 'tertiary' ? '#65676b' : '#8e8b85');
@@ -130,13 +132,13 @@ export default {
     // Every stretch's segments in a grid, to tell where another street's carriageway is (the
     // centre line stops where it crosses one).
     const CELL = 4;
-    /** @type {Map<number, { id: number, ax: number, az: number, bx: number, bz: number, hw: number }[]>} */
+    /** @type {Map<number, { id: number, ax: number, az: number, bx: number, bz: number, hw: number, kind: string }[]>} */
     const grid = new Map();
     const cell = (/** @type {number} */ x, /** @type {number} */ z) => Math.floor(x / CELL) * 100003 + Math.floor(z / CELL);
-    laid.forEach(({ run, hw }, id) => {
+    laid.forEach(({ road: { kind }, run, hw }, id) => {
       for (let i = 1; i < run.length; i++) {
         const [ax, az] = run[i - 1], [bx, bz] = run[i];
-        const seg = { id, ax, az, bx, bz, hw };
+        const seg = { id, ax, az, bx, bz, hw, kind };
         for (const x of [ax, bx]) for (const z of [az, bz]) {
           const key = cell(x, z);
           const list = grid.get(key) ?? [];
@@ -151,10 +153,35 @@ export default {
     // along one meeting it at an angle, as the crossings are). A street alongside — the other half of
     // a dual carriageway — keeps its line.
     const clearance = pavement + 5 * world.scale.props;
-    const onOther = (/** @type {number} */ id, /** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ h) => {
+    // Does street `other` come out from under street `id` (some of it beyond its kerbs)? One that
+    // doesn't — a driveway or a lane lying wholly under the boulevard — isn't there to cross it.
+    /** @type {Map<number, boolean>} */
+    const comesOut = new Map();
+    const reaches = (/** @type {number} */ id, /** @type {number} */ other) => {
+      const key = id * 100003 + other;
+      let v = comesOut.get(key);
+      if (v === undefined) {
+        const me = laid[id];
+        v = laid[other].run.some(([x, z]) => {
+          let d = Infinity;
+          for (let i = 1; i < me.run.length; i++) {
+            const [ax, az] = me.run[i - 1], [bx, bz] = me.run[i];
+            const ux = bx - ax, uz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * ux + (z - az) * uz) / (ux * ux + uz * uz || 1)));
+            d = Math.min(d, Math.hypot(ax + ux * t - x, az + uz * t - z));
+          }
+          return d > me.hw + pavement + 0.3;
+        });
+        comesOut.set(key, v);
+      }
+      return v;
+    };
+    // `median`: is the median of a boulevard cut here? (Only by a street that crosses it for real, with a
+    // crossing and a stop line: not a driveway, a service lane or a path.)
+    const onOther = (/** @type {number} */ id, /** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ h, median = false) => {
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
         for (const g of grid.get(cell(x + dx * CELL, z + dz * CELL)) ?? []) {
           if (g.id === id) continue;
+          if (median && (!CROSSES.has(g.kind) || !reaches(id, g.id))) continue;
           const ux = g.bx - g.ax, uz = g.bz - g.az, len2 = ux * ux + uz * uz || 1;
           if (Math.abs(Math.sin(h - Math.atan2(ux, uz))) < 0.5) continue;
           const t = Math.max(0, Math.min(1, ((x - g.ax) * ux + (z - g.az) * uz) / len2));
@@ -173,11 +200,12 @@ export default {
         // Dashes between the two lanes of each carriageway; the median, planted and lit, between them.
         const lift = 0.075 + rank * 0.012, between = median / 2 + (w - median) / 4;
         for (const side of [-1, 1]) paint.dashes(line, 1, line.length - 1, side * between - 0.07, side * between + 0.07, surface(lift), '#ecebe4', 1.2, 2.8, skip);
+        const medianCut = (/** @type {number} */ s) => onOther(id, ...line.pointAt(s), line.headingAt(s), true) || onOther(id, ...line.pointAt(s + 1.2), line.headingAt(s + 1.2), true);
         const nearRing = (/** @type {number} */ s) => {
           const [x, z] = line.pointAt(s);
           return rings.some((g) => Math.hypot(x - g.x, z - g.z) < g.R + 0.8);
         };
-        plantMedian(world, { paint, line, median, lane, surface, lift: 0.06 + rank * 0.012, blocked: (s) => skip(s) || nearRing(s), rng });
+        plantMedian(world, { paint, line, median, lane, surface, lift: 0.06 + rank * 0.012, blocked: (s) => medianCut(s) || nearRing(s), rng });
       } else if (MAIN.has(road.kind) && line.length > 6) {
         paint.dashes(line, 1, line.length - 1, -0.07, 0.07, surface(0.075 + rank * 0.012), '#ecebe4', 1.2, 2.8, skip);
       }

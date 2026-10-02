@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { KINDS, kindGeometry } from '../../src/world/vehicles/kinds.js';
 import { Fleet } from '../../src/world/vehicles/fleet.js';
-import { Vehicle } from '../../src/world/vehicles/vehicle.js';
+import { Vehicle, seat } from '../../src/world/vehicles/vehicle.js';
+import { Person } from '../../src/world/people.js';
 import { LoopPath, ellipse } from '../../src/world/vehicles/path.js';
 import { mulberry32 } from '../../src/utils.js';
 
@@ -142,5 +143,22 @@ describe('Vehicle', () => {
     for (let i = 0; i < 20; i++) back.update(0.1);
     expect(leansInwards(back)).toBe(true);
     expect(plane.prop.rotation.z).toBeGreaterThan(100);
+  });
+});
+
+describe('a rider on a bike', () => {
+  it.each(['bicycle', 'motorbike'])('has the hips on the %s seat and both hands on its handlebar', (id) => {
+    const spec = KINDS[id].rider;
+    const person = new Person(mulberry32(5), { kind: 'villager' });
+    const parent = new THREE.Group();
+    seat(person, spec, parent);
+    parent.updateMatrixWorld(true);
+    const hip = person.hips[0].getWorldPosition(new THREE.Vector3());
+    expect(hip.y).toBeCloseTo(spec.seat[1], 1);
+    expect(hip.z).toBeCloseTo(spec.seat[2], 1); // not carried forward by the lean
+    for (const elbow of person.elbows) {
+      const hand = elbow.localToWorld(new THREE.Vector3(0, -0.33, 0.01));
+      expect(Math.hypot(hand.y - spec.bar[0], hand.z - spec.bar[1])).toBeLessThan(0.1);
+    }
   });
 });

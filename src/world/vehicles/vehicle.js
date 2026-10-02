@@ -117,13 +117,25 @@ function rider(rng) {
   return p;
 }
 
-// Sit a person on a saddle: hips at the seat, hands forward on the handlebar, leaning forward.
-function seat(person, { seat: [x, y, z], lean, pedal }, parent) {
+// Sit a person on a saddle: hips on the seat, leaning forward, both hands on the handlebar `bar`
+// ([height, forward] on the vehicle). The body leans about the soles (the root bone's origin), so the
+// figure is put back by as much as the lean carries the hips forward; the arms are then set by two-bone
+// reach (upper arm, forearm) from the shoulders to the handlebar.
+export function seat(person, { seat: [x, y, z], lean, pedal, bar }, parent) {
   const s = person.group.scale.x;
-  person.group.position.set(x, y - 0.92 * s, z); // hips are 0.92 above the soles
+  person.group.position.set(x, y - 0.92 * s * Math.cos(lean), z - 0.92 * s * Math.sin(lean));
   person.root.rotation.x = lean;
-  person.shoulders.forEach((sh, i) => sh.rotation.set(-1.25 + lean, 0, i ? 0.12 : -0.12));
-  person.elbows.forEach((e) => (e.rotation.x = -0.25));
+  // Shoulders: 0.61 above the hips in the leaning body.
+  const sy = y + 0.61 * s * Math.cos(lean), sz = z + 0.61 * s * Math.sin(lean);
+  const a = 0.33 * s, f = 0.37 * s; // upper arm, forearm to the grip
+  const [by, bz] = bar;
+  const d = Math.min(a + f - 0.01, Math.max(Math.abs(a - f) + 0.01, Math.hypot(bz - sz, by - sy)));
+  const toward = Math.atan2(bz - sz, sy - by); // from straight down, forward positive
+  const shoulderAngle = Math.acos((a * a + d * d - f * f) / (2 * a * d)); // the elbow hangs below the line
+  const upper = toward - shoulderAngle;
+  const bend = Math.PI - Math.acos((a * a + f * f - d * d) / (2 * a * f));
+  person.shoulders.forEach((sh, i) => sh.rotation.set(-upper - lean, 0, i ? 0.08 : -0.08));
+  person.elbows.forEach((e) => (e.rotation.x = -bend));
   person.hips.forEach((h) => (h.rotation.x = -1.35));
   person.knees.forEach((k) => (k.rotation.x = 1.45));
   parent.add(person.group);
