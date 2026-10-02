@@ -13,15 +13,16 @@ test('switching worlds frees the old one', async ({ page }) => {
       return { geometries: memory.geometries, textures: memory.textures, programs: programs.length };
     });
   const first = {};
-  for (let round = 0; round < 2; round++) {
+  // (Round 0 only warms the caches kept across worlds — a vehicle's geometry is made by the first world that has one.)
+  for (let round = 0; round < 3; round++) {
     for (let i = 1; i <= WORLDS.length; i++) {
       const { id } = WORLDS[i % WORLDS.length];
       await page.evaluate((id) => window.__pyn.switchWorld(id), id);
       await waitForWorld(page, id);
       await page.waitForTimeout(500);
       const now = await gpu();
-      if (round === 0) first[id] = now;
-      else expect(now, `${id}, second time`).toEqual(first[id]);
+      if (round === 1) first[id] = now;
+      else if (round === 2) expect(now, `${id}, second time`).toEqual(first[id]);
     }
   }
   expect(page.errors).toEqual([]);

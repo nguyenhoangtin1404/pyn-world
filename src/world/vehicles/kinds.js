@@ -155,6 +155,31 @@ export const KINDS = {
     wheel: carWheel,
   },
 
+  bus: {
+    label: 'Xe buýt',
+    wheelR: 0.5,
+    wheels: [[-1.05, 0.5, 3.4], [1.05, 0.5, 3.4], [-1.05, 0.5, -3.2], [1.05, 0.5, -3.2]],
+    speed: [6, 8],
+    length: 10.6,
+    colors: ['#2f8f5b', '#c8453a', '#2f5d7c', '#e0a64a'],
+    body: () => [
+      box(2.5, 2.3, 10.4, PAINT, [0, 1.75, 0]), // body
+      box(2.52, 0.5, 10.42, '#f4f1ea', [0, 0.9, 0]), // pale skirt along the bottom
+      windows(2.5, 0.8, 10.4, [0, 2.2, 0]), // side windows
+      box(2.3, 1.0, 0.1, GLASS, [0, 2.2, 5.22]), // windscreen
+      box(2.3, 0.3, 0.1, '#ffd25a', [0, 2.95, 5.22]), // destination board
+      box(2.4, 0.18, 10.2, '#e9e6df', [0, 2.95, 0]), // roof panel
+      box(0.9, 0.25, 1.4, '#e9e6df', [0, 3.13, -2.6]), // air-conditioner
+      box(0.06, 1.7, 1.3, DARK, [1.27, 1.45, 3.0]), // doors
+      box(0.06, 1.7, 1.3, DARK, [1.27, 1.45, -1.2]),
+      ...lightsAndBumpers(2.5, 0.85, 5.2, -5.2),
+      box(0.06, 0.28, 0.3, DARK, [1.4, 2.3, 4.7]), // mirrors
+      box(0.06, 0.28, 0.3, DARK, [-1.4, 2.3, 4.7]),
+    ],
+    lamps: lampsAt(2.5, 0.85, 5.2, -5.2),
+    wheel: carWheel,
+  },
+
   plane: {
     label: 'Máy bay',
     wheelR: 0,

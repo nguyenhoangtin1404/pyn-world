@@ -194,7 +194,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   mặc định 80 = xuân phân): hướng nắng thật khi mặt trời còn trên chân trời, trăng theo preset ban đêm.
 - **Xe, người, chim trên phố thật** (`streets` để lại `world.streets`: từng đoạn phố đã vẽ — điểm, bề rộng,
   số làn, mặt đường `heightAt`):
-  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải chạy
+  - `citytraffic` (`features/citytraffic.js`): xe máy (nhiều nhất), xe đạp, ô tô, bán tải, xe tải, xe buýt (`bus`, 10,6 m, mặc định 2) chạy
     lên xuống các phố chính dài nhất (`routes`, mặc định 10): làn bên phải, quay đầu ở cuối phố. `Vehicle`
     nhận `k` — đường đi, tốc độ và luật giao thông (`updateTraffic`) chạy **trong đơn vị mô hình** như lịch
     tàu, chỉ chỗ vẽ nhân lại k. Phố có polyline quay lại cạnh chính nó (đại lộ hai chiều nối thành một

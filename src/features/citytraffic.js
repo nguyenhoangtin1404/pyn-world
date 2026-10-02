@@ -75,7 +75,7 @@ export function untangle(pts, near) {
 export function crossedAt(streets, st, x, z, h) {
   for (const o of streets) {
     if (o === st || !(MAIN.has(o.kind) || SIDE.has(o.kind))) continue; // (not service lanes, tracks, footpaths)
-    const reach = o.width / 2 + st.width + 1;
+    const reach = o.width / 2 + st.width + 2; // (2: room for a bus's half length across the way)
     let best = Infinity, heading = 0;
     for (let i = 1; i < o.points.length; i++) {
       const [ax, az] = o.points[i - 1], [bx, bz] = o.points[i];
@@ -237,7 +237,7 @@ export function overlaps(a, b) {
 export default {
   label: 'Đang cho xe ra phố',
   needs: ['streets'],
-  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2 }, routes: routeCount = 10, min = 60, lights = true, turns = 0.35 }) {
+  build(world, { rng, vehicles = { motorbike: 12, bicycle: 3, car: 5, pickup: 1, truck: 2, bus: 2 }, routes: routeCount = 10, min = 60, lights = true, turns = 0.35 }) {
     for (const kind of Object.keys(vehicles)) world.need(`loại xe có bánh (không phải "${kind}")`, 'citytraffic', KINDS[kind] && !KINDS[kind].flies);
     const k = world.scale.props;
     const along = (/** @type {[number, number][]} */ p) => p.reduce((sum, q, i) => sum + (i ? Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0), 0);
