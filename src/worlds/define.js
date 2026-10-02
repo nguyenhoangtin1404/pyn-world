@@ -145,7 +145,9 @@ export function streetFrame(roads, p, kinds, reach = 12) {
       const [ax, az] = r.points[i - 1], [bx, bz] = r.points[i];
       const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz || 1;
       const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - az) * dz) / len2));
-      const d = Math.hypot(ax + dx * t - p[0], az + dz * t - p[1]);
+      // (A street that ends at p — a side street running into the one the landmark lies along — counts as farther: it is not the street to lie along.)
+      const end = (i === 1 && t === 0) || (i === r.points.length - 1 && t === 1);
+      const d = Math.hypot(ax + dx * t - p[0], az + dz * t - p[1]) + (end ? 2 * reach : 0);
       if (d < best) [best, found] = [d, { r, i, t }];
     }
   }

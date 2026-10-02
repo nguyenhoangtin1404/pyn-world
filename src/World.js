@@ -82,6 +82,8 @@ export class World {
     this.vehicles = [];
     /** @type {{ kind: string, name: string, width: number, lanes: number, median: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
     this.streets = [];
+    /** @type {import('./world/divided.js').Ring[]} a town's roundabouts (features/streets.js): centre, outer radius R, island radius ri */
+    this.roundabouts = [];
     /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
     this.crosswalks = [];
     /** @type {{ pos: THREE.Vector3 }[]} people on foot about the town who don't take the train (features/strollers.js) */

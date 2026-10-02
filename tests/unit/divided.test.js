@@ -15,6 +15,14 @@ describe('mergeDualCarriageways', () => {
     expect(roads[0].points.at(-1)[0]).toBeCloseTo(100, 6);
   });
 
+  it('merges a road that goes out along one carriageway and back along the other', () => {
+    const out = [...line(0, 2, 100, 2, 20), ...line(100, -2, 0, -2, 20)];
+    const { roads, merged } = mergeDualCarriageways([road('Độc Lập', out)]);
+    expect(roads).toHaveLength(1);
+    expect(merged.has(roads[0])).toBe(true);
+    expect(roads[0].points.every(([, z]) => Math.abs(z) < 0.3)).toBe(true);
+  });
+
   it('leaves alone roads that merely meet, roads of another name, and side streets', () => {
     const a = road('A', line(0, 0, 100, 0)), b = road('A', line(100, 0, 100, 100)), c = road('B', line(0, 2, 100, 2));
     const res = mergeDualCarriageways([a, b, c, road('A', line(0, 1, 100, 1), 'residential')]);

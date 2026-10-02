@@ -6,7 +6,10 @@
 // width and its median (`boulevards`). features/streets.js paints the median, plants it and lights
 // it; features/citytraffic.js keeps the cars to the lanes either side of it.
 
-/** @typedef {{ kind: string, name: string, width: number, points: [number, number][], median?: number }} Road */
+/**
+ * @typedef {{ x: number, z: number, r: number, R: number, ri: number }} Ring a roundabout: its centre, the map's radius, and as drawn the outer radius R and the island's ri
+ * @typedef {{ kind: string, name: string, width: number, points: [number, number][], median?: number, ring?: Ring }} Road
+ */
 
 const BIG = new Set(['secondary', 'primary', 'trunk', 'motorway']);
 /** A named tertiary street at least this long is a main road of the town too (units). */
@@ -47,13 +50,34 @@ function resample(pts, step) {
 const shareNear = (a, b, gap) => a.filter(([x, z]) => nearest(b, x, z).d < gap).length / a.length;
 
 /**
+ * A road drawn out along one carriageway and back along the other (it ends near where it starts, its
+ * two legs side by side) as the two roads it is: split at the far end.
+ * @param {Road} r @param {number} gap
+ * @returns {Road[]}
+ */
+function unfold(r, gap) {
+  const p = r.points;
+  if (p.length < 4 || !r.name || r.kind === 'residential' || r.kind === 'service') return [r];
+  let m = 0, far = 0;
+  p.forEach((q, i) => {
+    const d = Math.hypot(q[0] - p[0][0], q[1] - p[0][1]);
+    if (d > far) [far, m] = [d, i];
+  });
+  if (m === 0 || m === p.length - 1 || Math.hypot(p[p.length - 1][0] - p[0][0], p[p.length - 1][1] - p[0][1]) > gap) return [r];
+  const a = p.slice(0, Math.max(2, m)), b = p.slice(m); // (the turn itself belongs to the way back)
+  if (Math.min(shareNear(resample(a, 1.5), b, gap), shareNear(resample(b, 1.5), a, gap)) < 0.8) return [r];
+  return [{ ...r, points: a }, { ...r, points: b }];
+}
+
+/**
  * Two roads of one kind and name running side by side (at most `gap` apart over most of their
- * length) are the two carriageways of one road: replaced by one along their middle, with the short
- * crossovers drawn between them dropped. Everything else is left as it is.
- * @param {Road[]} roads @param {number} [gap] units
+ * length) are the two carriageways of one road: replaced by one along their middle (so is a road that
+ * goes out along one and back along the other), with the short crossovers drawn between them dropped. Everything else is left as it is.
+ * @param {Road[]} source @param {number} [gap] units
  * @returns {{ roads: Road[], merged: Set<Road> }} merged: the roads made from pairs
  */
-export function mergeDualCarriageways(roads, gap = 8) {
+export function mergeDualCarriageways(source, gap = 8) {
+  const roads = source.flatMap((r) => unfold(r, gap)); // (a road out and back is two)
   const taken = new Set(), merged = new Set(), centres = [];
   /** @type {Road[]} */
   const made = [];
@@ -89,16 +113,40 @@ export function mergeDualCarriageways(roads, gap = 8) {
 }
 
 /**
+ * A road that is a closed loop of a few units across (the map's roundabouts): its centre and mean radius, else null.
+ * @param {Road} r
+ * @returns {{ x: number, z: number, r: number } | null}
+ */
+export function findRing(r) {
+  const p = r.points;
+  if (p.length < 6 || Math.hypot(p[0][0] - p[p.length - 1][0], p[0][1] - p[p.length - 1][1]) > 1.5) return null;
+  const x = p.reduce((t, q) => t + q[0], 0) / p.length, z = p.reduce((t, q) => t + q[1], 0) / p.length;
+  const rs = p.map((q) => Math.hypot(q[0] - x, q[1] - z)), m = rs.reduce((a, b) => a + b, 0) / rs.length;
+  return m > 0.5 && m < 12 && rs.every((d) => Math.abs(d - m) < 0.35 * m) ? { x, z, r: m } : null;
+}
+
+/**
  * The big roads given four lanes and a median: `lane` units a lane, `median` between the two
- * carriageways. Merged pairs, primary and bigger roads, and the long named tertiary streets.
+ * carriageways. Merged pairs, primary and bigger roads, and the long named tertiary streets. The
+ * map's roundabouts become `ring`s (two lanes round a planted island, as wide as the boulevards that
+ * meet them need) instead of plain roads.
  * @param {Road[]} roads @param {{ lane: number, median: number, gap?: number }} o
  * @returns {Road[]}
  */
 export function boulevards(roads, { lane, median, gap }) {
   const { roads: all, merged } = mergeDualCarriageways(roads, gap);
-  return all.map((r) => {
+  const mapped = all.map((r) => {
+    if (findRing(r)) return r;
     const big = merged.has(r) || BIG.has(r.kind) || (r.kind === 'tertiary' && !!r.name && lengthOf(r.points) >= MAIN_LENGTH);
     return big ? { ...r, width: 4 * lane + median, median } : r;
+  });
+  return mapped.map((r) => {
+    const c = findRing(r);
+    if (!c) return r;
+    // As wide as the widest boulevard through it asks, at least a lane's more than the map's loop.
+    const widest = Math.max(0, ...mapped.filter((o) => o.median && o.points.some(([x, z]) => Math.hypot(x - c.x, z - c.z) < c.r + o.width)).map((o) => o.width));
+    const R = Math.max(c.r + lane, 0.72 * widest, 3 * lane);
+    return { kind: r.kind, name: r.name, width: 2 * lane, points: r.points, ring: { ...c, R, ri: R - 2 * lane } };
   });
 }
 
