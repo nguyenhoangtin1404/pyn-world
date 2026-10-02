@@ -37,6 +37,7 @@ for (const { id } of WORLDS) {
         if (r.branches) expect(r.carsOnBranch, why('cars take the branch off the roundabout')).toBeGreaterThan(0);
         if (r.junctions) expect(r.boxConflicts, why('the crossroads lights keep the two roads apart')).toBe(0);
         if (r.junctions) expect(r.junctionCrossings, why('cars on the street go across the crossroads')).toBeGreaterThan(0);
+        if (life.zebra && id === 'nghinhphong') expect(r.turned, why('some cars turn into another street')).toBeGreaterThan(0);
         expect(r.brakeLights, why('brake lights come on')).toBeGreaterThan(0);
         expect(r.headlightsInRain, why('head lights come on in the rain')).toBeGreaterThan(0);
       }

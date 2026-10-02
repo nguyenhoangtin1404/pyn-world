@@ -230,6 +230,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     đứt của phố (`streets`) dừng **trước** phố cắt ngang (lưới đoạn phố, góc > 30°; đại lộ hai nửa vẫn giữ vạch), lùi
     nửa bề rộng phố kia + vỉa hè + 5 m × props (chỗ cho vạch sang đường 3 m + vạch dừng), đo vuông góc với phố kia —
     ngã ba chéo tự lùi xa hơn, như vạch sang đường.
+  - **Xe rẽ phải** (`turns`, mặc định 0,35; `world/vehicles/turns.js`): ở ngã tư giữa hai phố chính đều có xe, xe có thể rẽ phải sang làn của phố kia theo đường cong Bézier (`rightTurn`), vào làn khi không có xe sát đó (`turn()` trong `citytraffic`). Chỉ rẽ phải (chưa rẽ trái); Tuy Hòa không có ngã tư nào giữa hai tuyến nên không có xe rẽ — e2e đòi `road.turned > 0` ở NGHINH PHONG.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

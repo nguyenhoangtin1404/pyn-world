@@ -218,6 +218,7 @@ export function simulate() {
   s.hikersMoved = hikers.filter((h, i) => h.position.distanceTo(start[i]) > 1).length;
   s.vehicles = W.vehicles.length;
   s.vehiclesMoved = W.vehicles.filter((v, i) => v.group.position.distanceTo(vehicleStart[i]) > 5).length;
+  road.turned = W.vehicles.filter((v) => v.turns > 0).length; // cars that turned into another street
   road.carsOnBranch = onBranch.size;
   road.junctionCrossings = crossedJunction.size;
   road.longestStop = Math.round(road.longestStop);
