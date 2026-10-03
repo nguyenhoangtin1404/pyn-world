@@ -92,7 +92,9 @@ export default {
     // Jet skis in the water off the beach (3–12 cells out, within `near` of the landmark), each towing a
     // parasail: the canopy flies `TOW` behind and `LIFT` above it, easing after it as it turns.
     const ground = world.terrain.meshHeightAt;
-    const deep = (/** @type {number} */ x, /** @type {number} */ z) => ground(x, z) < WATER_Y - 0.8; // (the shallows off the beach: not for a jet ski)
+    // Deep enough to be under way (cells out from the shore aren't enough: off the beach the shallows run out a
+    // long way, and a fishing boat turning there ran aground now and then).
+    const deep = (/** @type {number} */ x, /** @type {number} */ z) => ground(x, z) < WATER_Y - 0.8;
     const person = () => {
       let p;
       do p = new Person(rng, { kind: 'villager' });
@@ -238,7 +240,7 @@ export default {
       // (a jet ski keeps off the beach and out of the open sea: back towards the landmark's beach)
       const ahead = (/** @type {number} */ h) => {
         const x = b.x + Math.sin(h) * look, z = b.z + Math.cos(h) * look;
-        return open(x, z, b.cells, b.size) && (b.kind !== 'jetski' || (deep(x, z) && coast.distAt(x, z) <= 12 && Math.hypot(x - focus.x, z - focus.z) < near));
+        return open(x, z, b.cells, b.size) && deep(x, z) && (b.kind !== 'jetski' || (coast.distAt(x, z) <= 12 && Math.hypot(x - focus.x, z - focus.z) < near));
       };
       if (!ahead(b.h)) {
         if (!b.turning) b.turning = ahead(b.h + 0.8) ? 1 : ahead(b.h - 0.8) ? -1 : rng() < 0.5 ? 1 : -1;
@@ -249,7 +251,7 @@ export default {
       }
       const v = b.turning ? b.speed * 0.5 : b.speed;
       const nx = b.x + Math.sin(b.h) * v * dt, nz = b.z + Math.cos(b.h) * v * dt;
-      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5) && (b.kind !== 'jetski' || deep(nx, nz))) [b.x, b.z] = [nx, nz];
+      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5) && deep(nx, nz)) [b.x, b.z] = [nx, nz];
     }
   },
 };

@@ -255,7 +255,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     trên cát). Ảnh chuẩn ẩn `world.seacraft.group` và `world.beach.group` (chúng chuyển động). E2E: thuyền không mắc cạn, có thuyền
     chạy, có bọt; đủ năm vai trên bãi, người bơi không lên bờ, không ai khác xuống nước hay lên phố. NGHINH PHONG: +18 người, draw call
     góc mặc định 278 → 321, +1 shader (bọt).
-  - **Đời sống phố** (`features/streetlife.js` #32, cần `streets`, `buildings`, `citytraffic`; đặt SAU `busstop`): trong `reach`
+  - **Đời sống phố** (`features/streetlife.js` #32, cần `streets`, `buildings`, `citytraffic`; đặt SAU `busstop` — world có `busstop` mà đặt sau thì báo lỗi lúc dựng: không có trong `needs` vì phố không bến xe vẫn có đời sống phố): trong `reach`
     (600 m) quanh công trình. Mặt nhà nhìn ra phố (vỉa hè trong 2 đơn vị trước tường; `buildings` để lại `world.buildings`) có
     **biển hiệu + mái hiên sọc** ở tầng trệt (`shops`, 40); trước cửa: **xe máy dựng** (mũi vào nhà, không đủ chỗ thì dọc tường),
     **quán cóc** (bàn thấp, ghế nhựa, vài người ngồi — `sitters`, 8) hoặc không gì; vài mặt nhà khác cũng có xe máy; **xe đẩy bán
