@@ -135,8 +135,9 @@ export function simulate() {
   const g = W.terrain.meshHeightAt;
   const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam };
   const seaStart = W.seacraft ? W.seacraft.boats.map((b) => [b.x, b.z]) : [];
-  const beach = W.beach && { people: W.beach.people.length, shades: W.beach.shades, roles: {}, swimmersAshore: 0, inTheWater: 0, onStreets: 0, moved: 0 };
-  const beachStart = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
+  const beach = W.beach && { people: W.beach.people.length, shades: W.beach.shades, roles: {}, swimmersAshore: 0, inTheWater: 0, onStreets: 0, still: [] };
+  const beachLast = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
+  const beachWent = beachLast.map(() => 0); // how far each has gone, all told
   if (beach) for (const p of W.beach.people) beach.roles[p.role] = (beach.roles[p.role] ?? 0) + 1;
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
@@ -193,6 +194,9 @@ export function simulate() {
     if (beach && i % 10 === 0) {
       for (const p of W.beach.people) {
         const { x, z } = p.person.group.position, h = g(x, z);
+        const k = W.beach.people.indexOf(p);
+        beachWent[k] += p.person.group.position.distanceTo(beachLast[k]);
+        beachLast[k].copy(p.person.group.position);
         if (p.role === 'swimmer') {
           if (h > -2.3) beach.swimmersAshore++;
         } else {
@@ -253,7 +257,8 @@ export function simulate() {
     s.sea = sea;
   }
   if (beach) {
-    beach.moved = W.beach.people.filter((p, k) => p.person.group.position.distanceTo(beachStart[k]) > 2).length;
+    // Everyone but the ones sitting under the sunshades gets about (whether or not they end up back where they began).
+    beach.still = W.beach.people.flatMap((p, k) => (p.role !== 'sitter' && beachWent[k] < 3 ? [`${p.role} ${beachWent[k].toFixed(1)}`] : []));
     s.beach = beach;
   }
   W.weather.set('clear');

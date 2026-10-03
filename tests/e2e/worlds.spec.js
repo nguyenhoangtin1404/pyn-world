@@ -77,7 +77,7 @@ for (const { id } of WORLDS) {
         expect(b.swimmersAshore, why('swimmers stay in the water')).toBe(0);
         expect(b.inTheWater, why('nobody else walks into the sea')).toBe(0);
         expect(b.onStreets, why('the beach people keep to the sand')).toBe(0);
-        expect(b.moved, why('the beach people move about')).toBeGreaterThan(5);
+        expect(b.still, why('everyone on the beach but the sitters gets about')).toEqual([]);
       }
       if (life.tourists) {
         const t = life.tourists;
