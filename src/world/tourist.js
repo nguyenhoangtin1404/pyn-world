@@ -11,7 +11,7 @@ import { turnToward } from '../utils.js';
 export const PRAISE = [
   'Đẹp quá trời! 😍', 'Tháp đẹp thật sự! 🤩', 'Cột đá lục giác ngầu ghê! 😮', 'Gió biển mát quá 🌬️😊',
   'Biển xanh quá đi 🌊💙', 'Check-in nào! ✨📸', 'Hoành tráng quá! 👏', 'Tuyệt vời! 👍😍',
-  'Ảnh này đăng là "cháy" luôn 🔥', 'Phú Yên đẹp xỉu 💖', 'Sống ảo thôi! 😎', 'Không uổng công đến đây 🥰',
+  'Ảnh này đăng là "cháy" luôn 🔥', 'Tuy Hòa đẹp xỉu 💖', 'Sống ảo thôi! 😎', 'Không uổng công đến đây 🥰',
 ];
 export const CHAT = ['Qua đây chụp chung đi! 👯', 'Cười lên nào! 😁', 'Đứng sang trái chút 👈', 'Được rồi, đẹp lắm! 👌', 'Chụp lại tấm nữa nhé 🔄📸', 'Chụp cho mình tấm nhé 🙏'];
 export const RAIN = ['Mưa rồi ☔😅', 'Mưa cũng đẹp mà 🌧️💕'];

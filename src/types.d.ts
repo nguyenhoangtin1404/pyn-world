@@ -28,6 +28,9 @@ export interface WorldRecipe {
   id: string;
   /** On the plinth and the loading screen. */
   name: string;
+  /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
+  tagline?: string;
+  icon?: string;
   seed: number;
   /** Side of the square diorama. */
   size: number;
@@ -57,6 +60,9 @@ export interface GeoStopConfig extends Omit<StopConfig, 'at'> {
 export interface GeoRecipe {
   id: string;
   name: string;
+  /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
+  tagline?: string;
+  icon?: string;
   seed: number;
   /** Side of the square diorama, in world units (the data's frame says how many metres one is). */
   size: number;
@@ -96,6 +102,9 @@ export type LandCover = 'sea' | 'beach' | 'coastal' | 'town' | 'forest' | 'field
 export interface WorldConfig {
   id: string;
   name: string;
+  /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
+  tagline?: string;
+  icon?: string;
   seed: number;
   size: number;
   /** The railway's points — null for a world without one (defineGeoWorld with `rail: null`). */

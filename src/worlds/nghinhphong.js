@@ -1,7 +1,7 @@
 // @ts-check
 import { defineGeoWorld } from './define.js';
 
-// Tháp Nghinh Phong (Tuy Hòa, Phú Yên) and the town around it, 1 km each way: the tower on its
+// Tháp Nghinh Phong (phường Tuy Hòa) and the town around it, 1 km each way: the tower on its
 // square by the beach in the middle, the sea to the east, the streets and houses of the north of
 // the town to the west. From real map data like TUY HÒA, but closer up — 5 m per unit (Tuy Hòa:
 // 10), so the streets, the houses and the people on them are drawn bigger (world.scale.props 0.6).
@@ -11,6 +11,7 @@ import { defineGeoWorld } from './define.js';
 export default defineGeoWorld({
   id: 'nghinhphong',
   name: 'NGHINH PHONG',
+  tagline: 'PHƯỜNG TUY HÒA',
   seed: 1310,
   size: 400, // 2 km across: 5 m per unit (the data file's frame), Tháp Nghinh Phong in the middle
   data: () => import('./data/nghinhphong.json'),

@@ -6,6 +6,7 @@ import { defineWorld } from './define.js';
 export default defineWorld({
   id: 'pyn',
   name: 'PYN WORLD', // brass nameplate on the plinth
+  tagline: 'SA BÀN ĐƯỜNG SẮT',
   seed: 20260929, // scenery uses seed, life seed + 7
   size: 600, // side of the square diorama
 

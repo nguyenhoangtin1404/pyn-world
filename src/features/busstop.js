@@ -170,7 +170,7 @@ export default {
           for (const p of parties) if (p.trip && !p.dest && p.phase === 'look') p.setTrip(false);
           place.timer -= dt;
           if (place.timer <= 0 && place.queue.length < wait) {
-            const party = parties.find((p) => p.phase === 'look' && !p.dest && !p.trip && p.timer > 8 && curfew.out(p.rank, undefined, 1.5)); // (not those about to go home: tourists go an hour early)
+            const party = parties.find((p) => p.phase === 'look' && !p.dest && !p.trip && p.timer > 8 && curfew.out(p.rank, 'square', 1.5)); // (not those about to go home: tourists go an hour early)
             if (party) send(place, party);
             place.timer = 20 + rng() * 30;
           }

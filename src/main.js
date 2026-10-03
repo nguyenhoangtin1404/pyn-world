@@ -241,7 +241,7 @@ async function switchWorld(id) {
   const cfg = worldById(id);
   state.switchingTo = cfg.id; // the world picker shows it pending and waits
   hud.sync();
-  loader.show(cfg.name);
+  loader.show(cfg);
   // Free the old world first: two worlds in memory at once is a lot for a phone.
   world?.dispose();
   world = null;
@@ -261,7 +261,7 @@ async function switchWorld(id) {
 
 async function boot() {
   const cfg = worldById(state.world);
-  loader.show(cfg.name);
+  loader.show(cfg);
   resize();
   let first;
   try {

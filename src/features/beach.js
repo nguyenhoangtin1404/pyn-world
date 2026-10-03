@@ -6,7 +6,7 @@ import { coastOf } from '../world/coast.js';
 import { Person } from '../world/people.js';
 import { Walker } from '../world/walker.js';
 import { waveHeight } from '../world/water.js';
-import { curfewOf, outShare, waterShare, stepTo, HURRY } from '../world/night.js';
+import { curfewOf, stepTo, HURRY } from '../world/night.js';
 
 // People on the beach of a coast (a world from map data with a land cover that knows the beach):
 // sunshades with towels on the sand, someone sitting under some of them, children running about near
@@ -159,7 +159,7 @@ export default {
         {
           q,
           rank: curfew.rank(),
-          share: q.role === 'swimmer' ? waterShare : outShare,
+          who: q.role === 'swimmer' ? 'water' : 'beach',
           state: /** @type {'here' | 'going' | 'home' | 'back'} */ ('here'),
           to: new THREE.Vector3(),
           from: new THREE.Vector3(), // where they were: back there in the morning
@@ -169,7 +169,7 @@ export default {
     );
     /** Late (swimmers: at dusk): up the beach and gone; back in the morning to where they were. True while not here. */
     const away = (/** @type {import('../world/people.js').Person} */ person, /** @type {number} */ dt, /** @type {number} */ t) => {
-      const n = /** @type {any} */ (night.get(person)), { q } = n, g = person.group, out = curfew.out(n.rank, n.share, 1); // (the beach empties an hour before the town)
+      const n = /** @type {any} */ (night.get(person)), { q } = n, g = person.group, out = curfew.out(n.rank, n.who, 1); // (the beach empties an hour before the town)
       const walk = (/** @type {THREE.Vector3} */ to) => (q.walker ? q.walker.step(to, dt, t) : stepTo(person, to, 0.9 * k * HURRY, dt, ground));
       if (n.state === 'here') {
         if (out) return false;

@@ -480,7 +480,8 @@ export default {
     // Late at night the traffic thins out and stops (world/night.js): a vehicle goes where nobody sees it,
     // and comes back the same way in the morning — where there's room on its lane.
     const curfew = curfewOf(world);
-    for (const c of cars) c.rank = curfew.rank();
+    // (A bus runs all day, quiet noon or not: the last to go, until the night's last share.)
+    for (const c of cars) c.rank = c.kind === 'bus' ? 0.001 : curfew.rank();
     /** @type {Vehicle[]} */
     const active = [];
     const atEnd = (/** @type {Vehicle} */ c) => routes[c.route].ends.some(([x, z]) => Math.hypot(c.group.position.x - x, c.group.position.z - z) < 3);
@@ -531,7 +532,7 @@ export default {
         for (const w of world.pedestrians) if (w.group.visible) people.push({ x: w.pos.x / k, z: w.pos.z / k }); // (not those at home, or on the bus)
         active.length = 0;
         for (const c of cars) {
-          const out = curfew.out(c.rank, undefined, 1), seen = curfew.seen(c.group.position, c.length * k);
+          const out = curfew.out(c.rank, 'traffic', 1), seen = curfew.seen(c.group.position, c.length * k);
           // (gone: out of sight, or at the end of its street — turning off it, as far as anyone can tell)
           // (back where nobody sees, or the way it went: out of the side street, from the end of the street)
           if (c.away ? out && (!seen || c.offStreet) && !c.turn && room(c) : !out && !c.turn && c.busState !== 'dwell' && (!seen || atEnd(c))) {
@@ -546,7 +547,7 @@ export default {
           const before = c.s;
           c.update(dt);
           // (late, and it should be home: off at the crossroads it just went through — turned into a side street)
-          if (!c.turn && c.busState !== 'dwell' && !curfew.out(c.rank, undefined, 1) && c.stops.some((st) => passed(before, c.s, st.s, c.path.length))) {
+          if (!c.turn && c.busState !== 'dwell' && !curfew.out(c.rank, 'traffic', 1) && c.stops.some((st) => passed(before, c.s, st.s, c.path.length))) {
             c.away = c.offStreet = true;
             c.group.visible = false;
             continue;

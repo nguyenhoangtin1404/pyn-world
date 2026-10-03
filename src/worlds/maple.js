@@ -6,6 +6,7 @@ import { defineWorld } from './define.js';
 export default defineWorld({
   id: 'maple',
   name: 'MAPLE VALE',
+  tagline: 'SA BÀN ĐƯỜNG SẮT',
   seed: 7351,
   size: 600,
 

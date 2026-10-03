@@ -77,7 +77,7 @@ export default {
     };
     /** Late: looking about or waiting for the bus → out of the grounds and gone; in the morning, back in. */
     const home = (/** @type {Party} */ p) => {
-      const out = curfew.out(p.rank, undefined, VISITORS);
+      const out = curfew.out(p.rank, 'square', VISITORS);
       if (p.phase === 'home') {
         if (hurrying.delete(p)) for (const m of p.members) m.speed /= HURRY; // (home: no more hurry)
         if (!out) return;
