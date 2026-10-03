@@ -279,6 +279,14 @@ export function createTerrain(cfg, track, stops, rivers) {
   for (let i = 0; i < gp.count; i++) gp.setY(i, heightAt(gp.getX(i), gp.getZ(i)));
 
   // Non-indexed so every triangle gets its own flat colour (low-poly look).
+  // (cfg.groundSmooth, 0..1: how far the facets are blended away — their normals and colours towards their neighbours'.)
+  const smooth = cfg.groundSmooth ?? 0;
+  /** @type {Float32Array | null} the ground's smooth normals, in the non-indexed order */
+  let smoothNormals = null;
+  if (smooth > 0) {
+    grid.computeVertexNormals();
+    smoothNormals = /** @type {Float32Array} */ (grid.toNonIndexed().attributes.normal.array);
+  }
   const geo = grid.toNonIndexed();
   geo.computeVertexNormals();
   const p = geo.attributes.position;
@@ -302,8 +310,31 @@ export function createTerrain(cfg, track, stops, rivers) {
       snowWeight[t + k] = sw;
     }
   }
+  if (smoothNormals) {
+    // Colours: each corner towards the average of the triangles that meet there. Normals: towards the smooth ones.
+    // (By grid point, in flat arrays: this runs over hundreds of thousands of corners.)
+    const n1 = segments + 1;
+    const at = (/** @type {number} */ i) => Math.round((p.getX(i) + size / 2) / cell) * n1 + Math.round((p.getZ(i) + size / 2) / cell);
+    const sum = new Float32Array(n1 * n1 * 4);
+    for (let i = 0; i < count; i++) {
+      const g = at(i) * 4;
+      sum[g] += base[i * 3];
+      sum[g + 1] += base[i * 3 + 1];
+      sum[g + 2] += base[i * 3 + 2];
+      sum[g + 3]++;
+    }
+    for (let i = 0; i < count; i++) {
+      const g = at(i) * 4;
+      for (let k = 0; k < 3; k++) base[i * 3 + k] += (sum[g + k] / sum[g + 3] - base[i * 3 + k]) * smooth;
+      const x = nrm.getX(i) + (smoothNormals[i * 3] - nrm.getX(i)) * smooth;
+      const y = nrm.getY(i) + (smoothNormals[i * 3 + 1] - nrm.getY(i)) * smooth;
+      const z = nrm.getZ(i) + (smoothNormals[i * 3 + 2] - nrm.getZ(i)) * smooth;
+      const len = Math.hypot(x, y, z) || 1;
+      nrm.setXYZ(i, x / len, y / len, z / len);
+    }
+  }
   geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
-  const groundMat = snowCovered(geo, snowWeight);
+  const groundMat = snowCovered(geo, snowWeight, smooth > 0 ? { flatShading: false } : undefined);
   // (A world with cfg.chunk: the ground in pieces, so the ones out of sight aren't drawn.)
   /** @type {THREE.Object3D} */
   let mesh;

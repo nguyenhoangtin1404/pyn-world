@@ -16,6 +16,7 @@ export default defineGeoWorld({
   data: () => import('./data/nghinhphong.json'),
   rail: null,
   cell: 1.5, // the ground in finer triangles: a smooth shore
+  groundSmooth: 0.75, // …and their facets blended away: the ground's triangles don't show
   boulevards: true, // the big roads: four lanes round a planted, lit median; the tower's axis along the centre line of the street that meets its square
   landcover: { fields: false }, // the town's open ground is grass, not rice paddies
   stops: [],

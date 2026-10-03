@@ -263,7 +263,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   bình đất quanh nó, không kéo theo biển/mặt nước), `coast` (`smoothCoast`: dải có cả biển lẫn đất trong bán kính lấy
   trung bình → mép nước theo đường cong, không theo bậc thang lưới), `verticalScale` thấp hơn. Biển giờ là mọi điểm
   **< `WATER_BED`** (−4 m; bờ đã làm mịn có biển nông hơn `SEA_BED`); `seaDistanceAt` nội suy giữa 4 điểm lưới (mép bãi
-  cát mượt). Công thức world có `cell` (ô lưới địa hình, mặc định 3; NGHINH PHONG 1,5).
+  cát mượt). Công thức world có `cell` (ô lưới địa hình, mặc định 3; NGHINH PHONG 1,5). Và `groundSmooth` (0..1, mặc định 0 = mặt đất tam giác phẳng low-poly như PYN/MAPLE): pha màu và pháp tuyến của từng tam giác về phía các tam giác kề (`terrain.js`: màu mỗi đỉnh → trung bình các tam giác chung đỉnh, pháp tuyến → pháp tuyến mịn, vật liệu `flatShading: false`) cho khỏi lộ từng mảng tam giác trên bãi cát và bãi cỏ — NGHINH PHONG 0,75. Hình học không đổi (golden hình học không bắt, ảnh chuẩn trong ngưỡng).
 - **Xe không quay đầu trong ngã tư**: phố có xe mà kết thúc ở chỗ cắt phố khác thì bị cắt ngắn (`trimEnds` + `crossedAt`:
   cách phố kia nửa bề rộng + bề rộng phố mình + 1) — quay đầu giữa ngã tư làm xe cắt ngang xe khác quá gần để kịp phanh.
   Luật: chỉ bỏ qua xe **ngược chiều và lệch sang bên** (`gapTo`: `cos < −0,7` và cách trục làn mình > `LANE / 2`).
