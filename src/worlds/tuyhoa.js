@@ -16,6 +16,7 @@ import { defineGeoWorld } from './define.js';
 export default defineGeoWorld({
   id: 'tuyhoa',
   name: 'TUY HÒA',
+  tagline: 'PHÚ YÊN · TỪ BẢN ĐỒ THẬT',
   seed: 1302,
   size: 600, // 6 km across: 10 m per unit (the data file's frame), from Tháp Nghinh Phong in the north to the Đà Rằng in the south
   data: () => import('./data/tuyhoa.json'),

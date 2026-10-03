@@ -11,6 +11,7 @@ import { defineGeoWorld } from './define.js';
 export default defineGeoWorld({
   id: 'nghinhphong',
   name: 'NGHINH PHONG',
+  tagline: 'TUY HÒA · PHÚ YÊN',
   seed: 1310,
   size: 400, // 2 km across: 5 m per unit (the data file's frame), Tháp Nghinh Phong in the middle
   data: () => import('./data/nghinhphong.json'),

@@ -45,6 +45,12 @@ test('keyboard shortcuts', async ({ page }) => {
   await page.keyboard.press('KeyV');
   await expect(toast).toHaveText('Thế giới này không có công trình nổi tiếng');
 
+  // The controls start folded away (the picture first); the button opens them.
+  await expect(page.locator('#weather')).toBeHidden();
+  await page.locator('#panel-toggle').click();
+  await expect(page.locator('#panel-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#weather')).toBeVisible();
+
   // Typing in a field is not a shortcut.
   await page.locator('#weather').focus();
   await page.keyboard.press('Digit3');
@@ -79,7 +85,8 @@ test('quick views: the tower, the tourists, the balloons', async ({ page }) => {
   await page.keyboard.press('Digit0');
   expect((await state()).mode).toBe('balloon');
   await expect(toast).toHaveText(/^Đang theo: Khinh khí cầu /);
-  // The chips: the tower's, and the new cameras', all shown in this world.
+  // The chips: the tower's, and the new cameras', all shown in this world (in the panel: open it).
+  await page.locator('#panel-toggle').click();
   await expect(page.locator('#camera-modes button', { hasText: 'Tháp' })).toBeVisible();
   await expect(page.locator('#camera-modes button', { hasText: 'Du khách' })).toBeVisible();
   await expect(page.locator('#camera-modes button', { hasText: 'Khinh khí cầu' })).toBeVisible();

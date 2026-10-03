@@ -316,6 +316,9 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Chỉ hiện NGHINH PHONG**: `SHOWN` (`worlds/index.js`) là các world app đưa ra (nút chọn, phím N, world mặc định);
   world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>`. Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
   bản dev) thay phím N.
+- **Màn hình tải theo world** (`app/loader.js`): `🚂`/`🏛` (có/không tàu, hoặc `cfg.icon`) + tên + `cfg.tagline` (mặc định
+  "SA BÀN LOW-POLY"); gợi ý chỉ nói thứ world có (`hintsFor`: mỗi gợi ý `needs` một feature id). **Bảng điều khiển đóng sẵn**
+  (`#panel.collapsed` trong `index.html`) — nút "Mở bảng điều khiển"; test nào bấm chip/ô trong bảng thì mở nó trước.
 - **Đất phẳng, mịn, bờ biển mượt** (công thức dữ liệu): `smooth` (bán kính điểm lưới, `smoothLand`: đất liền = trung
   bình đất quanh nó, không kéo theo biển/mặt nước), `coast` (`smoothCoast`: dải có cả biển lẫn đất trong bán kính lấy
   trung bình → mép nước theo đường cong, không theo bậc thang lưới), `verticalScale` thấp hơn. Biển giờ là mọi điểm
