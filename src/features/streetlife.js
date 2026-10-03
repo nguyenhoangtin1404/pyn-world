@@ -38,6 +38,10 @@ export default {
     const k = world.scale.props;
     const { site } = world;
     world.need('nhà từ dữ liệu bản đồ (world.buildings)', 'streetlife', world.buildings.length);
+    // (Not in `needs`: a town with no bus stop has street life too. But with one, it comes first, or nothing here
+    // knows where its passengers walk and they'd walk through what stands there.)
+    const busToo = world.cfg.features.some((f) => (typeof f === 'string' ? f : f.id) === 'busstop');
+    world.need('bến xe buýt dựng trước ("busstop" đặt trước "streetlife" trong cfg.features)', 'streetlife', !busToo || world.busStop);
     const ground = world.terrain.meshHeightAt;
     const half = world.size / 2;
     const P = PAVEMENT * k;

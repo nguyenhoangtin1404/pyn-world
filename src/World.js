@@ -12,6 +12,9 @@ import { createScale } from './world/scale.js';
 import { PERSON_HEIGHT } from './world/people.js';
 import { StaticBatch, isShared } from './world/lowpoly.js';
 import { mulberry32 } from './utils.js';
+import { coastOf } from './world/coast.js';
+import { soundLevels } from './world/soundscape.js';
+import { WATER_Y } from './config.js';
 import { FEATURES } from './features/index.js';
 
 // One complete world built from a WorldConfig (src/worlds/): its own scene — sky, lights and fog
@@ -246,6 +249,9 @@ export class World {
           if (!person.child) this.scale.note('person', PERSON_HEIGHT * person.group.scale.y, 'people'); // (not drawn at world.scale yet)
         }
         scene.add(this.batch.build({ chunk: cfg.chunk }));
+        // The coast, for the sound of the sea (listen()): worked out now, not in the first frames on screen —
+        // on a big map it takes long enough to make a frame stutter and the simulation jump.
+        if (cfg.landcover) coastOf(this);
         this.checkSeal();
       }),
     ];
@@ -282,6 +288,16 @@ export class World {
     const f = Object.assign(this.frame, { raw, camera, focus, lights: sky.lights, overcast: weather.overcast, snow: weather.snowCover });
     for (const s of this.systems) s.lateUpdate?.(f);
     if (++this.sealTick % 45 === 0) this.checkSeal();
+  }
+
+  // What the camera hears from here (world/soundscape.js, played by audio.js): the sea, the wind, the
+  // traffic, people's voices, and where a horn would come from.
+  /** @param {THREE.Vector3} ear */
+  listen(ear) {
+    const shore = this.cfg.landcover ? coastOf(this).shore : []; // (worked out while building)
+    const vehicles = this.vehicles.filter((v) => !v.spec.flies).map((v) => ({ x: v.group.position.x, y: v.group.position.y, z: v.group.position.z, moving: v.v > 0.5 }));
+    const people = [...this.people, ...this.pedestrians.filter((p) => /** @type {any} */ (p).group?.visible !== false), ...(this.beach?.people ?? [])].map((/** @type {any} */ p) => p.pos ?? p.person.group.position);
+    return soundLevels(ear, { shore, waterY: WATER_Y, vehicles, people, map: this.scale.map, props: this.scale.props });
   }
 
   // A world with the Nghinh Phong tower carries its sealed sea sign (world/seal.js): without it,

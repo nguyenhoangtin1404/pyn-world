@@ -51,6 +51,7 @@ document.getElementById('scene').appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
 const audio = new AudioEngine();
+let sound = null, soundAge = 0; // what the camera hears (world.listen), and how old that is
 const post = new PostFX(renderer);
 const rig = new CameraRig(camera, renderer.domElement);
 let world = null; // the World on screen (null while the next one is being built)
@@ -181,11 +182,14 @@ function frame() {
   rig.update(raw);
   world.lateUpdate({ raw, camera, focus: rig.focus });
 
+  // What the camera hears around it: 5 times a second is plenty (the sound eases to each new level).
+  if ((soundAge += raw) > 0.2 || !sound) [sound, soundAge] = [world.listen(camera.position), 0];
   audio.update(raw, {
     trainDistance: world.train ? camera.position.distanceTo(world.train.locoPos) : Infinity,
     rain: world.weather.rain,
     day: world.sky.lights < 0.3,
     paused: dt === 0,
+    sound,
   });
 
   post.render(world.scene, camera);
