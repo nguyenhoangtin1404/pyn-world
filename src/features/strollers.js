@@ -75,7 +75,7 @@ export default {
           const { w } = s;
           // Late at night: home through the nearest door (or, with none near, when nobody is looking); back out
           // of it in the morning.
-          const out = curfew.out(s.rank, undefined, 0.6); // (a little early: some walk a way home)
+          const out = curfew.out(s.rank, 'town', 0.6); // (a little early: some walk a way home)
           if (s.home) {
             if (!out || (!s.door && curfew.seen(w.pos))) continue;
             if (s.door) w.place(s.door);

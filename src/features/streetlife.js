@@ -338,7 +338,7 @@ export default {
         for (const v of vendors) v.idle(t);
         // Late at night: up, in by the door and gone; out again in the morning, back to the stool or the cart.
         for (const h of shopkeepers) {
-          const out = curfew.out(/** @type {number} */ (h.rank), undefined, 0.5), g = h.person.group; // (shops close half an hour early)
+          const out = curfew.out(/** @type {number} */ (h.rank), 'town', 0.5), g = h.person.group; // (shops close half an hour early)
           const walk = (/** @type {THREE.Vector3} */ to) => (h.walker ? h.walker.step(to, dt, t) : stepTo(h.person, to, 0.9 * k * HURRY, dt, h.heightAt));
           if (h.state === 'here' && !out) {
             h.from = new THREE.Vector3(g.position.x, 0, g.position.z);

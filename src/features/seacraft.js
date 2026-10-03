@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
 import { Instancer, VERTEX_COLORED, UNLIT } from '../world/lowpoly.js';
-import { curfewOf, waterShare } from '../world/night.js';
+import { curfewOf } from '../world/night.js';
 import { coastOf } from '../world/coast.js';
 import { waveHeight } from '../world/water.js';
 import { jetSki, parasail, towRope, TOW_HOOK, JETSKI_SEAT, FLYER_X, fishingBoat, ship, fishingLamps, shipLamps, squidGlow } from '../world/boats/seacraft.js';
@@ -216,7 +216,7 @@ export default {
       update({ dt, t }) {
         if (world.seacraft.foam) world.seacraft.foam.uTime.value = t;
         for (const f of flights) {
-          const out = curfew.out(/** @type {number} */ (rankOf.get(f)), waterShare);
+          const out = curfew.out(/** @type {number} */ (rankOf.get(f)), 'water');
           if (f.ski.away !== !out && !curfew.seen(f.ski.anchor.position, 3) && !curfew.seen(f.at, 6)) {
             f.ski.away = !out;
             f.ski.anchor.visible = f.sail.visible = f.rope.visible = out;

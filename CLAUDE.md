@@ -289,6 +289,13 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     đúng cửa/chỗ cũ, ngồi lại ghế. **Đèn thuyền**: thuyền câu mực sáng đèn (bóng `fishingLamps` + quầng sáng trên mặt nước `squidGlow`,
     cộng màu), tàu hàng đèn hành trình (`shipLamps`), hiện khi `lights > 0,3`. E2E `night.spec.js`: chạy đồng hồ 21 → 8 h với camera mặc
     định — 23:30 ít người/xe hẳn, 1 h và 3 h đúng 1–2 người, không xe, 8 h về lại ≥ 90 % người, đủ xe, không xe nào ra đè lên xe khác.
+  - **Nhịp ban ngày** (#39, `RHYTHM` + `busy(lô, giờ)` trong `world/night.js`): mỗi lô một đường gấp khúc theo giờ, nhân với
+    phần ban đêm (`shareOf(lô, giờ, lead)`; `curfew.out(rank, lô, lead)`): `traffic` (xe: cao điểm 7–9:30 và 16:30–18:30, trưa
+    11:45–13:30 còn 45 %, tối 70 %), `town` (người đi dạo, quán, xe đẩy: trưa 45 %), `beach` (trưa 25 % — cát nóng), `square` (du
+    khách: trưa 40 %), `water` = `waterShare` × `beach`. Đi/về y như ban đêm (cửa nhà, ra cạnh quảng trường, lên bãi, xe khuất
+    camera). Xe buýt chạy cả ngày (`rank` 0,001). **7:00–9:30 mọi lô đủ 100 %**: app mở lúc 9 h → golden và lượt tua 300 s
+    không đổi. E2E `night.spec.js` (ngày 8 → 19 h): 8:30 13 xe / 49 người, 13 h 5 xe / 19 người (bãi 9 → 2, quảng trường 6 → 3),
+    18 h đủ lại.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

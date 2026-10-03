@@ -10,6 +10,12 @@ import { STEP_LENGTH } from './walker.js';
 // house, the edge of the square, up the beach) and is gone there; a vehicle goes where nobody sees it
 // (off screen, or at the end of its street); they come back the same ways. The clock runs fast (a day in
 // 4 minutes): a way home is a few strides, never a walk to the end of the street, and they hurry (HURRY).
+//
+// By day it ebbs and flows too (RHYTHM, how many of each lot are about, times the night's share): the
+// morning and evening rush on the roads, an empty noon (the town naps, the sand is too hot), the beach and
+// the tower's square full in the late afternoon and evening. Everyone is out from 7:00 to 9:30 — the
+// morning swim and coffee, the rush to work — which is also when the app opens (9:00): the worlds' goldens
+// and the 300 s run are taken with all of them about.
 
 export const HURRY = 2; // how much faster than they stroll people walk home
 
@@ -34,6 +40,40 @@ export function waterShare(h) {
   return smooth((h - 7.5) / 1) * (1 - smooth((h - 17.5) / 1));
 }
 
+/**
+ * How many of each lot are about by day (0..1, times outShare), as [hour, share] points with straight lines
+ * between; 1 before the first and after the last. `town`: people on the pavements, cafés and street
+ * carts; `traffic`: vehicles on the streets; `beach`: on the sand (and in the sea); `square`: visitors at
+ * the landmark.
+ * @type {Record<'town' | 'traffic' | 'beach' | 'square', [number, number][]>}
+ */
+export const RHYTHM = {
+  town: [[9.5, 1], [11, 0.6], [12, 0.45], [14, 0.45], [15.5, 0.75], [17, 1]],
+  traffic: [[5, 0.7], [7, 1], [9.5, 1], [11, 0.6], [11.75, 0.45], [13.5, 0.45], [15, 0.7], [16.5, 1], [18.5, 1], [20, 0.75], [22, 0.7]],
+  beach: [[9.5, 1], [10.5, 0.5], [11.5, 0.25], [14, 0.25], [15.5, 0.6], [16.5, 1]],
+  square: [[9.5, 1], [11, 0.55], [12, 0.4], [14.5, 0.4], [16, 0.75], [17.5, 1]],
+};
+
+/** The share of a lot about by day at hour h (RHYTHM). @param {keyof typeof RHYTHM} who @param {number} h */
+export function busy(who, h) {
+  h = ((h % 24) + 24) % 24;
+  const pts = RHYTHM[who];
+  if (h <= pts[0][0] || h >= pts[pts.length - 1][0]) return h <= pts[0][0] ? pts[0][1] : pts[pts.length - 1][1];
+  let i = 1;
+  while (pts[i][0] < h) i++;
+  const [h0, v0] = pts[i - 1], [h1, v1] = pts[i];
+  return v0 + ((v1 - v0) * (h - h0)) / (h1 - h0);
+}
+
+/**
+ * Out at hour h: the night's share (an hour `lead` early) times the day's (RHYTHM; `water`: the beach's,
+ * and only in daylight — waterShare).
+ * @param {keyof typeof RHYTHM | 'water'} who @param {number} h @param {number} [lead]
+ */
+export function shareOf(who, h, lead = 0) {
+  return who === 'water' ? waterShare(h + lead) * busy('beach', h) : outShare(h + lead) * busy(who, h);
+}
+
 const GOLDEN = 0.6180339887498949;
 
 /** The hour, what the camera sees, and everyone's rank (World keeps it up to date each frame). */
@@ -55,11 +95,11 @@ export class Curfew {
 
   /**
    * Out at this hour? `lead`: hours early these go home (visitors before the people who live here: they've
-   * further to go, and the beach and the square empty first).
-   * @param {number} rank @param {(h: number) => number} [share] @param {number} [lead]
+   * further to go, and the beach and the square empty first). `who`: which lot (shareOf).
+   * @param {number} rank @param {keyof typeof RHYTHM | 'water'} [who] @param {number} [lead]
    */
-  out(rank, share = outShare, lead = 0) {
-    return rank < share(this.hour + lead);
+  out(rank, who = 'town', lead = 0) {
+    return rank < shareOf(who, this.hour, lead);
   }
 
   /** @param {THREE.Camera} camera */
