@@ -20,7 +20,7 @@ import { curfewOf, stepTo, HURRY } from '../world/night.js';
 // the crossings and the landmarks' squares; on the pavement it stands against the building, the walk on
 // the kerb side of it. All static, in world.batch (the sitters and the vendors are people). Only within
 // `reach` metres (600) of the landmark, where the town is lived in.
-// Options: shops (40), cars (14), carts (5), sitters (8), reach (600).
+// Options: shops (40), cars (14), carts (5), sitters (8), bikes (1: the share of the usual parked motorbikes), reach (600).
 // world.streetLife lists the circles everything takes on the ground (tests/e2e: nobody walks into one).
 
 const AWNINGS = [['#c8453a', '#f4f1ea'], ['#2f8f8b', '#f4f1ea'], ['#e0a64a', '#f4f1ea'], ['#3a7fc4', '#f4f1ea'], ['#6d8b3a', '#f2e6c4']];
@@ -35,7 +35,7 @@ const MINOR = new Set(['residential', 'service', 'unclassified', 'living_street'
 export default {
   label: 'Đang cho phố thêm đời sống',
   needs: ['streets', 'buildings', 'citytraffic'],
-  build(world, { rng, shops = 40, cars = 14, carts = 5, sitters = 8, reach = 600 }) {
+  build(world, { rng, shops = 40, cars = 14, carts = 5, sitters = 8, bikes: bikeShare = 1, reach = 600 }) {
     const k = world.scale.props;
     const { site } = world;
     world.need('nhà từ dữ liệu bản đồ (world.buildings)', 'streetlife', world.buildings.length);
@@ -201,6 +201,7 @@ export default {
      * @param {typeof fronts[number]} f @param {number} ry @param {number[]} X @param {number} count
      */
     function bikes(f, ry, X, count) {
+      count = Math.max(1, Math.round(count * bikeShare));
       const { mx, mz, nx, nz, w, st } = f;
       const u0 = (rng() - 0.5) * Math.max(0, w - count * 0.8 * k);
       for (let i = 0; i < count; i++) {

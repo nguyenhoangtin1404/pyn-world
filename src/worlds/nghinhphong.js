@@ -24,13 +24,15 @@ export default defineGeoWorld({
   features: [
     'landmarks', 'streets', 'buildings', 'trees', 'clouds',
     { id: 'balloons', count: 6, near: 'landmark', big: 2 }, // hot-air balloons over the tower, two of them big
-    { id: 'strollers', square: 0 }, // people on the pavements (the tower's square is the tourists')
-    { id: 'tourists', count: 22 }, // tourists at the tower: slow, stopping to look, taking photos, praising it in emoji
-    { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
+    // (People and traffic: half what the features would put here by default — enough to be lively, few enough to keep
+    // the frame rate up, and with it the resolution: CLAUDE.md, Đo trước khi tối ưu.)
+    { id: 'strollers', count: 12, square: 0 }, // people on the pavements (the tower's square is the tourists')
+    { id: 'tourists', count: 11 }, // tourists at the tower: slow, stopping to look, taking photos, praising it in emoji
+    { id: 'citytraffic', min: 40, lights: 'all', vehicles: { motorbike: 6, bicycle: 2, car: 3, truck: 1, bus: 1 } }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
     'busstop', // the buses stop beside the tower's square: tourists get off and some get on
-    'seacraft', // basket boats, fishing boats and coasters on the sea, foam along the waterline
-    'beach', // sunshades, swimmers, joggers and children on the sand
-    'streetlife', // shop signs and awnings, parked bikes and cars, pavement cafés, food carts
+    { id: 'seacraft', parasails: 1 }, // a jet ski towing a parasail, fishing boats and coasters on the sea, foam along the waterline
+    { id: 'beach', sitters: 3, kids: 2, swimmers: 2, joggers: 1, walkers: 1 }, // sunshades, swimmers, joggers and children on the sand
+    { id: 'streetlife', sitters: 4, carts: 3, cars: 7, bikes: 0.5 }, // shop signs and awnings, parked bikes and cars, pavement cafés, food carts
   ],
 });

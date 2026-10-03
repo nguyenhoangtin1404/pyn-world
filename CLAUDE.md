@@ -545,6 +545,10 @@ là người — mỗi người 2 lần (ảnh + **bóng**), dù ở góc mặc 
 px trên màn hình (`d < 160 × bán kính bao`) — người ở gần vẫn có bóng (ảnh chuẩn người đi xe đạp giữ nguyên), toa tàu to luôn có.
 Draw call góc mặc định: NGHINH PHONG 362 → 271, PYN 273 → 240, MAPLE 307 → 267, Tuy Hòa 290 → 264 (golden chỉ đổi `drawCalls`);
 thời gian vẽ (GPU phần mềm, trung vị, nhiễu ±10 %) #28 ~880 ms, #42 ~970, sau ~915.
+Rồi **NGHINH PHONG một nửa người và xe** (công thức: người đi dạo 12, du khách 11, xe chạy 13 — còn 1 xe buýt —, bãi biển 9, quán 4,
+xe đẩy 3, ô tô đỗ 7, xe máy đỗ `bikes: 0.5`, 1 dù bay; mặc định của feature giữ nguyên cho Tuy Hòa): SkinnedMesh 98 → 50, draw call
+271 → 221 (362 lúc đầu), tam giác 818k → 753k. Ban đêm: xe đáng về nhà còn rẽ đi ở ngã tư nó vừa qua (`offStreet`: sáng ra lại
+đúng chỗ đó, kể cả khi camera thấy) — với ít xe, một chiếc cứ chạy vòng trong khung hình tới 1 h.
 
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 

@@ -533,8 +533,10 @@ export default {
         for (const c of cars) {
           const out = curfew.out(c.rank, undefined, 1), seen = curfew.seen(c.group.position, c.length * k);
           // (gone: out of sight, or at the end of its street — turning off it, as far as anyone can tell)
-          if (c.away ? out && !seen && !c.turn && room(c) : !out && !c.turn && c.busState !== 'dwell' && (!seen || atEnd(c))) {
+          // (back where nobody sees, or the way it went: out of the side street, from the end of the street)
+          if (c.away ? out && (!seen || c.offStreet) && !c.turn && room(c) : !out && !c.turn && c.busState !== 'dwell' && (!seen || atEnd(c))) {
             c.away = !c.away;
+            c.offStreet = c.away && seen;
             c.group.visible = !c.away;
           }
           if (!c.away) active.push(c);
@@ -543,6 +545,12 @@ export default {
         for (const c of active) {
           const before = c.s;
           c.update(dt);
+          // (late, and it should be home: off at the crossroads it just went through — turned into a side street)
+          if (!c.turn && c.busState !== 'dwell' && !curfew.out(c.rank, undefined, 1) && c.stops.some((st) => passed(before, c.s, st.s, c.path.length))) {
+            c.away = c.offStreet = true;
+            c.group.visible = false;
+            continue;
+          }
           turn(c, before);
         }
       },
