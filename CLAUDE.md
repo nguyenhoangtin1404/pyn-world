@@ -538,9 +538,17 @@ cây/nhà 168 → 114 ms, người + lưới dẫn đường 336 → 274 ms. `tr
 thay vì quét 380 điểm, và nhận `max` để dừng sớm (kết quả < max vẫn chính xác) — truyền `max` khi
 chỉ cần so với một ngưỡng.
 
+Đo 2026-10-03 (ảnh bị mờ: khung hình chậm thì `createResolutionAdapter` hạ pixel ratio 1,5 → 1): từ #28 tới #42 NGHINH PHONG
+thêm 37 người (SkinnedMesh 58 → 95) và đồ trên phố, draw call góc mặc định 293 → 377, tam giác 773k → 895k; một nửa draw call
+là người — mỗi người 2 lần (ảnh + **bóng**), dù ở góc mặc định họ cách camera 182–511 đơn vị, cao 2–6 px, bóng không ai thấy.
+**Bóng theo khoảng cách** (`World.figureShadows`, 15 frame một lần và ngay frame đầu): một SkinnedMesh chỉ đổ bóng khi cao ≥ ~12
+px trên màn hình (`d < 160 × bán kính bao`) — người ở gần vẫn có bóng (ảnh chuẩn người đi xe đạp giữ nguyên), toa tàu to luôn có.
+Draw call góc mặc định: NGHINH PHONG 362 → 271, PYN 273 → 240, MAPLE 307 → 267, Tuy Hòa 290 → 264 (golden chỉ đổi `drawCalls`);
+thời gian vẽ (GPU phần mềm, trung vị, nhiễu ±10 %) #28 ~880 ms, #42 ~970, sau ~915.
+
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
 - Thời gian tải: phần lớn còn lại là biên dịch shader (~0,5 s trên GPU phần mềm) và dựng người
   (`Person`/`skinFigure`, ~130 ms). `heightAt` giờ chủ yếu là noise (`fbm`).
-- Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng. Còn
-  có thể tắt `castShadow` cho vật nhỏ ở xa.
+- Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng, người/toa ở xa không đổ
+  bóng (`figureShadows`). Còn: xe (Instancer — cả đội một mesh, không tắt từng chiếc được), đồ tĩnh nhỏ trong `world.batch`.

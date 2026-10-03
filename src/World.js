@@ -33,6 +33,8 @@ import { FEATURES } from './features/index.js';
 // - finish(): once, when every feature has been built (lamps.js builds its glow then)
 // - dispose(): anything World.dispose() can't find in the scene
 // `dt` is simulated time (0 while paused), `raw` real time, `t` the world's simulated clock.
+const TMP = { p: new THREE.Vector3(), q: new THREE.Quaternion(), sc: new THREE.Vector3() };
+
 export class World {
   /** @param {WorldConfig} cfg */
   constructor(cfg) {
@@ -61,6 +63,8 @@ export class World {
     /** @type {import('./world/seal.js').Seal | null} the sea sign's guard (landmarks/nghinh-phong.js) */
     this.seal = null;
     this.sealTick = 0;
+    /** @type {THREE.Mesh[]} the jointed figures that cast shadows when near (figureShadows) */
+    this.figures = [];
     /** @type {Frame} */
     this.frame = { dt: 0, raw: 0, t: 0, speed: 1, camera: null, focus: null, rain: 0, lights: 0, overcast: 0, snow: 0 };
     // Filled in by the features while they are built:
@@ -249,6 +253,13 @@ export class World {
           if (!person.child) this.scale.note('person', PERSON_HEIGHT * person.group.scale.y, 'people'); // (not drawn at world.scale yet)
         }
         scene.add(this.batch.build({ chunk: cfg.chunk }));
+        // Every jointed figure (people, carriages: SkinnedMesh) and its size, for the shadows (lateUpdate).
+        scene.traverse((o) => {
+          if (!(/** @type {any} */ (o).isSkinnedMesh) || !(/** @type {THREE.Mesh} */ (o).castShadow)) return;
+          const m = /** @type {THREE.Mesh} */ (o);
+          if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+          this.figures.push(m);
+        });
         // The coast, for the sound of the sea (listen()): worked out now, not in the first frames on screen —
         // on a big map it takes long enough to make a frame stutter and the simulation jump.
         if (cfg.landcover) coastOf(this);
@@ -294,6 +305,22 @@ export class World {
     const f = Object.assign(this.frame, { raw, camera, focus, lights: sky.lights, overcast: weather.overcast, snow: weather.snowCover });
     for (const s of this.systems) s.lateUpdate?.(f);
     if (++this.sealTick % 45 === 0) this.checkSeal();
+    if (this.sealTick % 15 === 1) this.figureShadows(camera); // (from the first frame on: the same at once)
+  }
+
+  // A figure casts a shadow only where it shows: under ~12 px tall on screen (the overview: people
+  // 2–6 px, hundreds of units away) its shadow is a speck nobody sees, and each one is a draw call in the
+  // shadow pass, every frame — NGHINH PHONG from the start: 98 of them, a quarter of all its draw calls.
+  // (Distance against size: 2 r / (2 d tan(fov / 2)) × 800 px ≥ 12, at 45° → d < 160 r.)
+  /** @param {THREE.Camera} camera */
+  figureShadows(camera) {
+    if (!camera) return;
+    const { p, q, sc } = TMP;
+    for (const m of this.figures) {
+      m.matrixWorld.decompose(p, q, sc);
+      const r = /** @type {THREE.Sphere} */ (m.geometry.boundingSphere).radius * sc.y;
+      m.castShadow = p.distanceTo(camera.position) < 160 * r;
+    }
   }
 
   // What the camera hears from here (world/soundscape.js, played by audio.js): the sea, the wind, the
