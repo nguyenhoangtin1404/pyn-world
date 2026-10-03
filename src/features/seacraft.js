@@ -4,7 +4,9 @@ import { WATER_Y } from '../config.js';
 import { Instancer, VERTEX_COLORED } from '../world/lowpoly.js';
 import { coastOf } from '../world/coast.js';
 import { waveHeight } from '../world/water.js';
-import { jetSki, parasail, towRope, TOW_HOOK, fishingBoat, ship } from '../world/boats/seacraft.js';
+import { jetSki, parasail, towRope, TOW_HOOK, JETSKI_SEAT, FLYER_X, fishingBoat, ship } from '../world/boats/seacraft.js';
+import { Person } from '../world/people.js';
+import { seat } from '../world/vehicles/vehicle.js';
 
 // Life on the sea off a coast (a world from map data with a land cover that knows the sea): jet skis
 // close in off the beach, each towing a parasail with two tourists flying under it, fishing boats moored
@@ -91,6 +93,12 @@ export default {
     // parasail: the canopy flies `TOW` behind and `LIFT` above it, easing after it as it turns.
     const ground = world.terrain.meshHeightAt;
     const deep = (/** @type {number} */ x, /** @type {number} */ z) => ground(x, z) < WATER_Y - 0.8; // (the shallows off the beach: not for a jet ski)
+    const person = () => {
+      let p;
+      do p = new Person(rng, { kind: 'villager' });
+      while (p.carry); // (hands free)
+      return p;
+    };
     const near = world.scale.m(900), TOW = 40 * k, LIFT = 24 * k;
     /** @type {{ ski: Boat, at: THREE.Vector3, sail: THREE.Object3D, rope: THREE.Object3D }[]} */
     const flights = [];
@@ -100,6 +108,19 @@ export default {
       sail.scale.setScalar(k);
       group.add(sail, rope);
       kinds.sail.add(sail, '#ffffff');
+      // The people are the town's own (Person): the driver astride the jet ski, hands on the bar; the two
+      // flyers in their seats under the bar, holding the straps over their heads, legs dangling.
+      seat(person(), JETSKI_SEAT, ski.anchor);
+      for (const x of [-FLYER_X, FLYER_X]) {
+        const p = person(), s = p.group.scale.x;
+        p.hips.forEach((h, i) => h.rotation.set(-1.25, 0, i ? 0.08 : -0.08));
+        p.knees.forEach((kn, i) => (kn.rotation.x = 1.15 + i * 0.25));
+        p.shoulders.forEach((sh, i) => sh.rotation.set(-2.75, 0, i ? -0.12 : 0.12));
+        p.elbows.forEach((e) => (e.rotation.x = -0.35));
+        p.group.position.set(x, -0.25 - (1.86 * s) / 0.85, 0); // (hands up at the straps, just under the bar)
+        p.group.rotation.y = (x < 0 ? 1 : -1) * 0.12;
+        sail.add(p.group);
+      }
       kinds.rope.add(rope, '#ffffff');
       const flight = { ski, at: new THREE.Vector3(at.x - Math.sin(ski.h) * TOW, WATER_Y + LIFT, at.z - Math.cos(ski.h) * TOW), sail, rope };
       flights.push(flight);

@@ -244,7 +244,8 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     sát bờ lớp phủ còn gọi là bãi cát; ao trong đất liền không phải biển), số ô tới đất gần nhất, các điểm mép nước kèm hướng lên bờ.
     `seacraft`: **moto nước kéo dù bay** gần bờ (`parasails`, 2 — thay thuyền thúng): moto chạy vòng trong nước đủ sâu (đất < `WATER_Y`
     − 0,8), 3–12 ô ngoài bờ, trong 900 m quanh công trình; dù (vòm sọc, dây, 2 du khách ngồi chung đai, chân thả) bay sau `TOW` 40 m ×
-    k và cao `LIFT` 24 m × k, lượn theo chậm khi moto rẽ, dây kéo là một hộp dài 1 kéo giãn mỗi frame (`towRope`, `lookAt`); phím 0
+    k và cao `LIFT` 24 m × k, lượn theo chậm khi moto rẽ; **người là `Person` như mọi người khác trong app** (người lái ngồi bằng `seat()` của
+    `vehicle.js` như người đi xe máy, `JETSKI_SEAT`; hai du khách ngồi đai, tay nắm dây trên đầu, chân thả — không vẽ người bằng hộp riêng; 6 SkinnedMesh), dây kéo là một hộp dài 1 kéo giãn mỗi frame (`towRope`, `lookAt`); phím 0
     theo dù (`followables.balloons`); `world.seacraft.parasails` — e2e: dù luôn cao > 15 m, dây < 70 m. Thuyền đánh cá thân xanh có
     mắt thuyền + đèn câu mực neo xa hơn, vài chiếc đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
     giữ khớp với shader), tránh tấm chữ niêm phong trên biển; thuyền chạy rẽ trước khi hết nước sâu phía trước. Bọt sóng: hai dải mỗi
