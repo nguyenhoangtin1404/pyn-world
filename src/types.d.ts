@@ -62,6 +62,8 @@ export interface GeoRecipe {
   size: number;
   /** The ground's grid cells, units (default 3; see WorldConfig.cell). */
   cell?: number;
+  /** How far the ground's flat triangles are blended away, 0..1 (see WorldConfig.groundSmooth). */
+  groundSmooth?: number;
   /** How big things are drawn (world/scale.js): props outright, or exaggerate × the map. */
   scale?: { props?: number; exaggerate?: number };
   /** Loads the data file (world/geodata.js format), e.g. () => import('./data/tuyhoa.json'). */
@@ -100,6 +102,8 @@ export interface WorldConfig {
   track: (() => [number, number][]) | null;
   /** Size of the ground's grid cells, units (default 3): smaller is a smoother ground and shore, more triangles. */
   cell?: number;
+  /** 0..1: blend the ground's flat triangles towards their neighbours' shade and colour (default 0: the faceted low-poly ground). */
+  groundSmooth?: number;
   /** Cell size (units) the ground and the static batch are cut into so what is off screen — to the camera or the sun's shadow — isn't drawn (worlds from map data: 100). */
   chunk?: number;
   /** false: the railway is a line with two ends (the train goes back and forth). Default true. */

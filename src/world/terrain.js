@@ -279,6 +279,14 @@ export function createTerrain(cfg, track, stops, rivers) {
   for (let i = 0; i < gp.count; i++) gp.setY(i, heightAt(gp.getX(i), gp.getZ(i)));
 
   // Non-indexed so every triangle gets its own flat colour (low-poly look).
+  // (cfg.groundSmooth, 0..1: how far the facets are blended away — their normals and colours towards their neighbours'.)
+  const smooth = cfg.groundSmooth ?? 0;
+  /** @type {Float32Array | null} the ground's smooth normals, in the non-indexed order */
+  let smoothNormals = null;
+  if (smooth > 0) {
+    grid.computeVertexNormals();
+    smoothNormals = /** @type {Float32Array} */ (grid.toNonIndexed().attributes.normal.array);
+  }
   const geo = grid.toNonIndexed();
   geo.computeVertexNormals();
   const p = geo.attributes.position;
@@ -302,8 +310,26 @@ export function createTerrain(cfg, track, stops, rivers) {
       snowWeight[t + k] = sw;
     }
   }
+  if (smoothNormals) {
+    // Colours: each corner towards the average of the triangles that meet there. Normals: towards the smooth ones.
+    const key = (/** @type {number} */ i) => `${p.getX(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
+    const sum = new Map();
+    for (let i = 0; i < count; i++) {
+      const e = sum.get(key(i)) ?? [0, 0, 0, 0];
+      e[0] += base[i * 3]; e[1] += base[i * 3 + 1]; e[2] += base[i * 3 + 2]; e[3]++;
+      sum.set(key(i), e);
+    }
+    for (let i = 0; i < count; i++) {
+      const e = sum.get(key(i));
+      for (let k = 0; k < 3; k++) base[i * 3 + k] += (e[k] / e[3] - base[i * 3 + k]) * smooth;
+      const flat = new THREE.Vector3(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
+      const soft = new THREE.Vector3(smoothNormals[i * 3], smoothNormals[i * 3 + 1], smoothNormals[i * 3 + 2]);
+      flat.lerp(soft, smooth).normalize();
+      nrm.setXYZ(i, flat.x, flat.y, flat.z);
+    }
+  }
   geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
-  const groundMat = snowCovered(geo, snowWeight);
+  const groundMat = snowCovered(geo, snowWeight, smooth > 0 ? { flatShading: false } : undefined);
   // (A world with cfg.chunk: the ground in pieces, so the ones out of sight aren't drawn.)
   /** @type {THREE.Object3D} */
   let mesh;
