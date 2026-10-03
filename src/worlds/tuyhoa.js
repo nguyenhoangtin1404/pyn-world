@@ -1,7 +1,7 @@
 // @ts-check
 import { defineGeoWorld } from './define.js';
 
-// Tuy Hòa (Phú Yên), from real map data: the ground is SRTM elevation, the coast is where it meets
+// Tuy Hòa (phường Tuy Hòa), from real map data: the ground is SRTM elevation, the coast is where it meets
 // the sea, the Đà Rằng river runs out to the sea in the south, Núi Nhạn stands on its north bank
 // and the North–South railway crosses the map with Tuy Hòa station on it. The data file is
 // src/worlds/data/tuyhoa.json, made by tools/import/build.mjs from tools/import/tuyhoa.vectors.json
@@ -16,7 +16,7 @@ import { defineGeoWorld } from './define.js';
 export default defineGeoWorld({
   id: 'tuyhoa',
   name: 'TUY HÒA',
-  tagline: 'PHÚ YÊN · TỪ BẢN ĐỒ THẬT',
+  tagline: 'TỪ BẢN ĐỒ THẬT',
   seed: 1302,
   size: 600, // 6 km across: 10 m per unit (the data file's frame), from Tháp Nghinh Phong in the north to the Đà Rằng in the south
   data: () => import('./data/tuyhoa.json'),

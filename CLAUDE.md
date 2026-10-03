@@ -110,7 +110,7 @@ sách feature**).
 
 ## Thế giới từ bản đồ thật (giai đoạn 0–2)
 
-World dựng từ dữ liệu thật (`src/worlds/tuyhoa.js`: Tuy Hòa, Phú Yên) dùng `defineGeoWorld()` thay cho
+World dựng từ dữ liệu thật (`src/worlds/tuyhoa.js`: phường Tuy Hòa) dùng `defineGeoWorld()` thay cho
 `defineWorld()`: công thức chỉ nêu file dữ liệu, đường ray nào, các điểm dừng (đặt theo **tên địa danh**
 `place`, không theo `at`) và danh sách feature. App gọi `cfg.load()` trước khi dựng (nạp file bằng
 dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi world khác.
