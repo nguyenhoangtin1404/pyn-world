@@ -19,7 +19,7 @@ export default {
   needs: ['streets'],
   build(world, { rng, count = 24, square = 4 }) {
     const k = world.scale.props;
-    const streets = world.streets.filter((s) => s.length >= 15 && s.kind !== 'track');
+    const { streets, walk } = pavementWalks(world);
     world.need('phố từ dữ liệu bản đồ (world.streets)', 'strollers', streets.length);
     const group = new THREE.Group();
     /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number, zebra?: number[] }[]} */
@@ -36,21 +36,8 @@ export default {
       if (walkers.length === 1) world.scale.note('person', PERSON_HEIGHT * w.group.scale.y, 'strollers');
     };
 
-    // Anywhere within a person's reach of (x, z) on a carriageway (the claims are half-unit cells:
-    // one point alone can read a cell whose middle is just off the street while it stands on it).
-    const onCarriageway = (/** @type {number} */ x, /** @type {number} */ z) => {
-      const r = 0.3, { site } = world;
-      for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) if (site.claimAt(x + dx, z + dz) === CLAIM.CARRIAGEWAY) return true;
-      return false;
-    };
     // On the pavement: a street chosen by length (longer ones have more people), one side of it.
-    // (The diorama's edge counts as a street's: nobody walks off it.)
-    const edge = world.size / 2 - 3;
-    const offLimits = (/** @type {number} */ x, /** @type {number} */ z) => Math.abs(x) > edge || Math.abs(z) > edge || onCarriageway(x, z);
     const total = streets.reduce((sum, s) => sum + s.length, 0);
-    // Crossing a boulevard (four lanes and a median, over 8 units) takes more points than the usual 4.
-    const widest = Math.max(0, ...streets.map((s) => (s.median ? s.width : 0)));
-    const maxCrossing = widest ? Math.max(4, Math.ceil(((widest + 2 * PAVEMENT * k) / 1.2) * 1.4)) : 4;
     for (let n = 0, tries = 0; n < count && tries < count * 5; tries++) {
       let r = rng() * total, st = streets[0];
       for (const s of streets) if ((r -= s.length) < 0) {
@@ -58,7 +45,7 @@ export default {
         break;
       }
       const side = rng() < 0.5 ? 1 : -1;
-      const route = pavementRoute(st.points, st.width / 2 + (PAVEMENT * k) / 2, side, offLimits, maxCrossing);
+      const route = walk(st, side);
       if (route.length < 8) continue; // a walk worth the name: another street
       add(route, st.pavementAt, 'Người đi dạo');
       n++;
@@ -106,6 +93,33 @@ export default {
     };
   },
 };
+
+/**
+ * The streets people walk along (15 units or longer, not a track), and the walk along one side of one
+ * of them (pavementRoute): what the strollers walk, and what features/streetlife.js keeps clear.
+ * @param {import('../World.js').World} world
+ */
+export function pavementWalks(world) {
+  const k = world.scale.props;
+  const streets = world.streets.filter((s) => s.length >= 15 && s.kind !== 'track');
+  // Anywhere within a person's reach of (x, z) on a carriageway (the claims are half-unit cells:
+  // one point alone can read a cell whose middle is just off the street while it stands on it).
+  const onCarriageway = (/** @type {number} */ x, /** @type {number} */ z) => {
+    const r = 0.3, { site } = world;
+    for (const [dx, dz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) if (site.claimAt(x + dx, z + dz) === CLAIM.CARRIAGEWAY) return true;
+    return false;
+  };
+  // (The diorama's edge counts as a street's: nobody walks off it.)
+  const edge = world.size / 2 - 3;
+  const offLimits = (/** @type {number} */ x, /** @type {number} */ z) => Math.abs(x) > edge || Math.abs(z) > edge || onCarriageway(x, z);
+  // Crossing a boulevard (four lanes and a median, over 8 units) takes more points than the usual 4.
+  const widest = Math.max(0, ...streets.map((s) => (s.median ? s.width : 0)));
+  const maxCrossing = widest ? Math.max(4, Math.ceil(((widest + 2 * PAVEMENT * k) / 1.2) * 1.4)) : 4;
+  return {
+    streets,
+    walk: (/** @type {typeof streets[number]} */ st, /** @type {1 | -1} */ side) => pavementRoute(st.points, st.width / 2 + (PAVEMENT * k) / 2, side, offLimits, maxCrossing),
+  };
+}
 
 /**
  * The loop people walk round a landmark on, closed (the last point is the first), and the height of

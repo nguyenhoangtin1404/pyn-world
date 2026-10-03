@@ -66,6 +66,9 @@ for (const { id } of WORLDS) {
       if (life.sea) {
         const b = life.sea, why = (what) => `${what} — ${JSON.stringify(b)}`;
         expect(b.boats, why('boats on the sea')).toBeGreaterThan(5);
+        expect(b.parasails, why('jet skis towing parasails')).toBeGreaterThan(0);
+        expect(b.lowestFlight, why('the parasails fly high over the water')).toBeGreaterThan(15);
+        expect(b.longestRope, why('…on their rope, never left behind')).toBeLessThan(70);
         expect(b.aground, why('no boat ever aground')).toBe(0);
         expect(b.sailed, why('some boats under way')).toBeGreaterThan(0);
         expect(b.foam, why('foam along the waterline')).toBe(true);
@@ -78,6 +81,15 @@ for (const { id } of WORLDS) {
         expect(b.inTheWater, why('nobody else walks into the sea')).toBe(0);
         expect(b.onStreets, why('the beach people keep to the sand')).toBe(0);
         expect(b.still, why('everyone on the beach but the sitters gets about')).toEqual([]);
+      }
+      if (life.street) {
+        const st = life.street, why = (what) => `${what} — ${JSON.stringify(st)}`;
+        expect(st.shops, why('shop signs and awnings on the streets')).toBeGreaterThan(10);
+        expect(st.bikes, why('motorbikes parked on the pavements')).toBeGreaterThan(10);
+        expect(st.cars, why('cars parked in the side streets')).toBeGreaterThan(3);
+        expect(st.cafes, why('pavement cafés')).toBeGreaterThan(2);
+        expect(st.carts, why('food carts')).toBeGreaterThan(0);
+        expect(st.walkedInto, why('nobody on foot walks into them')).toEqual([]);
       }
       if (life.tourists) {
         const t = life.tourists;

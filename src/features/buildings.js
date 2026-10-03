@@ -66,6 +66,7 @@ export default {
       kept.push({ b, foot: foot - 0.1, height: height + (head - foot), floors, storeys, slack: head - foot + 0.1, seed: rng() });
       site.claimRect(x, z, length, width, angle, 0.4);
     }
+    world.buildings = kept.map((k) => ({ x: k.b.x, z: k.b.z, length: k.b.length, width: k.b.width, angle: k.b.angle, foot: k.foot, height: k.height }));
 
     const group = new THREE.Group();
     const dummy = new THREE.Object3D();

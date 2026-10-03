@@ -23,7 +23,7 @@ export default {
   build(world, { rng, riders = 1, wait = 2, dwell = 8, away = 100 }) {
     const k = world.scale.props;
     const buses = world.vehicles.filter((v) => v.kind === 'bus');
-    world.busStop = { boarded: 0, alighted: 0, stops: 0 };
+    world.busStop = { boarded: 0, alighted: 0, stops: 0, walks: [] };
     /** @type {any[]} */
     const places = [];
     for (const lm of world.landmarks) {
@@ -92,6 +92,9 @@ export default {
           box(0.38, 0.1, 0.08, BLUE, [0.45, 2.55, 1.6]),
         ]);
       }
+      // (Where they walk: from the entrance to the door, and the queue along the kerb — kept clear.)
+      const { at, fwd } = door, q0 = (-2.4 * wait - 2.5) * k, q1 = 2.5 * k;
+      world.busStop.walks.push([entry.x, entry.z, at.x, at.z], [at.x + fwd.x * q0, at.z + fwd.y * q0, at.x + fwd.x * q1, at.z + fwd.y * q1]);
       places.push({ lm, rt, stop, door, entry, along, pull, parties, plaza, timer: 0, queue: /** @type {any[]} */ ([]) });
     }
 

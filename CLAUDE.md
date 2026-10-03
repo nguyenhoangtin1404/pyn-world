@@ -242,8 +242,12 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   - **Biển và bãi biển** (`features/seacraft.js` #30, `features/beach.js` #31, cần `cfg.landcover`): `coastOf(world)` (`world/coast.js`,
     service, có test) chia sa bàn thành ô 3 đơn vị: biển = nước (đất vẽ < `WATER_Y`) **nối với** chỗ lớp phủ gọi là biển (vùng nước nông
     sát bờ lớp phủ còn gọi là bãi cát; ao trong đất liền không phải biển), số ô tới đất gần nhất, các điểm mép nước kèm hướng lên bờ.
-    `seacraft`: thuyền thúng (có người đội nón lá) gần bờ, thuyền đánh cá thân xanh có mắt thuyền + đèn câu mực neo xa hơn, vài chiếc
-    đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
+    `seacraft`: **moto nước kéo dù bay** gần bờ (`parasails`, 2 — thay thuyền thúng): moto chạy vòng trong nước đủ sâu (đất < `WATER_Y`
+    − 0,8), 3–12 ô ngoài bờ, trong 900 m quanh công trình; dù (vòm sọc, dây, 2 du khách ngồi chung đai, chân thả) bay sau `TOW` 40 m ×
+    k và cao `LIFT` 24 m × k, lượn theo chậm khi moto rẽ; **người là `Person` như mọi người khác trong app** (người lái ngồi bằng `seat()` của
+    `vehicle.js` như người đi xe máy, `JETSKI_SEAT`; hai du khách ngồi đai, tay nắm dây trên đầu, chân thả — không vẽ người bằng hộp riêng; 6 SkinnedMesh), dây kéo là một hộp dài 1 kéo giãn mỗi frame (`towRope`, `lookAt`); phím 0
+    theo dù (`followables.balloons`); `world.seacraft.parasails` — e2e: dù luôn cao > 15 m, dây < 70 m. Thuyền đánh cá thân xanh có
+    mắt thuyền + đèn câu mực neo xa hơn, vài chiếc đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
     giữ khớp với shader), tránh tấm chữ niêm phong trên biển; thuyền chạy rẽ trước khi hết nước sâu phía trước. Bọt sóng: hai dải mỗi
     điểm mép nước (sát bờ + đợt sau, mờ hơn), trôi lên bãi rồi rút trong shader (`uTime`), mờ ở hai đầu cho liền nhau. `beach`: ô dù +
     khăn (tĩnh, `world.batch`), người ngồi dưới ô, trẻ con chạy quanh, người bơi (Walker `fixedY` dưới mặt nước, tay sải), người chạy bộ và
@@ -251,6 +255,18 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     trên cát). Ảnh chuẩn ẩn `world.seacraft.group` và `world.beach.group` (chúng chuyển động). E2E: thuyền không mắc cạn, có thuyền
     chạy, có bọt; đủ năm vai trên bãi, người bơi không lên bờ, không ai khác xuống nước hay lên phố. NGHINH PHONG: +18 người, draw call
     góc mặc định 278 → 321, +1 shader (bọt).
+  - **Đời sống phố** (`features/streetlife.js` #32, cần `streets`, `buildings`, `citytraffic`; đặt SAU `busstop`): trong `reach`
+    (600 m) quanh công trình. Mặt nhà nhìn ra phố (vỉa hè trong 2 đơn vị trước tường; `buildings` để lại `world.buildings`) có
+    **biển hiệu + mái hiên sọc** ở tầng trệt (`shops`, 40); trước cửa: **xe máy dựng** (mũi vào nhà, không đủ chỗ thì dọc tường),
+    **quán cóc** (bàn thấp, ghế nhựa, vài người ngồi — `sitters`, 8) hoặc không gì; vài mặt nhà khác cũng có xe máy; **xe đẩy bán
+    hàng** có người bán đứng cạnh + dù (`carts`, 5); **ô tô đỗ sát lề** phố nhỏ (`MINOR`, không dải phân cách, không có tuyến xe),
+    đoạn thẳng, xa ngã tư và vòng xoay (`cars`, 14). Tất cả tĩnh trong `world.batch` (người ngồi/người bán là `Person`). **Không chắn
+    người đi bộ**: mỗi vật là vài vòng tròn trên mặt đất (`world.streetLife.props`), phải cách đường đi của người đi dạo
+    (`pavementWalks` — cùng hàm `strollers` dùng, cả hai bên mọi phố, cả dây cung chỗ người đi cắt góc 0,3 trước mỗi điểm) và đường
+    khách đi giữa quảng trường với bến xe buýt (`world.busStop.walks`) ≥ nửa người (0,3 m × k + 0,08); không trên lòng đường (trừ ô tô),
+    cách làn xe chạy, vạch sang đường, pad công trình, nhà, cây. Tra nhanh bằng `SegIndex` (`world/segindex.js`, có test). E2E: đủ
+    loại, và tua 300 s không ai (`world.pedestrians`) bước vào vòng tròn nào. NGHINH PHONG: 32 cửa hàng, ~35 xe máy, 15 quán, 5 xe đẩy;
+    +13 người, draw call góc mặc định 321 → 347; ảnh chuẩn vòng xuyến có thêm mái hiên/xe đỗ.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

@@ -4,15 +4,19 @@ import { WATER_Y } from '../config.js';
 import { Instancer, VERTEX_COLORED } from '../world/lowpoly.js';
 import { coastOf } from '../world/coast.js';
 import { waveHeight } from '../world/water.js';
-import { basketBoat, fishingBoat, ship } from '../world/boats/seacraft.js';
+import { jetSki, parasail, towRope, TOW_HOOK, JETSKI_SEAT, FLYER_X, fishingBoat, ship } from '../world/boats/seacraft.js';
+import { Person } from '../world/people.js';
+import { seat } from '../world/vehicles/vehicle.js';
 
-// Life on the sea off a coast (a world from map data with a land cover that knows the sea): round
-// basket boats close in, each with a fisherman, fishing boats moored further out and a few under way,
+// Life on the sea off a coast (a world from map data with a land cover that knows the sea): jet skis
+// close in off the beach, each towing a parasail with two tourists flying under it, fishing boats moored
+// further out and a few under way,
 // coasters crossing far out, all riding the waves of the water sheet (water.js waveHeight); and foam
 // washing up and back along the waterline, moved in its shader. Boats keep to open water deep enough
 // for them and off the sealed sign on the water (world/seal.js). One InstancedMesh per kind of boat.
-// The basket boats and moored ones off the landmark, where the town's beach is.
-// Options: baskets (8), moored (4), cruising (2) fishing boats, ships (2), foam (true).
+// The jet skis and the moored boats off the landmark, where the town's beach is.
+// Options: parasails (2: jet skis towing one), moored (4), cruising (2) fishing boats, ships (2), foam (true).
+// world.seacraft.parasails: each jet ski and where its parasail flies.
 
 const SHIP_COLORS = ['#7a2b2b', '#2b3f5c', '#2f5a3f', '#3a3a3a'];
 const BOAT_COLORS = ['#2f6db5', '#3a7fc4', '#2a5d9e', '#4b8fbf', '#1f8a70'];
@@ -20,7 +24,7 @@ const BOAT_COLORS = ['#2f6db5', '#3a7fc4', '#2a5d9e', '#4b8fbf', '#1f8a70'];
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang thả thuyền ra biển',
-  build(world, { rng, baskets = 8, moored = 4, cruising = 2, ships = 2, foam = true }) {
+  build(world, { rng, parasails = 2, moored = 4, cruising = 2, ships = 2, foam = true }) {
     const k = world.scale.props;
     world.need('lớp phủ đất có biển (cfg.landcover)', 'seacraft', world.cfg.landcover);
     const coast = coastOf(world);
@@ -59,14 +63,16 @@ export default {
 
     const group = new THREE.Group();
     const kinds = {
-      basket: new Instancer(basketBoat(), VERTEX_COLORED, Math.max(1, baskets)),
+      jetski: new Instancer(jetSki(), VERTEX_COLORED, Math.max(1, parasails)),
+      sail: new Instancer(parasail(), VERTEX_COLORED, Math.max(1, parasails)),
+      rope: new Instancer(towRope(), VERTEX_COLORED, Math.max(1, parasails), { castShadow: false }),
       fishing: new Instancer(fishingBoat(), VERTEX_COLORED, Math.max(1, moored + cruising)),
       ship: new Instancer(ship(), VERTEX_COLORED, Math.max(1, ships)),
     };
     for (const i of Object.values(kinds)) group.add(i.mesh);
 
     /**
-     * @typedef {{ kind: 'basket' | 'fishing' | 'ship', anchor: THREE.Object3D, x: number, z: number, h: number,
+     * @typedef {{ kind: 'jetski' | 'fishing' | 'ship', anchor: THREE.Object3D, x: number, z: number, h: number,
      *   speed: number, cells: number, cx: number, cz: number, phase: number, size: number, turning: number }} Boat
      */
     /** @type {Boat[]} */
@@ -77,19 +83,55 @@ export default {
       group.add(anchor);
       kinds[kind].add(anchor, color);
       /** @type {Boat} */
-      const b = { kind, anchor, x: at.x, z: at.z, h, speed, cells, cx: at.x, cz: at.z, phase: rng() * 10, size: kind === 'ship' ? 14 * k : kind === 'fishing' ? 5 * k : 1.2 * k, turning: 0 };
+      const b = { kind, anchor, x: at.x, z: at.z, h, speed, cells, cx: at.x, cz: at.z, phase: rng() * 10, size: kind === 'ship' ? 14 * k : kind === 'fishing' ? 5 * k : 1.6 * k, turning: 0 };
       boats.push(b);
       return b;
     };
     const seaward = Math.atan2(coast.seaward.x, coast.seaward.z);
-    for (const at of spread(baskets, 2, 5, 7, world.scale.m(900))) add('basket', at, 0, 2, rng() * Math.PI * 2, '#ffffff');
     const pick = (/** @type {string[]} */ a) => a[Math.floor(rng() * a.length)];
+    // Jet skis in the water off the beach (3–12 cells out, within `near` of the landmark), each towing a
+    // parasail: the canopy flies `TOW` behind and `LIFT` above it, easing after it as it turns.
+    const ground = world.terrain.meshHeightAt;
+    const deep = (/** @type {number} */ x, /** @type {number} */ z) => ground(x, z) < WATER_Y - 0.8; // (the shallows off the beach: not for a jet ski)
+    const person = () => {
+      let p;
+      do p = new Person(rng, { kind: 'villager' });
+      while (p.carry); // (hands free)
+      return p;
+    };
+    const near = world.scale.m(900), TOW = 40 * k, LIFT = 24 * k;
+    /** @type {{ ski: Boat, at: THREE.Vector3, sail: THREE.Object3D, rope: THREE.Object3D }[]} */
+    const flights = [];
+    for (const at of spread(parasails * 4, 4, 9, 30, near).filter((c) => deep(c.x, c.z)).slice(0, parasails)) {
+      const ski = add('jetski', at, 7 * k, 3, rng() * Math.PI * 2, pick(['#e8443a', '#f2b632', '#2f8fd6', '#f4f1ea']));
+      const sail = new THREE.Object3D(), rope = new THREE.Object3D();
+      sail.scale.setScalar(k);
+      group.add(sail, rope);
+      kinds.sail.add(sail, '#ffffff');
+      // The people are the town's own (Person): the driver astride the jet ski, hands on the bar; the two
+      // flyers in their seats under the bar, holding the straps over their heads, legs dangling.
+      seat(person(), JETSKI_SEAT, ski.anchor);
+      for (const x of [-FLYER_X, FLYER_X]) {
+        const p = person(), s = p.group.scale.x;
+        p.hips.forEach((h, i) => h.rotation.set(-1.25, 0, i ? 0.08 : -0.08));
+        p.knees.forEach((kn, i) => (kn.rotation.x = 1.15 + i * 0.25));
+        p.shoulders.forEach((sh, i) => sh.rotation.set(-2.75, 0, i ? -0.12 : 0.12));
+        p.elbows.forEach((e) => (e.rotation.x = -0.35));
+        p.group.position.set(x, -0.25 - (1.86 * s) / 0.85, 0); // (hands up at the straps, just under the bar)
+        p.group.rotation.y = (x < 0 ? 1 : -1) * 0.12;
+        sail.add(p.group);
+      }
+      kinds.rope.add(rope, '#ffffff');
+      const flight = { ski, at: new THREE.Vector3(at.x - Math.sin(ski.h) * TOW, WATER_Y + LIFT, at.z - Math.cos(ski.h) * TOW), sail, rope };
+      flights.push(flight);
+      world.followables.balloons.push({ label: `Dù bay ${flights.length}`, anchor: () => sail });
+    }
     for (const at of spread(moored, 4, 14, 14, world.scale.m(1400))) add('fishing', at, 0, 3, seaward + Math.PI + (rng() - 0.5) * 0.6, pick(BOAT_COLORS)); // bows to the shore… (they swing to the wind below)
     for (const at of spread(cruising, 6, 30, 30)) add('fishing', at, 4 * k, 4, rng() * Math.PI * 2, pick(BOAT_COLORS));
     // Coasters far out, going along the coast one way or the other.
     const far = Math.max(8, Math.floor(coast.maxDist * 0.7));
     for (const at of spread(ships, far, coast.maxDist, 60)) add('ship', at, 3 * k, far - 2, seaward + (rng() < 0.5 ? 1 : -1) * Math.PI / 2, pick(SHIP_COLORS));
-    world.seacraft = { group, boats };
+    world.seacraft = { group, boats, parasails: flights.map((f) => ({ ski: f.ski, at: f.at })) };
 
     // ---- Foam along the waterline: at each shore point a strip at the water's edge and a fainter one
     // further out (the next wave), washed up the beach and back.
@@ -157,34 +199,57 @@ export default {
           const y = WATER_Y + waveHeight(b.x, b.z, t) * (b.kind === 'ship' ? 0.4 : 0.9);
           const rock = b.kind === 'ship' ? 0.01 : b.kind === 'fishing' ? 0.05 : 0.09;
           b.anchor.position.set(b.x, y, b.z);
-          b.anchor.rotation.set(Math.sin(t * 0.9 + b.phase) * rock * 0.6, b.h, Math.sin(t * 1.1 + b.phase * 1.7) * rock, 'YXZ');
+          b.anchor.rotation.set(Math.sin(t * 0.9 + b.phase) * rock * 0.6 - (b.kind === 'jetski' ? 0.08 : 0), b.h, Math.sin(t * 1.1 + b.phase * 1.7) * rock + (b.kind === 'jetski' ? b.turning * 0.25 : 0), 'YXZ');
         }
+        for (const f of flights) fly(f, dt, t);
       },
     };
 
-    /** Sail on, or (moored, in a basket) swing and drift about the spot. */
+    /** The parasail eases towards its place behind and above its jet ski; the rope from the hook up to it. */
+    function fly(/** @type {typeof flights[number]} */ f, /** @type {number} */ dt, /** @type {number} */ t) {
+      const { ski, at, sail, rope } = f;
+      if (dt > 0) {
+        const e = Math.min(1, dt * 0.6);
+        at.x += (ski.x - Math.sin(ski.h) * TOW - at.x) * e;
+        at.z += (ski.z - Math.cos(ski.h) * TOW - at.z) * e;
+        at.y = WATER_Y + LIFT + Math.sin(t * 0.4 + ski.phase) * 1.5 * k;
+      }
+      const hx = ski.x - Math.sin(ski.h) * -TOW_HOOK[2] * k, hz = ski.z - Math.cos(ski.h) * -TOW_HOOK[2] * k, hy = ski.anchor.position.y + TOW_HOOK[1] * k;
+      const dx = hx - at.x, dy = hy - at.y, dz = hz - at.z, len = Math.hypot(dx, dy, dz);
+      sail.position.copy(at);
+      sail.rotation.set(-0.35, Math.atan2(dx, dz), Math.sin(t * 0.6 + ski.phase) * 0.08, 'YXZ'); // (leaning back against the pull)
+      rope.position.set(at.x + dx / 2, at.y + dy / 2, at.z + dz / 2);
+      rope.scale.set(k, k, len);
+      rope.lookAt(hx, hy, hz);
+    }
+
+    /** Sail on, or (moored) swing and drift about the spot. */
     function move(/** @type {Boat} */ b, /** @type {number} */ dt, /** @type {number} */ t) {
       if (b.speed === 0) {
-        const r = b.kind === 'basket' ? 1.5 * k : 0.6 * k;
+        const r = 0.6 * k;
         b.x = b.cx + Math.cos(t * 0.05 + b.phase) * r;
         b.z = b.cz + Math.sin(t * 0.04 + b.phase) * r;
-        const want = b.kind === 'basket' ? b.phase + t * 0.03 : wind + Math.sin(t * 0.08 + b.phase) * 0.3;
+        const want = wind + Math.sin(t * 0.08 + b.phase) * 0.3;
         b.h += Math.atan2(Math.sin(want - b.h), Math.cos(want - b.h)) * Math.min(1, dt * 0.2);
         return;
       }
       // Under way: turn away before open water runs out ahead, else wander a little.
       const look = b.size + b.speed * 6;
-      const ahead = (/** @type {number} */ h) => open(b.x + Math.sin(h) * look, b.z + Math.cos(h) * look, b.cells, b.size);
+      // (a jet ski keeps off the beach and out of the open sea: back towards the landmark's beach)
+      const ahead = (/** @type {number} */ h) => {
+        const x = b.x + Math.sin(h) * look, z = b.z + Math.cos(h) * look;
+        return open(x, z, b.cells, b.size) && (b.kind !== 'jetski' || (deep(x, z) && coast.distAt(x, z) <= 12 && Math.hypot(x - focus.x, z - focus.z) < near));
+      };
       if (!ahead(b.h)) {
         if (!b.turning) b.turning = ahead(b.h + 0.8) ? 1 : ahead(b.h - 0.8) ? -1 : rng() < 0.5 ? 1 : -1;
-        b.h += b.turning * 0.25 * dt;
+        b.h += b.turning * (b.kind === 'jetski' ? 0.45 : 0.25) * dt;
       } else {
         b.turning = 0;
         if (b.kind === 'fishing') b.h += Math.sin(t * 0.07 + b.phase) * 0.02 * dt;
       }
       const v = b.turning ? b.speed * 0.5 : b.speed;
       const nx = b.x + Math.sin(b.h) * v * dt, nz = b.z + Math.cos(b.h) * v * dt;
-      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5)) [b.x, b.z] = [nx, nz];
+      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5) && (b.kind !== 'jetski' || deep(nx, nz))) [b.x, b.z] = [nx, nz];
     }
   },
 };

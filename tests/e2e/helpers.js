@@ -133,12 +133,20 @@ export function simulate() {
   let pulled = 0; // the furthest a bus has moved over to the kerb
   // On the sea and the beach (features/seacraft.js, beach.js): boats never aground, swimmers never on dry land, nobody else in the water or on a street.
   const g = W.terrain.meshHeightAt;
-  const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam };
+  const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam, parasails: W.seacraft.parasails.length, lowestFlight: Infinity, longestRope: 0 };
   const seaStart = W.seacraft ? W.seacraft.boats.map((b) => [b.x, b.z]) : [];
   const beach = W.beach && { people: W.beach.people.length, shades: W.beach.shades, roles: {}, swimmersAshore: 0, inTheWater: 0, onStreets: 0, still: [] };
   const beachLast = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
   const beachWent = beachLast.map(() => 0); // how far each has gone, all told
   if (beach) for (const p of W.beach.people) beach.roles[p.role] = (beach.roles[p.role] ?? 0) + 1;
+  // Along the streets (features/streetlife.js): nobody on foot walks into a parked bike, a café table, a cart or a car.
+  const life = W.streetLife;
+  const street = life && { shops: life.shops, bikes: life.bikes, cars: life.cars, cafes: life.cafes, carts: life.carts, walkedInto: [] };
+  const propCells = new Map();
+  if (life) for (const p of life.props) for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+    const key = `${Math.floor(p.x / 2) + dx}:${Math.floor(p.z / 2) + dz}`;
+    propCells.set(key, [...(propCells.get(key) ?? []), p]);
+  }
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
     W.update({ dt: 0.1, raw: 0.1, speed: 1, camera });
@@ -191,6 +199,10 @@ export function simulate() {
     }
     for (const v of W.vehicles) if (v.kind === 'bus') pulled = Math.max(pulled, v.shift);
     if (sea && i % 10 === 0) for (const b of W.seacraft.boats) if (g(b.x, b.z) > -2.3) sea.aground++; // (WATER_Y − 0.3)
+    if (sea) for (const { ski, at } of W.seacraft.parasails) {
+      sea.lowestFlight = Math.min(sea.lowestFlight, (at.y + 2) / W.scale.props); // metres (props) over the water (WATER_Y −2)
+      sea.longestRope = Math.max(sea.longestRope, Math.hypot(at.x - ski.x, at.y - ski.anchor.position.y, at.z - ski.z) / W.scale.props);
+    }
     if (beach && i % 10 === 0) {
       for (const p of W.beach.people) {
         const { x, z } = p.person.group.position, h = g(x, z);
@@ -202,6 +214,15 @@ export function simulate() {
         } else {
           if (h < -2.4) beach.inTheWater++;
           if (W.site.claimAt(x, z) > 0) beach.onStreets++;
+        }
+      }
+    }
+    if (street) {
+      for (const w of W.pedestrians) {
+        if (!w.group.visible) continue;
+        const { x, z } = w.pos;
+        for (const p of propCells.get(`${Math.floor(x / 2)}:${Math.floor(z / 2)}`) ?? []) {
+          if (Math.hypot(x - p.x, z - p.z) < p.r && street.walkedInto.length < 5) street.walkedInto.push(`${p.kind} at ${p.x.toFixed(1)}, ${p.z.toFixed(1)} (${Math.hypot(x - p.x, z - p.z).toFixed(2)} < ${p.r.toFixed(2)}) at ${i / 10} s`);
         }
       }
     }
@@ -251,8 +272,11 @@ export function simulate() {
   if (tourists.length) s.tourists = { ...tour, xs: tour.xs.size, speaking: tour.speaking.size };
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
-  if (W.busStop) s.busStop = { ...W.busStop, pulled: +pulled.toFixed(2) };
+  if (W.busStop) s.busStop = { ...W.busStop, walks: W.busStop.walks.length, pulled: +pulled.toFixed(2) };
+  if (street) s.street = street;
   if (sea) {
+    sea.lowestFlight = +sea.lowestFlight.toFixed(1);
+    sea.longestRope = +sea.longestRope.toFixed(1);
     sea.sailed = W.seacraft.boats.filter((b, k) => Math.hypot(b.x - seaStart[k][0], b.z - seaStart[k][1]) > 10).length;
     s.sea = sea;
   }
