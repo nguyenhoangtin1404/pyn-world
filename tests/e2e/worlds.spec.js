@@ -79,6 +79,15 @@ for (const { id } of WORLDS) {
         expect(b.onStreets, why('the beach people keep to the sand')).toBe(0);
         expect(b.still, why('everyone on the beach but the sitters gets about')).toEqual([]);
       }
+      if (life.street) {
+        const st = life.street, why = (what) => `${what} — ${JSON.stringify(st)}`;
+        expect(st.shops, why('shop signs and awnings on the streets')).toBeGreaterThan(10);
+        expect(st.bikes, why('motorbikes parked on the pavements')).toBeGreaterThan(10);
+        expect(st.cars, why('cars parked in the side streets')).toBeGreaterThan(3);
+        expect(st.cafes, why('pavement cafés')).toBeGreaterThan(2);
+        expect(st.carts, why('food carts')).toBeGreaterThan(0);
+        expect(st.walkedInto, why('nobody on foot walks into them')).toEqual([]);
+      }
       if (life.tourists) {
         const t = life.tourists;
         const why = (what) => `${what} — ${JSON.stringify(t)}`;

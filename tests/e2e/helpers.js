@@ -139,6 +139,14 @@ export function simulate() {
   const beachLast = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
   const beachWent = beachLast.map(() => 0); // how far each has gone, all told
   if (beach) for (const p of W.beach.people) beach.roles[p.role] = (beach.roles[p.role] ?? 0) + 1;
+  // Along the streets (features/streetlife.js): nobody on foot walks into a parked bike, a café table, a cart or a car.
+  const life = W.streetLife;
+  const street = life && { shops: life.shops, bikes: life.bikes, cars: life.cars, cafes: life.cafes, carts: life.carts, walkedInto: [] };
+  const propCells = new Map();
+  if (life) for (const p of life.props) for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+    const key = `${Math.floor(p.x / 2) + dx}:${Math.floor(p.z / 2) + dz}`;
+    propCells.set(key, [...(propCells.get(key) ?? []), p]);
+  }
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
     W.update({ dt: 0.1, raw: 0.1, speed: 1, camera });
@@ -205,6 +213,15 @@ export function simulate() {
         }
       }
     }
+    if (street) {
+      for (const w of W.pedestrians) {
+        if (!w.group.visible) continue;
+        const { x, z } = w.pos;
+        for (const p of propCells.get(`${Math.floor(x / 2)}:${Math.floor(z / 2)}`) ?? []) {
+          if (Math.hypot(x - p.x, z - p.z) < p.r && street.walkedInto.length < 5) street.walkedInto.push(`${p.kind} at ${p.x.toFixed(1)}, ${p.z.toFixed(1)} (${Math.hypot(x - p.x, z - p.z).toFixed(2)} < ${p.r.toFixed(2)}) at ${i / 10} s`);
+        }
+      }
+    }
     tourists.forEach((w, k) => {
       const moved = w.pos.distanceTo(lastPos[k]);
       lastPos[k].copy(w.pos);
@@ -251,7 +268,8 @@ export function simulate() {
   if (tourists.length) s.tourists = { ...tour, xs: tour.xs.size, speaking: tour.speaking.size };
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
-  if (W.busStop) s.busStop = { ...W.busStop, pulled: +pulled.toFixed(2) };
+  if (W.busStop) s.busStop = { ...W.busStop, walks: W.busStop.walks.length, pulled: +pulled.toFixed(2) };
+  if (street) s.street = street;
   if (sea) {
     sea.sailed = W.seacraft.boats.filter((b, k) => Math.hypot(b.x - seaStart[k][0], b.z - seaStart[k][1]) > 10).length;
     s.sea = sea;

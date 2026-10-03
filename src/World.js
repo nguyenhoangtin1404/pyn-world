@@ -82,6 +82,8 @@ export class World {
     this.vehicles = [];
     /** @type {{ kind: string, name: string, width: number, lanes: number, median: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
     this.streets = [];
+    /** @type {{ x: number, z: number, length: number, width: number, angle: number, foot: number, height: number }[]} a town's buildings as drawn (features/buildings.js): footprint (length along `angle`, a rotation.y), the ground under its lowest corner, its height from there */
+    this.buildings = [];
     /** @type {import('./world/streetnet.js').Ring[]} a town's roundabouts (features/streets.js): centre, outer radius R, island radius ri */
     this.roundabouts = [];
     /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
@@ -92,12 +94,14 @@ export class World {
     this.parties = [];
     /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, kerb: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, kerb: to the edge of the carriageway, in world units */
     this.cityRoutes = [];
-    /** @type {{ boarded: number, alighted: number, stops: number } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js) */
+    /** @type {{ boarded: number, alighted: number, stops: number, walks: [number, number, number, number][] } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js); walks: where they walk between the grounds and the stop (ax, az, bx, bz) */
     this.busStop = null;
     /** @type {{ group: THREE.Group, boats: any[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea and foam on the shore (features/seacraft.js) */
     this.seacraft = null;
     /** @type {{ group: THREE.Group, people: { role: string, walker?: any, person: any }[], shades: number } | null} people on the beach (features/beach.js) */
     this.beach = null;
+    /** @type {{ group: THREE.Group, props: { x: number, z: number, r: number, kind: string }[], shops: number, bikes: number, cars: number, cafes: number, carts: number } | null} what stands along a town's streets (features/streetlife.js): props are the circles they take on the ground */
+    this.streetLife = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
     /** @type {Map<number, () => number>} random streams, see rngFor() */

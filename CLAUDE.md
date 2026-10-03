@@ -251,6 +251,18 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     trên cát). Ảnh chuẩn ẩn `world.seacraft.group` và `world.beach.group` (chúng chuyển động). E2E: thuyền không mắc cạn, có thuyền
     chạy, có bọt; đủ năm vai trên bãi, người bơi không lên bờ, không ai khác xuống nước hay lên phố. NGHINH PHONG: +18 người, draw call
     góc mặc định 278 → 321, +1 shader (bọt).
+  - **Đời sống phố** (`features/streetlife.js` #32, cần `streets`, `buildings`, `citytraffic`; đặt SAU `busstop`): trong `reach`
+    (600 m) quanh công trình. Mặt nhà nhìn ra phố (vỉa hè trong 2 đơn vị trước tường; `buildings` để lại `world.buildings`) có
+    **biển hiệu + mái hiên sọc** ở tầng trệt (`shops`, 40); trước cửa: **xe máy dựng** (mũi vào nhà, không đủ chỗ thì dọc tường),
+    **quán cóc** (bàn thấp, ghế nhựa, vài người ngồi — `sitters`, 8) hoặc không gì; vài mặt nhà khác cũng có xe máy; **xe đẩy bán
+    hàng** có người bán đứng cạnh + dù (`carts`, 5); **ô tô đỗ sát lề** phố nhỏ (`MINOR`, không dải phân cách, không có tuyến xe),
+    đoạn thẳng, xa ngã tư và vòng xoay (`cars`, 14). Tất cả tĩnh trong `world.batch` (người ngồi/người bán là `Person`). **Không chắn
+    người đi bộ**: mỗi vật là vài vòng tròn trên mặt đất (`world.streetLife.props`), phải cách đường đi của người đi dạo
+    (`pavementWalks` — cùng hàm `strollers` dùng, cả hai bên mọi phố, cả dây cung chỗ người đi cắt góc 0,3 trước mỗi điểm) và đường
+    khách đi giữa quảng trường với bến xe buýt (`world.busStop.walks`) ≥ nửa người (0,3 m × k + 0,08); không trên lòng đường (trừ ô tô),
+    cách làn xe chạy, vạch sang đường, pad công trình, nhà, cây. Tra nhanh bằng `SegIndex` (`world/segindex.js`, có test). E2E: đủ
+    loại, và tua 300 s không ai (`world.pedestrians`) bước vào vòng tròn nào. NGHINH PHONG: 32 cửa hàng, ~35 xe máy, 15 quán, 5 xe đẩy;
+    +13 người, draw call góc mặc định 321 → 347; ảnh chuẩn vòng xuyến có thêm mái hiên/xe đỗ.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).

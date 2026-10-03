@@ -31,5 +31,6 @@ export default defineGeoWorld({
     'busstop', // the buses stop beside the tower's square: tourists get off and some get on
     'seacraft', // basket boats, fishing boats and coasters on the sea, foam along the waterline
     'beach', // sunshades, swimmers, joggers and children on the sand
+    'streetlife', // shop signs and awnings, parked bikes and cars, pavement cafés, food carts
   ],
 });
