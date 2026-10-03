@@ -285,6 +285,14 @@ export function simulate() {
     beach.still = W.beach.people.flatMap((p, k) => (p.role !== 'sitter' && beachWent[k] < 3 ? [`${p.role} ${beachWent[k].toFixed(1)}`] : []));
     s.beach = beach;
   }
+  // What the camera hears (world/soundscape.js): over the tower's square, and just over a car on the street.
+  const ear = (x, y, z) => W.listen({ x, y, z });
+  const r2 = (l) => Object.fromEntries(['sea', 'wind', 'traffic', 'crowd'].map((k) => [k, +l[k].toFixed(2)]));
+  const car = W.vehicles.find((v) => !v.spec.flies);
+  s.sound = {
+    tower: lm ? r2(ear(lm.spot.x, lm.spot.y + 3, lm.spot.z)) : null,
+    car: car ? r2(ear(car.group.position.x, car.group.position.y + 3, car.group.position.z)) : null,
+  };
   W.weather.set('clear');
   return s;
 }

@@ -7,6 +7,8 @@ export class AudioEngine {
     this.volume = 0.65;
     this.muted = false;
     this.birdTimer = 3;
+    this.hornTimer = 4;
+    this.voiceTimer = 1;
   }
 
   init() {
@@ -31,6 +33,11 @@ export class AudioEngine {
     this.trainBus.connect(this.master);
     this.rainGain = this.noiseLoop('lowpass', 1400, 0.4);
     this.windGain = this.noiseLoop('bandpass', 380, 0.6);
+    // The sea (a low roar, the hiss of each wave breaking) and the traffic (engines' rumble and whine).
+    this.surfGain = this.noiseLoop('lowpass', 520, 0.5);
+    this.hissGain = this.noiseLoop('bandpass', 2400, 0.4);
+    this.engineGain = this.noiseLoop('bandpass', 115, 0.8);
+    this.whineGain = this.noiseLoop('bandpass', 650, 2.5);
   }
 
   noiseLoop(type, freq, q) {
@@ -122,12 +129,72 @@ export class AudioEngine {
     }
   }
 
-  update(dt, { trainDistance, rain, day, paused }) {
+  // A horn: one short beep or two (the town's way of saying "here I come"), a bit flat, through a small speaker.
+  horn(level) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const gain = 0.02 + 0.1 * Math.min(1, level) ** 0.7;
+    const base = 360 + Math.random() * 180;
+    const beeps = Math.random() < 0.55 ? [[0, 0.14], [0.2, 0.22]] : [[0, 0.3 + Math.random() * 0.3]];
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 1800;
+    f.connect(this.master);
+    for (const [start, dur] of beeps) {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t + start);
+      g.gain.exponentialRampToValueAtTime(gain, t + start + 0.015);
+      g.gain.setValueAtTime(gain, t + start + dur);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + start + dur + 0.04);
+      g.connect(f);
+      for (const m of [1, 1.26]) {
+        const o = ctx.createOscillator();
+        o.type = 'square';
+        o.frequency.value = base * m;
+        o.connect(g);
+        o.start(t + start);
+        o.stop(t + start + dur + 0.06);
+      }
+    }
+  }
+
+  // A syllable of someone talking: noise through two formants of a vowel, short. Many make a murmur.
+  voice(level) {
+    const VOWELS = [[730, 1090], [270, 2290], [530, 1840], [570, 840], [440, 1020], [300, 870]];
+    const [f1, f2] = VOWELS[Math.floor(Math.random() * VOWELS.length)];
+    const pitch = 0.8 + Math.random() * 0.5, decay = 0.07 + Math.random() * 0.12;
+    const gain = 0.06 * Math.min(1, level);
+    this.burst({ type: 'bandpass', freq: f1 * pitch, q: 7, gain, attack: 0.02, decay });
+    this.burst({ type: 'bandpass', freq: f2 * pitch, q: 9, gain: gain * 0.6, attack: 0.02, decay });
+  }
+
+  update(dt, { trainDistance, rain, day, paused, sound }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    const { sea = 0, wind = 0, traffic = 0, crowd = 0, horn = null } = sound ?? {};
     this.trainBus.gain.setTargetAtTime(clamp(1 - trainDistance / 320, 0.06, 1), t, 0.15);
     this.rainGain.gain.setTargetAtTime(rain * 0.3, t, 0.4);
-    this.windGain.gain.setTargetAtTime(0.025 + rain * 0.03, t, 0.5);
+    this.windGain.gain.setTargetAtTime(0.02 + wind * 0.05 + rain * 0.03, t, 0.5);
+    // Waves come in every 8 s or so: the roar swells, the hiss is the break.
+    const swell = Math.sin((t / 8.3) * Math.PI * 2), brk = Math.max(0, Math.sin((t / 8.3) * Math.PI * 2 - 0.6)) ** 3;
+    this.surfGain.gain.setTargetAtTime(sea * (0.16 + 0.08 * swell), t, 0.3);
+    this.hissGain.gain.setTargetAtTime(sea * (0.015 + 0.09 * brk), t, 0.2);
+    this.engineGain.gain.setTargetAtTime(traffic * 0.22, t, 0.3);
+    this.whineGain.gain.setTargetAtTime(traffic * (0.025 + 0.012 * Math.sin(t * 0.7)), t, 0.3);
+    if (!paused) {
+      // A horn now and then where there's traffic, more often the more there is.
+      this.hornTimer -= dt * (0.15 + traffic);
+      if (this.hornTimer < 0 && horn && traffic > 0.05) {
+        this.horn(horn.level);
+        this.hornTimer = 3 + Math.random() * 9;
+      }
+      // People talking: syllables close together in a crowd, now and then with few about.
+      this.voiceTimer -= dt;
+      if (this.voiceTimer < 0 && crowd > 0.03) {
+        this.voice(crowd);
+        this.voiceTimer = 0.08 + Math.random() * (0.15 + 1.2 * (1 - crowd));
+      }
+    }
     if (day && rain < 0.3 && !paused) {
       this.birdTimer -= dt;
       if (this.birdTimer < 0) {

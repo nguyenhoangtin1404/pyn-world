@@ -82,6 +82,15 @@ for (const { id } of WORLDS) {
         expect(b.onStreets, why('the beach people keep to the sand')).toBe(0);
         expect(b.still, why('everyone on the beach but the sitters gets about')).toEqual([]);
       }
+      // Sound: the sea and voices over the tower's square, engines over a car; no sea where there is none.
+      const snd = life.sound, why = (what) => `${what} — ${JSON.stringify(snd)}`;
+      if (snd.car) expect(snd.car.traffic, why('engines heard over a car')).toBeGreaterThan(0.2);
+      if (id === 'nghinhphong') {
+        expect(snd.tower.sea, why('the sea heard from the tower')).toBeGreaterThan(0.2);
+        expect(snd.tower.crowd, why('…and the tourists talking')).toBeGreaterThan(0.2);
+        expect(snd.tower.wind, why('…and the wind off the sea')).toBeGreaterThan(snd.car.wind - 0.01);
+      }
+      if (!['nghinhphong', 'tuyhoa'].includes(id)) expect(snd.tower?.sea ?? 0, why('no sea in a valley')).toBe(0);
       if (life.street) {
         const st = life.street, why = (what) => `${what} — ${JSON.stringify(st)}`;
         expect(st.shops, why('shop signs and awnings on the streets')).toBeGreaterThan(10);

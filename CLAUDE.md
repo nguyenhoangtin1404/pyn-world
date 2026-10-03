@@ -267,6 +267,15 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     cách làn xe chạy, vạch sang đường, pad công trình, nhà, cây. Tra nhanh bằng `SegIndex` (`world/segindex.js`, có test). E2E: đủ
     loại, và tua 300 s không ai (`world.pedestrians`) bước vào vòng tròn nào. NGHINH PHONG: 32 cửa hàng, ~35 xe máy, 15 quán, 5 xe đẩy;
     +13 người, draw call góc mặc định 321 → 347; ảnh chuẩn vòng xuyến có thêm mái hiên/xe đỗ.
+  - **Âm thanh** (#33): `world.listen(vị trí camera)` → `soundLevels` (`world/soundscape.js`, thuần, có test) cho biết to nhỏ 0..1 của
+    sóng biển (điểm bờ gần nhất, xa tới `SEA_REACH` 500 m bản đồ; độ cao camera chỉ tính `HEIGHT_COUNTS` 0,3 — sa bàn: nhìn từ trên cao
+    vẫn nghe bãi biển đang thấy, nhỏ thôi), gió (mạnh hơn gần biển và trên cao), máy xe (mọi xe, `1/(1+(d/18 m)²)` theo tỉ lệ đồ vật, xe
+    đứng chờ nhỏ hơn, cộng lại `1 − e^(−tổng)`), tiếng người (`world.people`, `pedestrians`, người trên bãi; 8 m) và còi (một xe đang chạy,
+    gần thì dễ được chọn). `main.js` hỏi 5 lần/giây, `AudioEngine.update({ sound })` tổng hợp bằng Web Audio, không file: sóng = tiếng ầm
+    lowpass dâng theo chu kỳ ~8 s + tiếng xô bờ (hiss), máy xe = rền 115 Hz + rít 650 Hz, còi = 1–2 tiếng bíp vuông hai nốt, tiếng người
+    = từng âm tiết là nhiễu qua hai formant nguyên âm. **Bờ biển tính lúc dựng** (bước cuối, khi có `cfg.landcover`): tính lần đầu trong
+    vòng lặp làm khung hình đầu ở Tuy Hòa dài đến mức mô phỏng nhảy một bước — e2e golden lệch 1 draw call, lúc có lúc không.
+    E2E: trên quảng trường tháp nghe biển, người, gió; trên một chiếc xe nghe máy; PYN/MAPLE không có biển.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
