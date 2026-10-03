@@ -312,20 +312,25 @@ export function createTerrain(cfg, track, stops, rivers) {
   }
   if (smoothNormals) {
     // Colours: each corner towards the average of the triangles that meet there. Normals: towards the smooth ones.
-    const key = (/** @type {number} */ i) => `${p.getX(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
-    const sum = new Map();
+    // (By grid point, in flat arrays: this runs over hundreds of thousands of corners.)
+    const n1 = segments + 1;
+    const at = (/** @type {number} */ i) => Math.round((p.getX(i) + size / 2) / cell) * n1 + Math.round((p.getZ(i) + size / 2) / cell);
+    const sum = new Float32Array(n1 * n1 * 4);
     for (let i = 0; i < count; i++) {
-      const e = sum.get(key(i)) ?? [0, 0, 0, 0];
-      e[0] += base[i * 3]; e[1] += base[i * 3 + 1]; e[2] += base[i * 3 + 2]; e[3]++;
-      sum.set(key(i), e);
+      const g = at(i) * 4;
+      sum[g] += base[i * 3];
+      sum[g + 1] += base[i * 3 + 1];
+      sum[g + 2] += base[i * 3 + 2];
+      sum[g + 3]++;
     }
     for (let i = 0; i < count; i++) {
-      const e = sum.get(key(i));
-      for (let k = 0; k < 3; k++) base[i * 3 + k] += (e[k] / e[3] - base[i * 3 + k]) * smooth;
-      const flat = new THREE.Vector3(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
-      const soft = new THREE.Vector3(smoothNormals[i * 3], smoothNormals[i * 3 + 1], smoothNormals[i * 3 + 2]);
-      flat.lerp(soft, smooth).normalize();
-      nrm.setXYZ(i, flat.x, flat.y, flat.z);
+      const g = at(i) * 4;
+      for (let k = 0; k < 3; k++) base[i * 3 + k] += (sum[g + k] / sum[g + 3] - base[i * 3 + k]) * smooth;
+      const x = nrm.getX(i) + (smoothNormals[i * 3] - nrm.getX(i)) * smooth;
+      const y = nrm.getY(i) + (smoothNormals[i * 3 + 1] - nrm.getY(i)) * smooth;
+      const z = nrm.getZ(i) + (smoothNormals[i * 3 + 2] - nrm.getZ(i)) * smooth;
+      const len = Math.hypot(x, y, z) || 1;
+      nrm.setXYZ(i, x / len, y / len, z / len);
     }
   }
   geo.setAttribute('color', new THREE.BufferAttribute(base, 3));
