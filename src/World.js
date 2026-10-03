@@ -96,7 +96,7 @@ export class World {
     this.cityRoutes = [];
     /** @type {{ boarded: number, alighted: number, stops: number, walks: [number, number, number, number][] } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js); walks: where they walk between the grounds and the stop (ax, az, bx, bz) */
     this.busStop = null;
-    /** @type {{ group: THREE.Group, boats: any[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea and foam on the shore (features/seacraft.js) */
+    /** @type {{ group: THREE.Group, boats: any[], parasails: { ski: any, at: THREE.Vector3 }[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea, parasails over it (at: where each flies) and foam on the shore (features/seacraft.js) */
     this.seacraft = null;
     /** @type {{ group: THREE.Group, people: { role: string, walker?: any, person: any }[], shades: number } | null} people on the beach (features/beach.js) */
     this.beach = null;

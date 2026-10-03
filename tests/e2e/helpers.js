@@ -133,7 +133,7 @@ export function simulate() {
   let pulled = 0; // the furthest a bus has moved over to the kerb
   // On the sea and the beach (features/seacraft.js, beach.js): boats never aground, swimmers never on dry land, nobody else in the water or on a street.
   const g = W.terrain.meshHeightAt;
-  const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam };
+  const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam, parasails: W.seacraft.parasails.length, lowestFlight: Infinity, longestRope: 0 };
   const seaStart = W.seacraft ? W.seacraft.boats.map((b) => [b.x, b.z]) : [];
   const beach = W.beach && { people: W.beach.people.length, shades: W.beach.shades, roles: {}, swimmersAshore: 0, inTheWater: 0, onStreets: 0, still: [] };
   const beachLast = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
@@ -199,6 +199,10 @@ export function simulate() {
     }
     for (const v of W.vehicles) if (v.kind === 'bus') pulled = Math.max(pulled, v.shift);
     if (sea && i % 10 === 0) for (const b of W.seacraft.boats) if (g(b.x, b.z) > -2.3) sea.aground++; // (WATER_Y − 0.3)
+    if (sea) for (const { ski, at } of W.seacraft.parasails) {
+      sea.lowestFlight = Math.min(sea.lowestFlight, (at.y + 2) / W.scale.props); // metres (props) over the water (WATER_Y −2)
+      sea.longestRope = Math.max(sea.longestRope, Math.hypot(at.x - ski.x, at.y - ski.anchor.position.y, at.z - ski.z) / W.scale.props);
+    }
     if (beach && i % 10 === 0) {
       for (const p of W.beach.people) {
         const { x, z } = p.person.group.position, h = g(x, z);
@@ -271,6 +275,8 @@ export function simulate() {
   if (W.busStop) s.busStop = { ...W.busStop, walks: W.busStop.walks.length, pulled: +pulled.toFixed(2) };
   if (street) s.street = street;
   if (sea) {
+    sea.lowestFlight = +sea.lowestFlight.toFixed(1);
+    sea.longestRope = +sea.longestRope.toFixed(1);
     sea.sailed = W.seacraft.boats.filter((b, k) => Math.hypot(b.x - seaStart[k][0], b.z - seaStart[k][1]) > 10).length;
     s.sea = sea;
   }

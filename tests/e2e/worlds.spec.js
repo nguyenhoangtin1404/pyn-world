@@ -66,6 +66,9 @@ for (const { id } of WORLDS) {
       if (life.sea) {
         const b = life.sea, why = (what) => `${what} — ${JSON.stringify(b)}`;
         expect(b.boats, why('boats on the sea')).toBeGreaterThan(5);
+        expect(b.parasails, why('jet skis towing parasails')).toBeGreaterThan(0);
+        expect(b.lowestFlight, why('the parasails fly high over the water')).toBeGreaterThan(15);
+        expect(b.longestRope, why('…on their rope, never left behind')).toBeLessThan(70);
         expect(b.aground, why('no boat ever aground')).toBe(0);
         expect(b.sailed, why('some boats under way')).toBeGreaterThan(0);
         expect(b.foam, why('foam along the waterline')).toBe(true);

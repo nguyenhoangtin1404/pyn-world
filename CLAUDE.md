@@ -242,8 +242,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   - **Biển và bãi biển** (`features/seacraft.js` #30, `features/beach.js` #31, cần `cfg.landcover`): `coastOf(world)` (`world/coast.js`,
     service, có test) chia sa bàn thành ô 3 đơn vị: biển = nước (đất vẽ < `WATER_Y`) **nối với** chỗ lớp phủ gọi là biển (vùng nước nông
     sát bờ lớp phủ còn gọi là bãi cát; ao trong đất liền không phải biển), số ô tới đất gần nhất, các điểm mép nước kèm hướng lên bờ.
-    `seacraft`: thuyền thúng (có người đội nón lá) gần bờ, thuyền đánh cá thân xanh có mắt thuyền + đèn câu mực neo xa hơn, vài chiếc
-    đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
+    `seacraft`: **moto nước kéo dù bay** gần bờ (`parasails`, 2 — thay thuyền thúng): moto chạy vòng trong nước đủ sâu (đất < `WATER_Y`
+    − 0,8), 3–12 ô ngoài bờ, trong 900 m quanh công trình; dù (vòm sọc, dây, 2 du khách ngồi chung đai, chân thả) bay sau `TOW` 40 m ×
+    k và cao `LIFT` 24 m × k, lượn theo chậm khi moto rẽ, dây kéo là một hộp dài 1 kéo giãn mỗi frame (`towRope`, `lookAt`); phím 0
+    theo dù (`followables.balloons`); `world.seacraft.parasails` — e2e: dù luôn cao > 15 m, dây < 70 m. Thuyền đánh cá thân xanh có
+    mắt thuyền + đèn câu mực neo xa hơn, vài chiếc đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
     giữ khớp với shader), tránh tấm chữ niêm phong trên biển; thuyền chạy rẽ trước khi hết nước sâu phía trước. Bọt sóng: hai dải mỗi
     điểm mép nước (sát bờ + đợt sau, mờ hơn), trôi lên bãi rồi rút trong shader (`uTime`), mờ ở hai đầu cho liền nhau. `beach`: ô dù +
     khăn (tĩnh, `world.batch`), người ngồi dưới ô, trẻ con chạy quanh, người bơi (Walker `fixedY` dưới mặt nước, tay sải), người chạy bộ và
