@@ -6,12 +6,15 @@ import { coastOf } from '../world/coast.js';
 import { Person } from '../world/people.js';
 import { Walker } from '../world/walker.js';
 import { waveHeight } from '../world/water.js';
+import { curfewOf, outShare, waterShare, stepTo, HURRY } from '../world/night.js';
 
 // People on the beach of a coast (a world from map data with a land cover that knows the beach):
 // sunshades with towels on the sand, someone sitting under some of them, children running about near
 // them, swimmers in the water just off the shore, joggers and walkers along the wet sand by the
 // waterline. Only on sand nothing else claimed (no street, no square), never out of their depth.
-// In the rain the ones on their feet put their umbrellas up. Drawn at world.scale like the strollers;
+// In the rain the ones on their feet put their umbrellas up. Swimmers are in the water by day only; late
+// at night everyone goes home (world/night.js): up the beach and gone (a swimmer walks out of the sea first,
+// someone under a sunshade gets up), and back in the morning to where they were. Drawn at world.scale like the strollers;
 // key 6 follows them. They are not world.pedestrians: no street runs on the sand.
 // Everything within `reach` metres (450) of the landmark, where the town goes to the beach (the run along
 // the water twice that). Options: umbrellas (10), sitters (5), kids (3), swimmers (5), joggers (2), walkers (3), reach.
@@ -140,12 +143,72 @@ export default {
     }
     world.beach = { group, people, shades: shades.length };
 
+    // ---- Home at night. Each one: their rank, where they go (up the beach from where they are, past the sand's
+    // edge), and for someone sitting where to sit again.
+    const curfew = curfewOf(world);
+    const inland = { x: -coast.seaward.x, z: -coast.seaward.z };
+    /** Off the sand, straight up the beach from (x, z): where they leave it. */
+    const upBeach = (/** @type {number} */ x, /** @type {number} */ z) => {
+      let d = 0;
+      while (d < 40 && (ground(x + inland.x * d, z + inland.z * d) < WATER_Y + 0.1 || cover(x + inland.x * d, z + inland.z * d) === 'beach')) d += 0.5;
+      return new THREE.Vector3(x + inland.x * Math.min(d, 6 * k / 0.6 + 4), 0, z + inland.z * Math.min(d, 6 * k / 0.6 + 4));
+    };
+    const night = new Map(
+      people.map((q) => [
+        q.person,
+        {
+          q,
+          rank: curfew.rank(),
+          share: q.role === 'swimmer' ? waterShare : outShare,
+          state: /** @type {'here' | 'going' | 'home' | 'back'} */ ('here'),
+          to: new THREE.Vector3(),
+          from: new THREE.Vector3(), // where they were: back there in the morning
+          seat: q.role === 'sitter' ? { p: q.person.group.position.clone(), ry: q.person.group.rotation.y } : null,
+        },
+      ]),
+    );
+    /** Late (swimmers: at dusk): up the beach and gone; back in the morning to where they were. True while not here. */
+    const away = (/** @type {import('../world/people.js').Person} */ person, /** @type {number} */ dt, /** @type {number} */ t) => {
+      const n = /** @type {any} */ (night.get(person)), { q } = n, g = person.group, out = curfew.out(n.rank, n.share, 1); // (the beach empties an hour before the town)
+      const walk = (/** @type {THREE.Vector3} */ to) => (q.walker ? q.walker.step(to, dt, t) : stepTo(person, to, 0.9 * k * HURRY, dt, ground));
+      if (n.state === 'here') {
+        if (out) return false;
+        n.from.set(g.position.x, 0, g.position.z);
+        n.to = upBeach(g.position.x, g.position.z);
+        if (q.walker) q.walker.fixedY = null; // (a swimmer walks out of the sea)
+        n.state = 'going';
+      }
+      if (n.state === 'going') {
+        if (walk(n.to)) {
+          g.visible = false;
+          n.state = 'home';
+        }
+        return true;
+      }
+      if (n.state === 'home') {
+        if (!out) return true;
+        g.visible = true;
+        n.state = 'back';
+      }
+      if (!walk(n.from)) return true;
+      if (n.seat) {
+        person.sit();
+        g.position.copy(n.seat.p);
+        g.rotation.y = n.seat.ry;
+      }
+      n.state = 'here';
+      return false;
+    };
+    const sitting = people.filter((q) => q.role === 'sitter');
+
     return {
       group,
       update({ dt, t, rain }) {
         if (dt === 0) return;
         const wet = rain > 0.3;
+        for (const q of sitting) away(q.person, dt, t);
         for (const c of children) {
+          if (away(c.w.person, dt, t)) continue;
           c.w.person.setUmbrella(wet);
           if (c.rest > 0) {
             c.rest -= dt;
@@ -164,6 +227,7 @@ export default {
           }
         }
         for (const s of swimming) {
+          if (away(s.w.person, dt, t)) continue;
           s.w.fixedY = WATER_Y + waveHeight(s.w.pos.x, s.w.pos.z, t) - 1.5 * s.w.group.scale.y;
           if (s.w.step(s.to, dt, t)) {
             const x = s.home.x + (rng() - 0.5) * 5 * k, z = s.home.z + (rng() - 0.5) * 5 * k;
@@ -173,6 +237,7 @@ export default {
           s.w.person.shoulders.forEach((sh, i) => sh.rotation.set(-Math.PI / 2 + Math.sin(t * 1.8 + s.phase + i * Math.PI) * 1.4, 0, i ? 0.25 : -0.25));
         }
         for (const a of along) {
+          if (away(a.w.person, dt, t)) continue;
           a.w.person.setUmbrella(wet && !a.jog);
           if (a.pause > 0) {
             a.pause -= dt;

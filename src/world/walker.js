@@ -5,7 +5,7 @@ import { Person } from './people.js';
 // Step length per unit of figure scale: legs are 0.92 long and swing ±0.55 rad at the hip, so a
 // foot travels ~0.95 × scale per step. Half a walk cycle (π) is one step, so the feet don't slide.
 // Adult (0.85): ~0.8 m steps, ~1.7 steps/s at walking pace. Child (0.55): ~0.5 m steps.
-const STEP_LENGTH = 0.95;
+export const STEP_LENGTH = 0.95;
 
 // A person walking along waypoints, pausing at stops. The figure itself lives in people.js.
 export class Walker {

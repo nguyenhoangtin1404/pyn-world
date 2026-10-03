@@ -181,12 +181,13 @@ export class Party {
   constructor(members, area) {
     this.members = members;
     this.area = area;
-    this.phase = 'go'; // go | look | wait (at the bus stop) | ride (on the bus, out of sight)
+    this.phase = 'go'; // go | look | wait (at the bus stop) | ride (on the bus, out of sight) | home (gone for the night)
     this.then = 'look'; // what a 'go' ends in
     this.faceAt = null; // wait: what they look at (the road)
     /** @type {any} the landmark whose grounds they are at, and the bus stop they are bound for (features/busstop.js) */
     this.landmark = null;
     this.dest = null;
+    this.rank = 0; // who goes home first at night (world/night.js; set by features/tourists.js)
     this.timer = 0;
     this.lastLine = '';
     this.spot = this.pick();
@@ -293,7 +294,7 @@ export class Party {
   update(dt, t, rain) {
     const { center, rng } = this.area;
     const wet = rain > 0.3;
-    if (this.phase === 'ride') return;
+    if (this.phase === 'ride' || this.phase === 'home') return;
     for (const m of this.members) m.person.setUmbrella(wet);
     if (this.phase === 'wait') {
       for (const m of this.members) {
@@ -314,7 +315,7 @@ export class Party {
       if (done && this.then !== 'look') {
         this.phase = this.then; // (at the stop, or on the bus)
         this.then = 'look';
-        if (this.phase === 'ride') this.hide(true);
+        if (this.phase === 'ride' || this.phase === 'home') this.hide(true);
         return;
       }
       if (done) {

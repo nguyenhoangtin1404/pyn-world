@@ -8,6 +8,7 @@ import { Person } from '../world/people.js';
 import { Walker } from '../world/walker.js';
 import { PAVEMENT } from './streets.js';
 import { pavementWalks } from './strollers.js';
+import { curfewOf, stepTo, HURRY } from '../world/night.js';
 
 // Life along a town's streets (world.streets, world.buildings — a world from map data): shop signs and
 // striped awnings over the ground floor of some of the buildings facing a street; in front of them
@@ -19,7 +20,7 @@ import { pavementWalks } from './strollers.js';
 // the crossings and the landmarks' squares; on the pavement it stands against the building, the walk on
 // the kerb side of it. All static, in world.batch (the sitters and the vendors are people). Only within
 // `reach` metres (600) of the landmark, where the town is lived in.
-// Options: shops (40), cars (14), carts (5), sitters (8), reach (600).
+// Options: shops (40), cars (14), carts (5), sitters (8), bikes (1: the share of the usual parked motorbikes), reach (600).
 // world.streetLife lists the circles everything takes on the ground (tests/e2e: nobody walks into one).
 
 const AWNINGS = [['#c8453a', '#f4f1ea'], ['#2f8f8b', '#f4f1ea'], ['#e0a64a', '#f4f1ea'], ['#3a7fc4', '#f4f1ea'], ['#6d8b3a', '#f2e6c4']];
@@ -34,7 +35,7 @@ const MINOR = new Set(['residential', 'service', 'unclassified', 'living_street'
 export default {
   label: 'Đang cho phố thêm đời sống',
   needs: ['streets', 'buildings', 'citytraffic'],
-  build(world, { rng, shops = 40, cars = 14, carts = 5, sitters = 8, reach = 600 }) {
+  build(world, { rng, shops = 40, cars = 14, carts = 5, sitters = 8, bikes: bikeShare = 1, reach = 600 }) {
     const k = world.scale.props;
     const { site } = world;
     world.need('nhà từ dữ liệu bản đồ (world.buildings)', 'streetlife', world.buildings.length);
@@ -132,6 +133,11 @@ export default {
     world.streetLife = life;
     /** @type {Walker[]} */
     const vendors = [];
+    /**
+     * Who closes up at night (world/night.js): the people at the cafés and the vendors, each with the door they go in by.
+     * @type {{ person: Person, walker?: Walker, seat: { p: THREE.Vector3, ry: number } | null, door: THREE.Vector3, heightAt: (x: number, z: number) => number, rank?: number, state?: string, from?: THREE.Vector3 }[]}
+     */
+    const shopkeepers = [];
 
     // ---- Building sides facing a street: the pavement within a couple of units of the wall.
     /** @type {{ b: typeof world.buildings[number], mx: number, mz: number, nx: number, nz: number, w: number, st: typeof streets[number] }[]} */
@@ -195,6 +201,7 @@ export default {
      * @param {typeof fronts[number]} f @param {number} ry @param {number[]} X @param {number} count
      */
     function bikes(f, ry, X, count) {
+      count = Math.max(1, Math.round(count * bikeShare));
       const { mx, mz, nx, nz, w, st } = f;
       const u0 = (rng() - 0.5) * Math.max(0, w - count * 0.8 * k);
       for (let i = 0; i < count; i++) {
@@ -249,6 +256,9 @@ export default {
           person.group.position.set(s.x, standAt(st, s.x, s.z) + (0.4 - 0.92) * k, s.z);
           person.group.rotation.y = ry + (du > 0 ? -Math.PI / 2 : Math.PI / 2);
           group.add(person.group);
+          // (at night: up and in through the shop's door, straight behind the stool)
+          const back = 0.5 * k - 0.05;
+          shopkeepers.push({ person, seat: { p: person.group.position.clone(), ry: person.group.rotation.y }, door: new THREE.Vector3(s.x - nx * back, 0, s.z - nz * back), heightAt: (/** @type {number} */ x, /** @type {number} */ z) => standAt(st, x, z) });
           world.followables.people.push({ label: `Quán cóc ${++sat}`, anchor: () => person.group });
         }
         placed++;
@@ -287,6 +297,8 @@ export default {
       vendor.place(new THREE.Vector3(vendorAt.x, 0, vendorAt.z));
       group.add(vendor.group);
       vendors.push(vendor);
+      const back = 0.3 * k - 0.05;
+      shopkeepers.push({ person: vendor.person, walker: vendor, seat: null, door: new THREE.Vector3(vendorAt.x - nx * back, 0, vendorAt.z - nz * back), heightAt: (/** @type {number} */ x, /** @type {number} */ z) => standAt(st, x, z) });
       world.followables.people.push({ label: `Gánh hàng rong ${vendors.length}`, anchor: () => vendor.group });
       life.carts++;
     }
@@ -317,11 +329,38 @@ export default {
       }
     }
 
+    const curfew = curfewOf(world);
+    for (const h of shopkeepers) [h.rank, h.state] = [curfew.rank(), 'here'];
     return {
       group,
       update({ dt, t }) {
         if (dt === 0) return;
         for (const v of vendors) v.idle(t);
+        // Late at night: up, in by the door and gone; out again in the morning, back to the stool or the cart.
+        for (const h of shopkeepers) {
+          const out = curfew.out(/** @type {number} */ (h.rank), undefined, 0.5), g = h.person.group; // (shops close half an hour early)
+          const walk = (/** @type {THREE.Vector3} */ to) => (h.walker ? h.walker.step(to, dt, t) : stepTo(h.person, to, 0.9 * k * HURRY, dt, h.heightAt));
+          if (h.state === 'here' && !out) {
+            h.from = new THREE.Vector3(g.position.x, 0, g.position.z);
+            h.state = 'going';
+          }
+          if (h.state === 'going' && walk(h.door)) {
+            g.visible = false;
+            h.state = 'home';
+          }
+          if (h.state === 'home' && out) {
+            g.visible = true;
+            h.state = 'back';
+          }
+          if (h.state === 'back' && walk(/** @type {THREE.Vector3} */ (h.from))) {
+            if (h.seat) {
+              h.person.sit();
+              g.position.copy(h.seat.p);
+              g.rotation.y = h.seat.ry;
+            }
+            h.state = 'here';
+          }
+        }
       },
     };
   },

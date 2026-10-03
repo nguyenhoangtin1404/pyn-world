@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { box, ball, cyl, slab } from '../lowpoly.js';
+import { box, ball, cyl, slab, keep } from '../lowpoly.js';
 import { WHITE, RED, WOOD, DARK } from './parts.js';
 
 // What sails the sea off a coast (features/seacraft.js), one geometry per kind for an Instancer:
@@ -100,4 +100,48 @@ export function ship() {
     cyl(0.7, 0.8, 2.6, RED, [0, 7.2, -10.6], {}, 10), // funnel
     ...boxes,
   ]);
+}
+
+// ---- Lights at night (features/seacraft.js shows them after dark): bulbs drawn unlit, so they glow.
+
+// A fishing boat's squid lamps: the row of big bulbs on the line from the mast to the wheelhouse (as on the
+// boat by day, fishingBoat), and its mast light.
+export function fishingLamps() {
+  return mergeGeometries([
+    ...[-1.3, -0.5, 0.3, 1.0].map((z) => ball(0.26, '#f4fff2', [0, 2.15, z], {}, 1)),
+    ball(0.12, '#ffffff', [0, 3.95, 1.4], {}, 0),
+  ]);
+}
+
+// A coaster's: the white masthead and stern lights, red to port, green to starboard, and its lit bridge windows.
+export function shipLamps() {
+  return mergeGeometries([
+    ball(0.35, '#ffffff', [0, 8.8, -10.6], {}, 0),
+    ball(0.3, '#ffffff', [0, 2.6, -13.1], {}, 0),
+    ball(0.3, '#ff3020', [-3.2, 2.4, 9], {}, 0),
+    ball(0.3, '#20ff60', [3.2, 2.4, 9], {}, 0),
+    box(5.7, 0.4, 3.0, '#ffe7a8', [0, 5.4, -8.6]),
+  ]);
+}
+
+// The light of a squid boat's lamps on the water round it: a flat disc, bright in the middle, fading out
+// (additive: it brightens what's under it). Shared by every world, built once.
+let glow = null;
+export function squidGlow() {
+  if (!glow) {
+    const N = 32, data = new Uint8Array(N * N * 4);
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const a = Math.max(0, 1 - Math.hypot((i + 0.5) / N - 0.5, (j + 0.5) / N - 0.5) * 2) ** 1.6;
+        data.set([255, 255, 255, Math.round(a * 255)], (j * N + i) * 4);
+      }
+    }
+    const tex = keep(new THREE.DataTexture(data, N, N));
+    tex.needsUpdate = true;
+    glow = {
+      geo: keep(new THREE.PlaneGeometry(20, 20).rotateX(-Math.PI / 2).translate(0, 0.7, 0)), // (over the waves round the boat, which may stand higher than where it floats)
+      mat: keep(new THREE.MeshBasicMaterial({ color: '#e6ffe8', map: tex, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending })),
+    };
+  }
+  return glow;
 }

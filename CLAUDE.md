@@ -276,6 +276,19 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     = từng âm tiết là nhiễu qua hai formant nguyên âm. **Bờ biển tính lúc dựng** (bước cuối, khi có `cfg.landcover`): tính lần đầu trong
     vòng lặp làm khung hình đầu ở Tuy Hòa dài đến mức mô phỏng nhảy một bước — e2e golden lệch 1 draw call, lúc có lúc không.
     E2E: trên quảng trường tháp nghe biển, người, gió; trên một chiếc xe nghe máy; PYN/MAPLE không có biển.
+  - **Ban đêm** (`world/night.js`): ai còn ở ngoài theo giờ (`sky.hour` → `Curfew.hour` mỗi frame, `curfewOf(world)`): ban ngày tất cả,
+    từ 22 h ít dần (`outShare`: 24 h còn ~20 %), sau nửa đêm ai cũng về (0 lúc 0:36), 1–5 h chỉ còn **2 người thức khuya** (2 người đi
+    dạo đầu tiên, `rank(true)`), 5–6:30 h ra lại. Mỗi người/xe một `rank` rải đều 0..1 (tỉ lệ vàng, **không dùng rng** — golden mọi world
+    không đổi), ra ngoài khi `rank < share(giờ + lead)`; `lead` = về sớm hơn bao nhiêu giờ (du khách và bãi biển 1, xe 1, quán/xe đẩy 0,5,
+    người đi dạo 0,6 — đồng hồ chạy nhanh: 10 s một giờ, nên đường về chỉ vài bước, đi gấp `HURRY` × 2). Cách về: người đi dạo vào **cửa
+    nhà gần nhất** (`homeFor`: cạnh móng nhà gần nhất `doorOf`, đường thẳng không qua lòng đường trong 8 đơn vị, không thì nhà trong 30
+    đơn vị bất kể; không có thì đợi khuất camera, quá 25 s thì về luôn; ai xa nhà về trước); du khách ra cạnh thẳng quảng trường (thôi đợi
+    xe buýt); bãi biển lên hết cát (người bơi lội vào bờ trước, người ngồi đứng dậy — `stepTo`); quán cóc/người bán vào cửa sau lưng;
+    xe đi khi **khuất camera** (`curfew.seen`: frustum + < 260) hoặc tới **cuối phố**, lúc vắng thì ra khỏi luật giao thông (`active`),
+    sáng ra lại chỗ khuất và có chỗ trên làn (`room`); moto nước/dù bay và người bơi chỉ ban ngày (`waterShare` 8–18 h). Sáng ra lại
+    đúng cửa/chỗ cũ, ngồi lại ghế. **Đèn thuyền**: thuyền câu mực sáng đèn (bóng `fishingLamps` + quầng sáng trên mặt nước `squidGlow`,
+    cộng màu), tàu hàng đèn hành trình (`shipLamps`), hiện khi `lights > 0,3`. E2E `night.spec.js`: chạy đồng hồ 21 → 8 h với camera mặc
+    định — 23:30 ít người/xe hẳn, 1 h và 3 h đúng 1–2 người, không xe, 8 h về lại ≥ 90 % người, đủ xe, không xe nào ra đè lên xe khác.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
@@ -525,9 +538,21 @@ cây/nhà 168 → 114 ms, người + lưới dẫn đường 336 → 274 ms. `tr
 thay vì quét 380 điểm, và nhận `max` để dừng sớm (kết quả < max vẫn chính xác) — truyền `max` khi
 chỉ cần so với một ngưỡng.
 
+Đo 2026-10-03 (ảnh bị mờ: khung hình chậm thì `createResolutionAdapter` hạ pixel ratio 1,5 → 1): từ #28 tới #42 NGHINH PHONG
+thêm 37 người (SkinnedMesh 58 → 95) và đồ trên phố, draw call góc mặc định 293 → 377, tam giác 773k → 895k; một nửa draw call
+là người — mỗi người 2 lần (ảnh + **bóng**), dù ở góc mặc định họ cách camera 182–511 đơn vị, cao 2–6 px, bóng không ai thấy.
+**Bóng theo khoảng cách** (`World.figureShadows`, 15 frame một lần và ngay frame đầu): một SkinnedMesh chỉ đổ bóng khi cao ≥ ~12
+px trên màn hình (`d < 160 × bán kính bao`) — người ở gần vẫn có bóng (ảnh chuẩn người đi xe đạp giữ nguyên), toa tàu to luôn có.
+Draw call góc mặc định: NGHINH PHONG 362 → 271, PYN 273 → 240, MAPLE 307 → 267, Tuy Hòa 290 → 264 (golden chỉ đổi `drawCalls`);
+thời gian vẽ (GPU phần mềm, trung vị, nhiễu ±10 %) #28 ~880 ms, #42 ~970, sau ~915.
+Rồi **NGHINH PHONG một nửa người và xe** (công thức: người đi dạo 12, du khách 11, xe chạy 13 — còn 1 xe buýt —, bãi biển 9, quán 4,
+xe đẩy 3, ô tô đỗ 7, xe máy đỗ `bikes: 0.5`, 1 dù bay; mặc định của feature giữ nguyên cho Tuy Hòa): SkinnedMesh 98 → 50, draw call
+271 → 221 (362 lúc đầu), tam giác 818k → 753k. Ban đêm: xe đáng về nhà còn rẽ đi ở ngã tư nó vừa qua (`offStreet`: sáng ra lại
+đúng chỗ đó, kể cả khi camera thấy) — với ít xe, một chiếc cứ chạy vòng trong khung hình tới 1 h.
+
 ## Chưa làm (việc tiếp theo nếu cần nhanh hơn)
 
 - Thời gian tải: phần lớn còn lại là biên dịch shader (~0,5 s trên GPU phần mềm) và dựng người
   (`Person`/`skinFigure`, ~130 ms). `heightAt` giờ chủ yếu là noise (`fbm`).
-- Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng. Còn
-  có thể tắt `castShadow` cho vật nhỏ ở xa.
+- Bóng đổ: frustum đã co theo khoảng cách camera (`sky.js`, 50–170 đơn vị), mây không đổ bóng, người/toa ở xa không đổ
+  bóng (`figureShadows`). Còn: xe (Instancer — cả đội một mesh, không tắt từng chiếc được), đồ tĩnh nhỏ trong `world.batch`.

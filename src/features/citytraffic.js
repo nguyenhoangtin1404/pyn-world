@@ -12,6 +12,7 @@ import { crossroads } from '../world/roads/signals.js';
 import { PAVEMENT } from './streets.js';
 import { CLAIM } from '../world/site.js';
 import { Paint } from '../world/roads/paint.js';
+import { curfewOf } from '../world/night.js';
 
 /**
  * Where a loop path goes past point p (within `near`): the distance along it of the nearest point
@@ -278,7 +279,7 @@ export default {
         const [rx, rz] = right(i);
         loop.push([(pts[i][0] - rx * off) / k, (pts[i][1] - rz * off) / k]);
       }
-      return { off, side: st.width / 2 - off + (PAVEMENT * k) / 2, kerb: st.width / 2 - off, pavementAt: st.pavementAt, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
+      return { ends: [pts[0], pts[pts.length - 1]], off, side: st.width / 2 - off + (PAVEMENT * k) / 2, kerb: st.width / 2 - off, pavementAt: st.pavementAt, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
     });
 
     // Traffic lights where the main streets cross: two phases (roads.signals.crossroads), each
@@ -476,6 +477,17 @@ export default {
       }),
     );
 
+    // Late at night the traffic thins out and stops (world/night.js): a vehicle goes where nobody sees it,
+    // and comes back the same way in the morning — where there's room on its lane.
+    const curfew = curfewOf(world);
+    for (const c of cars) c.rank = curfew.rank();
+    /** @type {Vehicle[]} */
+    const active = [];
+    const atEnd = (/** @type {Vehicle} */ c) => routes[c.route].ends.some(([x, z]) => Math.hypot(c.group.position.x - x, c.group.position.z - z) < 3);
+    const room = (/** @type {Vehicle} */ c) => {
+      const L = c.path.length, half = L / 2;
+      return !active.some((o) => o.path === c.path && Math.abs(((o.s - c.s + half + L) % L) - half) < (o.length + c.length) / 2 + 6);
+    };
     /** Hand a vehicle on at the end of a turn, or start one where it passes the beginning of a turn. */
     const turn = (/** @type {Vehicle} */ c, /** @type {number} */ before) => {
       if (c.turn) {
@@ -495,7 +507,7 @@ export default {
         if (rng() >= turns) return; // (one decision at each crossing)
         const target = routes[t.to].path, half = target.length / 2;
         // Not into a lane with someone close ahead or behind where it would join.
-        const near = cars.some((o) => o !== c && o.path === target && Math.abs(((o.s - t.s1 + half + target.length) % target.length) - half) < (o.length + c.length) / 2 + 5);
+        const near = active.some((o) => o !== c && o.path === target && Math.abs(((o.s - t.s1 + half + target.length) % target.length) - half) < (o.length + c.length) / 2 + 5);
         if (near) return;
         c.turn = { length: t.length, to: t.to, s1: t.s1 };
         c.path = t.connector;
@@ -516,11 +528,29 @@ export default {
           for (const w of walks) w.stop.visible = !(w.walk.visible = signal.walk(w.margin));
         }
         people.length = 0;
-        for (const w of world.pedestrians) people.push({ x: w.pos.x / k, z: w.pos.z / k });
-        updateTraffic(cars, people, SIZES.lane / 2);
+        for (const w of world.pedestrians) if (w.group.visible) people.push({ x: w.pos.x / k, z: w.pos.z / k }); // (not those at home, or on the bus)
+        active.length = 0;
         for (const c of cars) {
+          const out = curfew.out(c.rank, undefined, 1), seen = curfew.seen(c.group.position, c.length * k);
+          // (gone: out of sight, or at the end of its street — turning off it, as far as anyone can tell)
+          // (back where nobody sees, or the way it went: out of the side street, from the end of the street)
+          if (c.away ? out && (!seen || c.offStreet) && !c.turn && room(c) : !out && !c.turn && c.busState !== 'dwell' && (!seen || atEnd(c))) {
+            c.away = !c.away;
+            c.offStreet = c.away && seen;
+            c.group.visible = !c.away;
+          }
+          if (!c.away) active.push(c);
+        }
+        updateTraffic(active, people, SIZES.lane / 2);
+        for (const c of active) {
           const before = c.s;
           c.update(dt);
+          // (late, and it should be home: off at the crossroads it just went through — turned into a side street)
+          if (!c.turn && c.busState !== 'dwell' && !curfew.out(c.rank, undefined, 1) && c.stops.some((st) => passed(before, c.s, st.s, c.path.length))) {
+            c.away = c.offStreet = true;
+            c.group.visible = false;
+            continue;
+          }
           turn(c, before);
         }
       },

@@ -91,6 +91,7 @@ export class Sky {
   // `day` of the year); without it, the sun follows the time-of-day presets.
   constructor(scene, { latitude = null, day = 80 } = {}) {
     this.scene = scene;
+    this.hour = 12;
     this.latitude = latitude;
     this.day = day;
     this.presetId = 'day';
@@ -159,6 +160,7 @@ export class Sky {
   // Blend the keyframes for hour h (0..24) into the target look.
   setHour(h, instant = false) {
     h = ((h % 24) + 24) % 24;
+    this.hour = h; // (who's out: world/night.js)
     let i = 0;
     while (i < KEYFRAMES.length - 2 && h >= KEYFRAMES[i + 1][0]) i++;
     const [h0, a] = KEYFRAMES[i];

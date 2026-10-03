@@ -4,6 +4,9 @@ import { Walker } from '../world/walker.js';
 import { PERSON_HEIGHT } from '../world/people.js';
 import { CLAIM } from '../world/site.js';
 import { PAVEMENT } from './streets.js';
+import { curfewOf, homeFor, HURRY } from '../world/night.js';
+
+const NIGHT_OWLS = 2; // out all night
 
 // People out and about in a town from map data: walking the pavements of its streets
 // (world.streets, from features/streets.js) — along one side, a pause at the end, then back — and
@@ -22,7 +25,8 @@ export default {
     const { streets, walk } = pavementWalks(world);
     world.need('phố từ dữ liệu bản đồ (world.streets)', 'strollers', streets.length);
     const group = new THREE.Group();
-    /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number, zebra?: number[] }[]} */
+    const curfew = curfewOf(world);
+    /** @type {{ w: Walker, route: THREE.Vector3[], i: number, dir: number, zebra?: number[], rank: number, going?: THREE.Vector3 | 'unseen' | null, home?: boolean, door?: THREE.Vector3 | null, wait?: number }[]} */
     const walkers = [];
     const add = (/** @type {THREE.Vector3[]} */ route, /** @type {(x: number, z: number) => number} */ heightAt, /** @type {string} */ label) => {
       const w = new Walker(rng, heightAt, { speed: 1.3 * k });
@@ -30,7 +34,7 @@ export default {
       const i = Math.floor(rng() * (route.length - 1));
       w.place(route[i]);
       group.add(w.group);
-      walkers.push({ w, route, i, dir: rng() < 0.5 ? 1 : -1 });
+      walkers.push({ w, route, i, dir: rng() < 0.5 ? 1 : -1, rank: curfew.rank(walkers.length < NIGHT_OWLS) }); // (the first ones: the night owls)
       world.pedestrians.push(w);
       world.followables.people.push({ label: `${label} ${walkers.length}`, anchor: () => w.group });
       if (walkers.length === 1) world.scale.note('person', PERSON_HEIGHT * w.group.scale.y, 'strollers');
@@ -57,12 +61,48 @@ export default {
       for (let n = 0; n < square; n++) add(loop.route, loop.floor, `Khách thăm ${lm.name}`);
     }
 
+    // (Those with no house by their pavement go first: they've further to walk, or wait to be out of sight.)
+    const far = (/** @type {typeof walkers[number]} */ s) => (homeFor(world, s.w.pos.x, s.w.pos.z, 8) ? 0 : 1);
+    const ranked = walkers.filter((s) => s.rank >= 0);
+    const ranks = ranked.map((s) => s.rank).sort((a, b) => b - a);
+    ranked.sort((a, b) => far(b) - far(a)).forEach((s, i) => (s.rank = ranks[i]));
+
     return {
       group,
       update({ dt, t, rain }) {
         if (dt === 0) return;
         for (const s of walkers) {
           const { w } = s;
+          // Late at night: home through the nearest door (or, with none near, when nobody is looking); back out
+          // of it in the morning.
+          const out = curfew.out(s.rank, undefined, 0.6); // (a little early: some walk a way home)
+          if (s.home) {
+            if (!out || (!s.door && curfew.seen(w.pos))) continue;
+            if (s.door) w.place(s.door);
+            w.group.visible = true;
+            s.home = false;
+          } else if (!out && !s.going) {
+            s.door = homeFor(world, w.pos.x, w.pos.z, 8) ?? homeFor(world, w.pos.x, w.pos.z, 30, false); // (none by the pavement: one further, over the road)
+            s.going = s.door ?? 'unseen';
+            if (s.door) w.speed *= HURRY;
+            w.waiting = false;
+            w.pause = 0;
+            s.wait = 0;
+          } else if (out && s.going === 'unseen') s.going = null; // (morning came before they were out of sight)
+          const gone = () => {
+            if (s.going instanceof THREE.Vector3) w.speed /= HURRY;
+            w.group.visible = false;
+            s.home = true;
+            s.going = null;
+          };
+          if (s.going instanceof THREE.Vector3) {
+            if (w.step(s.going, dt, t)) gone();
+            continue;
+          }
+          if (s.going === 'unseen' && (!curfew.seen(w.pos) || (s.wait = (s.wait ?? 0) + dt) > 25)) { // (or, after a while, anyway)
+            gone();
+            continue;
+          }
           w.person.setUmbrella(rain > 0.3);
           if (w.pause > 0) {
             w.pause -= dt;

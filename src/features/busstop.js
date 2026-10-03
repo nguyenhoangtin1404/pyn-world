@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { inside } from '../world/tourist.js';
 import { box, cyl } from '../world/lowpoly.js';
 import { CLAIM } from '../world/site.js';
+import { curfewOf } from '../world/night.js';
 
 // A bus stop on the street beside a landmark's grounds (world.landmarks): the buses (citytraffic) stop
 // there with their doors to the kerb, let their passengers off — tourists, who walk over the pavement
@@ -23,6 +24,7 @@ export default {
   build(world, { rng, riders = 1, wait = 2, dwell = 8, away = 100 }) {
     const k = world.scale.props;
     const buses = world.vehicles.filter((v) => v.kind === 'bus');
+    const curfew = curfewOf(world);
     world.busStop = { boarded: 0, alighted: 0, stops: 0, walks: [] };
     /** @type {any[]} */
     const places = [];
@@ -168,7 +170,7 @@ export default {
           for (const p of parties) if (p.trip && !p.dest && p.phase === 'look') p.setTrip(false);
           place.timer -= dt;
           if (place.timer <= 0 && place.queue.length < wait) {
-            const party = parties.find((p) => p.phase === 'look' && !p.dest && !p.trip && p.timer > 8);
+            const party = parties.find((p) => p.phase === 'look' && !p.dest && !p.trip && p.timer > 8 && curfew.out(p.rank, undefined, 1.5)); // (not those about to go home: tourists go an hour early)
             if (party) send(place, party);
             place.timer = 20 + rng() * 30;
           }

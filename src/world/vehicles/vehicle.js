@@ -43,6 +43,9 @@ export class Vehicle {
     /** @type {{ length: number, to: number, s1: number } | null} on a connector between two streets: how long it is, where it hands the vehicle on */
     this.turn = null;
     this.turns = 0; // turns made
+    this.rank = 0; // who goes home first at night (world/night.js)
+    this.away = false; // gone for the night: not drawn, not in the traffic
+    this.offStreet = false; // …gone off its street where it was seen (a crossroads, the end): may come back the same way in sight
     /** @type {'dwell' | 'done' | 'gone' | undefined} a bus at its stop (features/busstop.js): stopped to let people on and off, done, past the stop */
     this.busState = undefined;
     this.dwell = 0; // seconds stopped at the stop
