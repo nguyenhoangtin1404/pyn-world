@@ -161,6 +161,7 @@ export const KINDS = {
     wheels: [[-1.05, 0.5, 3.4], [1.05, 0.5, 3.4], [-1.05, 0.5, -3.2], [1.05, 0.5, -3.2]],
     speed: [6, 8],
     length: 10.6,
+    width: 2.5, // (only the bus needs it: how far it can pull in to the kerb)
     colors: ['#2f8f5b', '#c8453a', '#2f5d7c', '#e0a64a'],
     body: () => [
       box(2.5, 2.3, 10.4, PAINT, [0, 1.75, 0]), // body

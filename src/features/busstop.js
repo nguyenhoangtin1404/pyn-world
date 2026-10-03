@@ -2,33 +2,25 @@
 import * as THREE from 'three';
 import { inside } from '../world/tourist.js';
 import { box, cyl } from '../world/lowpoly.js';
+import { CLAIM } from '../world/site.js';
 
 // A bus stop on the street beside a landmark's grounds (world.landmarks): the buses (citytraffic) stop
 // there with their doors to the kerb, let their passengers off — tourists, who walk over the pavement
 // to the grounds — and take on the parties that have set out for the stop. A party is not made or
 // unmade: the same tourists ride off (out of sight, in the bus) and come back with a bus later, so there
 // are always as many at the landmark as the tourists feature made, less those away on the bus.
-// Options: riders (parties on each bus at the start, 1), wait (parties at most on their way to or at the
+// The stop is about `away` metres (100) from the landmark, on the same side of the street as its grounds; the
+// bus eases over to the kerb as it comes in (a lane change on a boulevard) and back to its lane as it leaves.
+// Options: away (100), riders (parties on each bus at the start, 1), wait (parties at most on their way to or at the
 // stop at once, 2), dwell (least seconds a bus stays, 8). world.busStop counts boardings and alightings.
 
 const CAPACITY = 3; // parties a bus takes
-
-/** Distance from (x, z) to a closed polygon's edge. */
-function edgeDistance(poly, x, z) {
-  let best = Infinity;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const a = poly[i], b = poly[j], dx = b.x - a.x, dz = b.z - a.z;
-    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
-    best = Math.min(best, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
-  }
-  return best;
-}
 
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang dựng bến xe buýt',
   needs: ['citytraffic', 'tourists'],
-  build(world, { rng, riders = 1, wait = 2, dwell = 8 }) {
+  build(world, { rng, riders = 1, wait = 2, dwell = 8, away = 100 }) {
     const k = world.scale.props;
     const buses = world.vehicles.filter((v) => v.kind === 'bus');
     world.busStop = { boarded: 0, alighted: 0, stops: 0 };
@@ -47,21 +39,34 @@ export default {
         const right = new THREE.Vector2(-Math.cos(h), Math.sin(h));
         return { at: new THREE.Vector3(x * k + right.x * rt.side, 0, z * k + right.y * rt.side), fwd: new THREE.Vector2(Math.sin(h), Math.cos(h)), right };
       };
-      // The place on the street nearest the grounds: straight, clear of crosswalks and other stop lines.
-      let best = null, bestD = Infinity;
+      // The place on the street about `away` metres from the landmark, on the grounds' side of the street
+      // (no crossing the road), on pavement, straight, clear of crosswalks and other stop lines.
+      const target = world.scale.m(away);
+      let best = null, bestErr = Infinity;
       for (let s = 0; s < rt.path.length; s += 1.5) {
-        const { at } = doorAt(s);
-        if (inside(plaza, at.x, at.z)) continue;
-        const d = edgeDistance(plaza, at.x, at.z);
-        if (d >= bestD) continue;
-        if ([-10, -5, 0, 4].some((o) => Math.abs(rt.path.curvatureAt(rt.path.wrap(s + o))) > 0.02)) continue;
+        const { at, right } = doorAt(s);
         const [px, pz] = rt.path.pointAt(s);
+        if ((lm.spot.x - px * k) * right.x + (lm.spot.z - pz * k) * right.y <= 0) continue;
+        if (inside(plaza, at.x, at.z) || world.site.claimAt(at.x, at.z) === CLAIM.CARRIAGEWAY) continue;
+        const err = Math.abs(Math.hypot(at.x - lm.spot.x, at.z - lm.spot.z) - target);
+        if (err >= bestErr) continue;
+        if ([-10, -5, 0, 4].some((o) => Math.abs(rt.path.curvatureAt(rt.path.wrap(s + o))) > 0.02)) continue;
         if (world.crosswalks.some((c) => Math.hypot(c.x - px * k, c.z - pz * k) < c.half + 9 * k)) continue;
         if (rt.stops.some((o) => { const g = rt.path.wrap(o.s - s + rt.path.length / 2) - rt.path.length / 2; return g > -12 && g < 6; })) continue;
-        [best, bestD] = [s, d];
+        [best, bestErr] = [s, err];
       }
-      if (best === null || bestD > 45 * k) continue;
+      if (best === null || bestErr > target * 0.5) continue;
       const door = doorAt(best);
+      // Where they go in and out of the grounds: the nearest point of the plaza's straight side (its last edge), a little inside.
+      const e0 = plaza[plaza.length - 1], e1 = plaza[0], ex = e1.x - e0.x, ez = e1.z - e0.z, el = Math.hypot(ex, ez) || 1;
+      const t = Math.max(0, Math.min(1, ((door.at.x - e0.x) * ex + (door.at.z - e0.z) * ez) / (el * el)));
+      const along = new THREE.Vector2(ex / el, ez / el);
+      const cx = plaza.reduce((n, p) => n + p.x, 0) / plaza.length, cz = plaza.reduce((n, p) => n + p.z, 0) / plaza.length;
+      let nx = -ez / el, nz = ex / el; // across the edge, towards the grounds
+      if ((cx - e0.x) * nx + (cz - e0.z) * nz < 0) [nx, nz] = [-nx, -nz];
+      const entry = new THREE.Vector3(e0.x + ex * t + nx * 0.8 * k, 0, e0.z + ez * t + nz * 0.8 * k);
+      // A bus pulls over to the kerb: sideways by the gap between its side and the carriageway's edge.
+      const pull = Math.max(0, rt.kerb / k - bus.spec.width / 2 - 0.35);
       const stop = { s: best, blocked: (/** @type {any} */ car) => car.kind === 'bus' && (car.busState === undefined || car.busState === 'dwell') };
       rt.stops.push(stop);
       // On the pavement they stand at its height, on the grounds at the grounds'.
@@ -87,7 +92,7 @@ export default {
           box(0.38, 0.1, 0.08, BLUE, [0.45, 2.55, 1.6]),
         ]);
       }
-      places.push({ lm, rt, stop, door, parties, plaza, timer: 0, queue: /** @type {any[]} */ ([]) });
+      places.push({ lm, rt, stop, door, entry, along, pull, parties, plaza, timer: 0, queue: /** @type {any[]} */ ([]) });
     }
 
     /** @type {Map<any, any[]>} the parties on each bus */
@@ -114,12 +119,22 @@ export default {
       }
     }
 
+    /** Where member `mi` of `n` goes in or out of the grounds: the entrance, spread along the edge. */
+    const entryFor = (/** @type {any} */ place, /** @type {number} */ mi, /** @type {number} */ n) => {
+      const o = (mi - (n - 1) / 2) * 1 * k;
+      return new THREE.Vector3(place.entry.x + place.along.x * o, 0, place.entry.z + place.along.y * o);
+    };
     /** Off the bus: appear at the door and walk to a viewpoint on the grounds. */
     const alight = (/** @type {any} */ place, /** @type {any} */ party) => {
       party.hide(false);
       party.members.forEach((/** @type {any} */ m, /** @type {number} */ mi) => m.place(slot(place, 1.6, mi, party.members.length)));
       party.spot = party.pick();
-      party.route(party.spot);
+      // Along the pavement to the grounds' entrance, then over the grounds to a viewpoint.
+      party.members.forEach((/** @type {any} */ m, /** @type {number} */ mi) => {
+        const e = entryFor(place, mi, party.members.length);
+        m.route = [e, ...party.way(e, party.slot(party.spot, mi))];
+        m.ri = 0;
+      });
       party.phase = 'go';
       party.then = 'look';
       world.busStop.alighted++;
@@ -133,7 +148,8 @@ export default {
       party.faceAt = { x: place.door.at.x - place.door.right.x * 4, z: place.door.at.z - place.door.right.y * 4 };
       party.members.forEach((/** @type {any} */ m, /** @type {number} */ mi) => {
         const goal = slot(place, -2.4 * q - 1.5, mi, n);
-        m.route = party.way(new THREE.Vector3(m.pos.x, 0, m.pos.z), goal);
+        const e = entryFor(place, mi, n);
+        m.route = [...party.way(new THREE.Vector3(m.pos.x, 0, m.pos.z), e), goal];
         m.ri = 0;
       });
       party.phase = 'go';
@@ -157,6 +173,10 @@ export default {
             if (bus.path !== rt.path) continue;
             const ahead = rt.path.wrap(stop.s - bus.s);
             const d = ahead - bus.length / 2;
+            // Over to the kerb on the way in (from 45 units out, done by 15), back to the lane on the way out (from 8 past the stop).
+            const u = rt.path.wrap(d + rt.path.length / 2) - rt.path.length / 2; // front to the stop line: + before it
+            const ease = (/** @type {number} */ x) => { const c = Math.max(0, Math.min(1, x)); return c * c * (3 - 2 * c); };
+            bus.shift = place.pull * (u >= -8 ? ease((45 - u) / 30) : 1 - ease((-u - 8) / 32));
             if (bus.busState === undefined) {
               if (d < 1.3 && d > -2 && bus.v < 0.4) {
                 bus.busState = 'dwell';
