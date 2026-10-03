@@ -61,6 +61,7 @@ for (const { id } of WORLDS) {
         expect(b.stops, why('buses stop at the tower\'s stop')).toBeGreaterThan(0);
         expect(b.alighted, why('tourists get off the bus')).toBeGreaterThan(0);
         expect(b.boarded, why('and some get on')).toBeGreaterThan(0);
+        expect(b.pulled, why('a bus pulls over to the kerb to stop')).toBeGreaterThan(0.3);
       }
       if (life.tourists) {
         const t = life.tourists;

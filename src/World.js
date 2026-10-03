@@ -90,7 +90,7 @@ export class World {
     this.pedestrians = [];
     /** @type {import('./world/tourist.js').Party[]} the tourists' parties (features/tourists.js) */
     this.parties = [];
-    /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, in world units */
+    /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, kerb: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, kerb: to the edge of the carriageway, in world units */
     this.cityRoutes = [];
     /** @type {{ boarded: number, alighted: number, stops: number } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js) */
     this.busStop = null;

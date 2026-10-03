@@ -46,6 +46,9 @@ export class Vehicle {
     /** @type {'dwell' | 'done' | 'gone' | undefined} a bus at its stop (features/busstop.js): stopped to let people on and off, done, past the stop */
     this.busState = undefined;
     this.dwell = 0; // seconds stopped at the stop
+    this.shift = 0; // sideways off its lane, to the right, in model units (a bus pulling in to the kerb: features/busstop.js, which sets it)
+    this.yawLat = 0; // the turn of its nose while it shifts (eased)
+    this.lastShift = 0;
     /** @type {{ party: any, at: number }[]} passengers still to get off, and when (seconds into the stop) */
     this.alightQ = [];
     this.color = this.spec.colors[Math.floor(rng() * this.spec.colors.length)];
@@ -75,6 +78,10 @@ export class Vehicle {
     this.v = approach(this.v, want, (want > this.v ? 2.5 : 9) * dt);
     const ds = this.v * dt;
     this.s = this.path.wrap(this.s + ds);
+    // Moving sideways as it goes: the nose turns that way, by the slope of the shift along the road.
+    if (ds > 1e-4) this.yawLat += (-Math.atan((this.shift - this.lastShift) / ds) - this.yawLat) * 0.25;
+    else this.yawLat *= 0.8;
+    this.lastShift = this.shift;
     for (const w of this.wheels) w.rotation.x += ds / this.spec.wheelR;
     if (this.prop) this.prop.rotation.z += dt * 45;
     if (this.rider?.pedal) {
@@ -99,9 +106,10 @@ export class Vehicle {
 
   place() {
     const { path, group, spec, k } = this;
-    const [mx, mz] = path.pointAt(this.s);
-    const x = mx * k, z = mz * k;
+    let [mx, mz] = path.pointAt(this.s);
     const heading = path.headingAt(this.s);
+    if (this.shift) [mx, mz] = [mx - Math.cos(heading) * this.shift, mz + Math.sin(heading) * this.shift]; // (right of the heading)
+    const x = mx * k, z = mz * k;
     const turn = Math.atan((this.v * this.v * path.curvatureAt(this.s)) / G);
     if (spec.flies) {
       const k = (this.s / path.length) * Math.PI * 2;
@@ -113,7 +121,7 @@ export class Vehicle {
       // Two wheels lean into the turn; four wheels stay upright.
       // (Eased, and no more than 0.3 rad: a bike turning round at a street's end flicked to the stop.)
       this.roll = (this.roll ?? 0) + ((this.rider ? -clamp(turn, -0.3, 0.3) : 0) - (this.roll ?? 0)) * 0.12;
-      group.rotation.set(0, heading, this.roll, 'YXZ');
+      group.rotation.set(0, heading + this.yawLat, this.roll, 'YXZ');
     }
   }
 }

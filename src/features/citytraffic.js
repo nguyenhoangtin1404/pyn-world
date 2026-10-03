@@ -278,7 +278,7 @@ export default {
         const [rx, rz] = right(i);
         loop.push([(pts[i][0] - rx * off) / k, (pts[i][1] - rz * off) / k]);
       }
-      return { off, side: st.width / 2 - off + (PAVEMENT * k) / 2, pavementAt: st.pavementAt, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
+      return { off, side: st.width / 2 - off + (PAVEMENT * k) / 2, kerb: st.width / 2 - off, pavementAt: st.pavementAt, path: new LoopPath(loop), heightAt: st.heightAt, name: st.name, /** @type {import('../world/vehicles/traffic.js').StopPoint[]} */ stops: [] };
     });
 
     // Traffic lights where the main streets cross: two phases (roads.signals.crossroads), each

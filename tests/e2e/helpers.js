@@ -130,6 +130,7 @@ export function simulate() {
   const tour = { count: tourists.length, outside: 0, intoTower: 0, xs: new Set(), photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
   const lastPos = tourists.map((w) => w.pos.clone());
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
+  let pulled = 0; // the furthest a bus has moved over to the kerb
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
     W.update({ dt: 0.1, raw: 0.1, speed: 1, camera });
@@ -180,6 +181,7 @@ export function simulate() {
         if (w.waiting) zebra.waits++;
       });
     }
+    for (const v of W.vehicles) if (v.kind === 'bus') pulled = Math.max(pulled, v.shift);
     tourists.forEach((w, k) => {
       const moved = w.pos.distanceTo(lastPos[k]);
       lastPos[k].copy(w.pos);
@@ -226,7 +228,7 @@ export function simulate() {
   if (tourists.length) s.tourists = { ...tour, xs: tour.xs.size, speaking: tour.speaking.size };
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
-  if (W.busStop) s.busStop = { ...W.busStop };
+  if (W.busStop) s.busStop = { ...W.busStop, pulled: +pulled.toFixed(2) };
   W.weather.set('clear');
   return s;
 }
