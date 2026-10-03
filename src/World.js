@@ -91,7 +91,7 @@ export class World {
     this.roundabouts = [];
     /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
     this.crosswalks = [];
-    /** @type {{ pos: THREE.Vector3 }[]} people on foot about the town who don't take the train (features/strollers.js) */
+    /** @type {{ pos: THREE.Vector3, group: THREE.Object3D }[]} people on foot about the town who don't take the train (features/strollers.js) */
     this.pedestrians = [];
     /** @type {import('./world/tourist.js').Party[]} the tourists' parties (features/tourists.js) */
     this.parties = [];
@@ -276,6 +276,12 @@ export class World {
   update({ dt, raw, speed, camera }) {
     this.time += dt;
     const f = Object.assign(this.frame, { dt, raw, speed, camera, t: this.time, rain: this.weather.rain });
+    // Who's out at this hour, and what the camera sees (world/night.js) — for the features that use it.
+    const curfew = this.services.get('curfew');
+    if (curfew) {
+      curfew.hour = this.sky.hour;
+      if (camera) curfew.look(camera);
+    }
     for (const s of this.systems) s.update?.(f);
   }
 
@@ -295,8 +301,8 @@ export class World {
   /** @param {THREE.Vector3} ear */
   listen(ear) {
     const shore = this.cfg.landcover ? coastOf(this).shore : []; // (worked out while building)
-    const vehicles = this.vehicles.filter((v) => !v.spec.flies).map((v) => ({ x: v.group.position.x, y: v.group.position.y, z: v.group.position.z, moving: v.v > 0.5 }));
-    const people = [...this.people, ...this.pedestrians.filter((p) => /** @type {any} */ (p).group?.visible !== false), ...(this.beach?.people ?? [])].map((/** @type {any} */ p) => p.pos ?? p.person.group.position);
+    const vehicles = this.vehicles.filter((v) => !v.spec.flies && !v.away).map((v) => ({ x: v.group.position.x, y: v.group.position.y, z: v.group.position.z, moving: v.v > 0.5 }));
+    const people = [...this.people, ...this.pedestrians.filter((p) => p.group.visible), ...(this.beach?.people ?? []).filter((p) => p.person.group.visible)].map((/** @type {any} */ p) => p.pos ?? p.person.group.position);
     return soundLevels(ear, { shore, waterY: WATER_Y, vehicles, people, map: this.scale.map, props: this.scale.props });
   }
 

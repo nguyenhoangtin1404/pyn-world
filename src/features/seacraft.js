@@ -1,10 +1,11 @@
 // @ts-check
 import * as THREE from 'three';
 import { WATER_Y } from '../config.js';
-import { Instancer, VERTEX_COLORED } from '../world/lowpoly.js';
+import { Instancer, VERTEX_COLORED, UNLIT } from '../world/lowpoly.js';
+import { curfewOf, waterShare } from '../world/night.js';
 import { coastOf } from '../world/coast.js';
 import { waveHeight } from '../world/water.js';
-import { jetSki, parasail, towRope, TOW_HOOK, JETSKI_SEAT, FLYER_X, fishingBoat, ship } from '../world/boats/seacraft.js';
+import { jetSki, parasail, towRope, TOW_HOOK, JETSKI_SEAT, FLYER_X, fishingBoat, ship, fishingLamps, shipLamps, squidGlow } from '../world/boats/seacraft.js';
 import { Person } from '../world/people.js';
 import { seat } from '../world/vehicles/vehicle.js';
 
@@ -15,6 +16,8 @@ import { seat } from '../world/vehicles/vehicle.js';
 // washing up and back along the waterline, moved in its shader. Boats keep to open water deep enough
 // for them and off the sealed sign on the water (world/seal.js). One InstancedMesh per kind of boat.
 // The jet skis and the moored boats off the landmark, where the town's beach is.
+// After dark the fishing boats light their squid lamps (a glow on the water round each) and the coasters
+// their navigation lights. The jet skis go out by day only (world/night.js): they come and go out of sight.
 // Options: parasails (2: jet skis towing one), moored (4), cruising (2) fishing boats, ships (2), foam (true).
 // world.seacraft.parasails: each jet ski and where its parasail flies.
 
@@ -73,7 +76,7 @@ export default {
 
     /**
      * @typedef {{ kind: 'jetski' | 'fishing' | 'ship', anchor: THREE.Object3D, x: number, z: number, h: number,
-     *   speed: number, cells: number, cx: number, cz: number, phase: number, size: number, turning: number }} Boat
+     *   speed: number, cells: number, cx: number, cz: number, phase: number, size: number, turning: number, away?: boolean }} Boat
      */
     /** @type {Boat[]} */
     const boats = [];
@@ -134,6 +137,22 @@ export default {
     const far = Math.max(8, Math.floor(coast.maxDist * 0.7));
     for (const at of spread(ships, far, coast.maxDist, 60)) add('ship', at, 3 * k, far - 2, seaward + (rng() < 0.5 ? 1 : -1) * Math.PI / 2, pick(SHIP_COLORS));
     world.seacraft = { group, boats, parasails: flights.map((f) => ({ ski: f.ski, at: f.at })) };
+
+    // ---- Lights after dark: the squid lamps (and the glow they cast on the water), the coasters' lights.
+    const flat = { castShadow: false, receiveShadow: false };
+    const fishers = boats.filter((b) => b.kind === 'fishing'), coasters = boats.filter((b) => b.kind === 'ship');
+    const glow = squidGlow();
+    const lit = [new Instancer(fishingLamps(), UNLIT, Math.max(1, fishers.length), flat), new Instancer(glow.geo, glow.mat, Math.max(1, fishers.length), flat), new Instancer(shipLamps(), UNLIT, Math.max(1, coasters.length), flat)];
+    for (const b of fishers) for (const l of lit.slice(0, 2)) l.add(b.anchor, '#ffffff');
+    for (const b of coasters) lit[2].add(b.anchor, '#ffffff');
+    for (const l of lit) {
+      l.mesh.visible = false;
+      group.add(l.mesh);
+    }
+    lit[1].mesh.renderOrder = 1; // (the glow over the water)
+    // The jet skis by day only: gone (and back) where nobody sees them.
+    const curfew = curfewOf(world);
+    const rankOf = new Map(flights.map((f) => [f, curfew.rank()]));
 
     // ---- Foam along the waterline: at each shore point a strip at the water's edge and a fainter one
     // further out (the next wave), washed up the beach and back.
@@ -196,14 +215,25 @@ export default {
       group,
       update({ dt, t }) {
         if (world.seacraft.foam) world.seacraft.foam.uTime.value = t;
+        for (const f of flights) {
+          const out = curfew.out(/** @type {number} */ (rankOf.get(f)), waterShare);
+          if (f.ski.away !== !out && !curfew.seen(f.ski.anchor.position, 3) && !curfew.seen(f.at, 6)) {
+            f.ski.away = !out;
+            f.ski.anchor.visible = f.sail.visible = f.rope.visible = out;
+          }
+        }
         for (const b of boats) {
+          if (b.away) continue;
           if (dt > 0) move(b, dt, t);
           const y = WATER_Y + waveHeight(b.x, b.z, t) * (b.kind === 'ship' ? 0.4 : 0.9);
           const rock = b.kind === 'ship' ? 0.01 : b.kind === 'fishing' ? 0.05 : 0.09;
           b.anchor.position.set(b.x, y, b.z);
           b.anchor.rotation.set(Math.sin(t * 0.9 + b.phase) * rock * 0.6 - (b.kind === 'jetski' ? 0.08 : 0), b.h, Math.sin(t * 1.1 + b.phase * 1.7) * rock + (b.kind === 'jetski' ? b.turning * 0.25 : 0), 'YXZ');
         }
-        for (const f of flights) fly(f, dt, t);
+        for (const f of flights) if (!f.ski.away) fly(f, dt, t);
+      },
+      lateUpdate({ lights }) {
+        for (const l of lit) l.mesh.visible = lights > 0.3;
       },
     };
 

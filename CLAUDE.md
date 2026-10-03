@@ -276,6 +276,19 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     = từng âm tiết là nhiễu qua hai formant nguyên âm. **Bờ biển tính lúc dựng** (bước cuối, khi có `cfg.landcover`): tính lần đầu trong
     vòng lặp làm khung hình đầu ở Tuy Hòa dài đến mức mô phỏng nhảy một bước — e2e golden lệch 1 draw call, lúc có lúc không.
     E2E: trên quảng trường tháp nghe biển, người, gió; trên một chiếc xe nghe máy; PYN/MAPLE không có biển.
+  - **Ban đêm** (`world/night.js`): ai còn ở ngoài theo giờ (`sky.hour` → `Curfew.hour` mỗi frame, `curfewOf(world)`): ban ngày tất cả,
+    từ 22 h ít dần (`outShare`: 24 h còn ~20 %), sau nửa đêm ai cũng về (0 lúc 0:36), 1–5 h chỉ còn **2 người thức khuya** (2 người đi
+    dạo đầu tiên, `rank(true)`), 5–6:30 h ra lại. Mỗi người/xe một `rank` rải đều 0..1 (tỉ lệ vàng, **không dùng rng** — golden mọi world
+    không đổi), ra ngoài khi `rank < share(giờ + lead)`; `lead` = về sớm hơn bao nhiêu giờ (du khách và bãi biển 1, xe 1, quán/xe đẩy 0,5,
+    người đi dạo 0,6 — đồng hồ chạy nhanh: 10 s một giờ, nên đường về chỉ vài bước, đi gấp `HURRY` × 2). Cách về: người đi dạo vào **cửa
+    nhà gần nhất** (`homeFor`: cạnh móng nhà gần nhất `doorOf`, đường thẳng không qua lòng đường trong 8 đơn vị, không thì nhà trong 30
+    đơn vị bất kể; không có thì đợi khuất camera, quá 25 s thì về luôn; ai xa nhà về trước); du khách ra cạnh thẳng quảng trường (thôi đợi
+    xe buýt); bãi biển lên hết cát (người bơi lội vào bờ trước, người ngồi đứng dậy — `stepTo`); quán cóc/người bán vào cửa sau lưng;
+    xe đi khi **khuất camera** (`curfew.seen`: frustum + < 260) hoặc tới **cuối phố**, lúc vắng thì ra khỏi luật giao thông (`active`),
+    sáng ra lại chỗ khuất và có chỗ trên làn (`room`); moto nước/dù bay và người bơi chỉ ban ngày (`waterShare` 8–18 h). Sáng ra lại
+    đúng cửa/chỗ cũ, ngồi lại ghế. **Đèn thuyền**: thuyền câu mực sáng đèn (bóng `fishingLamps` + quầng sáng trên mặt nước `squidGlow`,
+    cộng màu), tàu hàng đèn hành trình (`shipLamps`), hiện khi `lights > 0,3`. E2E `night.spec.js`: chạy đồng hồ 21 → 8 h với camera mặc
+    định — 23:30 ít người/xe hẳn, 1 h và 3 h đúng 1–2 người, không xe, 8 h về lại ≥ 90 % người, đủ xe, không xe nào ra đè lên xe khác.
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
