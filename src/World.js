@@ -94,6 +94,10 @@ export class World {
     this.cityRoutes = [];
     /** @type {{ boarded: number, alighted: number, stops: number } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js) */
     this.busStop = null;
+    /** @type {{ group: THREE.Group, boats: any[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea and foam on the shore (features/seacraft.js) */
+    this.seacraft = null;
+    /** @type {{ group: THREE.Group, people: { role: string, walker?: any, person: any }[], shades: number } | null} people on the beach (features/beach.js) */
+    this.beach = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
     /** @type {Map<number, () => number>} random streams, see rngFor() */

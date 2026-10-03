@@ -29,5 +29,7 @@ export default defineGeoWorld({
     { id: 'citytraffic', min: 40, lights: 'all' }, // the main streets here are shorter; lights where the side streets meet them too
     { id: 'birds', gulls: 3, egrets: 1 },
     'busstop', // the buses stop beside the tower's square: tourists get off and some get on
+    'seacraft', // basket boats, fishing boats and coasters on the sea, foam along the waterline
+    'beach', // sunshades, swimmers, joggers and children on the sand
   ],
 });

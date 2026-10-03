@@ -63,6 +63,22 @@ for (const { id } of WORLDS) {
         expect(b.boarded, why('and some get on')).toBeGreaterThan(0);
         expect(b.pulled, why('a bus pulls over to the kerb to stop')).toBeGreaterThan(0.3);
       }
+      if (life.sea) {
+        const b = life.sea, why = (what) => `${what} — ${JSON.stringify(b)}`;
+        expect(b.boats, why('boats on the sea')).toBeGreaterThan(5);
+        expect(b.aground, why('no boat ever aground')).toBe(0);
+        expect(b.sailed, why('some boats under way')).toBeGreaterThan(0);
+        expect(b.foam, why('foam along the waterline')).toBe(true);
+      }
+      if (life.beach) {
+        const b = life.beach, why = (what) => `${what} — ${JSON.stringify(b)}`;
+        expect(b.shades, why('sunshades on the sand')).toBeGreaterThan(3);
+        for (const role of ['sitter', 'kid', 'swimmer', 'jogger', 'walker']) expect(b.roles[role] ?? 0, why(`${role}s on the beach`)).toBeGreaterThan(0);
+        expect(b.swimmersAshore, why('swimmers stay in the water')).toBe(0);
+        expect(b.inTheWater, why('nobody else walks into the sea')).toBe(0);
+        expect(b.onStreets, why('the beach people keep to the sand')).toBe(0);
+        expect(b.still, why('everyone on the beach but the sitters gets about')).toEqual([]);
+      }
       if (life.tourists) {
         const t = life.tourists;
         const why = (what) => `${what} — ${JSON.stringify(t)}`;

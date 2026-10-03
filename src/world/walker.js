@@ -22,6 +22,8 @@ export class Walker {
     this.pause = 0;
     this.waving = false;
     this.waiting = false; // at the kerb for the lights
+    /** @type {number | null} a height to stand at instead of the ground's (stepping into a carriage, swimming) */
+    this.fixedY = null;
   }
 
   place(p) {

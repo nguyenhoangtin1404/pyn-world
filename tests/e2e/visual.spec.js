@@ -22,6 +22,7 @@ const QUIET = (keepKind) => {
   const keep = keepKind && W.vehicles.find((c) => c.kind === keepKind);
   for (const v of W.vehicles) if (v !== keep) v.group.visible = false;
   for (const list of [W.followables.birds, W.followables.balloons]) for (const f of list) f.anchor().visible = false;
+  for (const g of [W.seacraft?.group, W.beach?.group]) if (g) g.visible = false; // (boats, foam, beach people: they move)
   W.scene.traverse((o) => { if (o.isSprite) o.visible = false; });
   return keep;
 };
@@ -85,8 +86,15 @@ test('view: cyclist', async ({ page }) => {
     const { W, rig, camera } = window.__pyn;
     const v = new Function(`return (${quiet})('bicycle')`)();
     rig.setMode('overview', { fly: false });
-    v.s = v.path.length * 0.2; // somewhere along its street, standing
+    // On its own street (not half way round a turn), somewhere along it, standing — and with nothing left of
+    // how it got there: the page ran for a while before it was paused, as many frames as it had time for, and
+    // the lean, the wheels' turn and the pedals (the rider's legs) are what those frames left them at.
+    if (v.turn) [v.turn, v.path, v.stops] = [null, W.cityRoutes[v.route].path, W.cityRoutes[v.route].stops];
+    v.s = v.path.length * 0.2;
     v.v = 0;
+    v.roll = 0;
+    v.crank = 0;
+    for (const w of v.wheels) w.rotation.x = 0;
     W.update({ dt: 0.001, raw: 0.001, speed: 1, camera });
     const p = v.group.position, h = v.group.rotation.y;
     // (clear of the rig's limits: near the ground and close in, it would be pushed, frame by frame)
