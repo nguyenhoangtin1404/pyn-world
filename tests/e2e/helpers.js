@@ -131,6 +131,13 @@ export function simulate() {
   const lastPos = tourists.map((w) => w.pos.clone());
   const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   let pulled = 0; // the furthest a bus has moved over to the kerb
+  // On the sea and the beach (features/seacraft.js, beach.js): boats never aground, swimmers never on dry land, nobody else in the water or on a street.
+  const g = W.terrain.meshHeightAt;
+  const sea = W.seacraft && { boats: W.seacraft.boats.length, aground: 0, sailed: 0, foam: !!W.seacraft.foam };
+  const seaStart = W.seacraft ? W.seacraft.boats.map((b) => [b.x, b.z]) : [];
+  const beach = W.beach && { people: W.beach.people.length, shades: W.beach.shades, roles: {}, swimmersAshore: 0, inTheWater: 0, onStreets: 0, moved: 0 };
+  const beachStart = W.beach ? W.beach.people.map((p) => p.person.group.position.clone()) : [];
+  if (beach) for (const p of W.beach.people) beach.roles[p.role] = (beach.roles[p.role] ?? 0) + 1;
   for (let i = 0; i < 3000; i++) {
     if (i === 1500) W.weather.set('rain');
     W.update({ dt: 0.1, raw: 0.1, speed: 1, camera });
@@ -182,6 +189,18 @@ export function simulate() {
       });
     }
     for (const v of W.vehicles) if (v.kind === 'bus') pulled = Math.max(pulled, v.shift);
+    if (sea && i % 10 === 0) for (const b of W.seacraft.boats) if (g(b.x, b.z) > -2.3) sea.aground++; // (WATER_Y − 0.3)
+    if (beach && i % 10 === 0) {
+      for (const p of W.beach.people) {
+        const { x, z } = p.person.group.position, h = g(x, z);
+        if (p.role === 'swimmer') {
+          if (h > -2.3) beach.swimmersAshore++;
+        } else {
+          if (h < -2.4) beach.inTheWater++;
+          if (W.site.claimAt(x, z) > 0) beach.onStreets++;
+        }
+      }
+    }
     tourists.forEach((w, k) => {
       const moved = w.pos.distanceTo(lastPos[k]);
       lastPos[k].copy(w.pos);
@@ -229,6 +248,14 @@ export function simulate() {
   if (W.site.crossings.length) s.feet = feet;
   if (W.crosswalks.length) s.zebra = zebra;
   if (W.busStop) s.busStop = { ...W.busStop, pulled: +pulled.toFixed(2) };
+  if (sea) {
+    sea.sailed = W.seacraft.boats.filter((b, k) => Math.hypot(b.x - seaStart[k][0], b.z - seaStart[k][1]) > 10).length;
+    s.sea = sea;
+  }
+  if (beach) {
+    beach.moved = W.beach.people.filter((p, k) => p.person.group.position.distanceTo(beachStart[k]) > 2).length;
+    s.beach = beach;
+  }
   W.weather.set('clear');
   return s;
 }

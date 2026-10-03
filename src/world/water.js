@@ -17,6 +17,15 @@ const glsl = (riverGLSL) => /* glsl */ `
   }
   float inRiver(vec2 p) { return 1.0 - smoothstep(6.0, 14.0, abs(p.x - riverX(p.y))); }
 `;
+/**
+ * How far the water sheet is lifted above WATER_Y at (x, z) at time t, away from any river: the same
+ * small waves the shader makes (waves() above, inRiver 0) — for what floats on the sea to ride them.
+ * @param {number} x @param {number} z @param {number} t
+ */
+export function waveHeight(x, z, t) {
+  return Math.sin(x * 0.09 + t * 1.2) * 0.12 + Math.cos(z * 0.07 + t * 0.9) * 0.12;
+}
+
 // Value noise for the foam (fragment shader only).
 const NOISE = /* glsl */ `
   float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }

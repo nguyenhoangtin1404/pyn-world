@@ -23,6 +23,8 @@ import citytraffic from './citytraffic.js';
 import strollers from './strollers.js';
 import tourists from './tourists.js';
 import busstop from './busstop.js';
+import seacraft from './seacraft.js';
+import beach from './beach.js';
 
 // Everything a WorldConfig can put in its world, by id (cfg.features). A feature is
 //   { label, needs?, build(world, { rng, ...options }) → system | undefined }
@@ -30,4 +32,4 @@ import busstop from './busstop.js';
 // Features are built in the order the config lists them; later ones may use what earlier ones
 // added to the world (stations, the train, people, colliders…). `needs` lists the features that
 // must come before (an inner list: any one of them), checked before the world is built.
-export const FEATURES = { station, village, halt, windmill, sheep, trees, clouds, train, fish, boats, balloons, villagers, birds, hikers, road, traffic, aircraft, landmarks, streets, buildings, citytraffic, strollers, tourists, busstop };
+export const FEATURES = { station, village, halt, windmill, sheep, trees, clouds, train, fish, boats, balloons, villagers, birds, hikers, road, traffic, aircraft, landmarks, streets, buildings, citytraffic, strollers, tourists, busstop, seacraft, beach };

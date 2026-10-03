@@ -239,6 +239,18 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
     'wait'`), xe tới thì xuống khách (so le 2,5 s) rồi nhóm đang chờ đi tới cửa và lên (`then: 'ride'`); xe đợi ≥ `dwell` s và tới khi
     ai sắp lên xong (tối đa 40 s). `Tourist.trip` = đang ở ngoài quảng trường vì chuyến xe (e2e không tính là "ra ngoài lan can");
     trên vỉa hè họ đứng ở độ cao `pavementAt` của phố. `world.busStop` đếm lượt dừng / lên / xuống — e2e đòi cả ba > 0 ở NGHINH PHONG. Bến có mái che (mái + 4 cột, không có tường kính — khách đi thẳng từ quảng trường tới chỗ chờ, tường sẽ bị xuyên qua) và cột biển báo xanh ngay trước cửa xe, vẽ vào `world.batch` theo mét × k.
+  - **Biển và bãi biển** (`features/seacraft.js` #30, `features/beach.js` #31, cần `cfg.landcover`): `coastOf(world)` (`world/coast.js`,
+    service, có test) chia sa bàn thành ô 3 đơn vị: biển = nước (đất vẽ < `WATER_Y`) **nối với** chỗ lớp phủ gọi là biển (vùng nước nông
+    sát bờ lớp phủ còn gọi là bãi cát; ao trong đất liền không phải biển), số ô tới đất gần nhất, các điểm mép nước kèm hướng lên bờ.
+    `seacraft`: thuyền thúng (có người đội nón lá) gần bờ, thuyền đánh cá thân xanh có mắt thuyền + đèn câu mực neo xa hơn, vài chiếc
+    đang chạy, tàu hàng ngoài khơi — mỗi loại một `Instancer`, nhấp nhô theo đúng sóng của mặt nước (`waveHeight` trong `water.js`,
+    giữ khớp với shader), tránh tấm chữ niêm phong trên biển; thuyền chạy rẽ trước khi hết nước sâu phía trước. Bọt sóng: hai dải mỗi
+    điểm mép nước (sát bờ + đợt sau, mờ hơn), trôi lên bãi rồi rút trong shader (`uTime`), mờ ở hai đầu cho liền nhau. `beach`: ô dù +
+    khăn (tĩnh, `world.batch`), người ngồi dưới ô, trẻ con chạy quanh, người bơi (Walker `fixedY` dưới mặt nước, tay sải), người chạy bộ và
+    đi dạo dọc cát ướt — chỉ trên cát chưa ai claim, trong `reach` (450 m) quanh công trình. Không ở `world.pedestrians` (không có phố
+    trên cát). Ảnh chuẩn ẩn `world.seacraft.group` và `world.beach.group` (chúng chuyển động). E2E: thuyền không mắc cạn, có thuyền
+    chạy, có bọt; đủ năm vai trên bãi, người bơi không lên bờ, không ai khác xuống nước hay lên phố. NGHINH PHONG: +18 người, draw call
+    góc mặc định 278 → 321, +1 shader (bọt).
   - `strollers` (`features/strollers.js`): người đi trên vỉa hè (một bên phố, tới cuối dừng rồi quay lại)
     và dạo quanh quảng trường công trình (pad ≥ 10), cỡ và nhịp bước × k, giương ô khi mưa. Họ **không**
     đi tàu nên ở `world.pedestrians` (không phải `world.people` — e2e đòi `world.people` lên/xuống tàu).
