@@ -24,8 +24,10 @@ export function findCoast({ size, ground, isSeaCover, cell = COAST_CELL }) {
     const i = Math.floor((z + size / 2) / cell), j = Math.floor((x + size / 2) / cell);
     return i < 0 || j < 0 || i >= n || j >= n ? -1 : i * n + j;
   };
-  // The sea: water connected to where the land cover says sea (the land cover goes by the map's coast, the
-  // water by the ground as drawn: the shallows by the beach are water the cover may call beach).
+  // The sea: water connected to where the land cover says sea at the edge of the world (the land cover goes by
+  // the map's coast, the water by the ground as drawn: the shallows by the beach are water the cover may call
+  // beach; and the cover calls any ground below 0 m sea, an inland lake too — the sea is the one that reaches
+  // the edge, as the importer made it).
   const sea = new Uint8Array(n * n);
   const water = new Uint8Array(n * n);
   const fill = [];
@@ -33,7 +35,8 @@ export function findCoast({ size, ground, isSeaCover, cell = COAST_CELL }) {
     for (let j = 0; j < n; j++) {
       if (!(ground(cx(j), cx(i)) < WATER_Y)) continue;
       water[i * n + j] = 1;
-      if (isSeaCover(cx(j), cx(i))) (sea[i * n + j] = 1), fill.push(i * n + j);
+      const edge = i === 0 || j === 0 || i === n - 1 || j === n - 1;
+      if (edge && isSeaCover(cx(j), cx(i))) (sea[i * n + j] = 1), fill.push(i * n + j);
     }
   }
   while (fill.length) {

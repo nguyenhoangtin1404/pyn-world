@@ -22,6 +22,7 @@ const TOWEL = ['#f2b632', '#e8697a', '#4fa3d1', '#7ac46b', '#f4f1ea'];
 /** @type {import('../types').Feature} */
 export default {
   label: 'Đang ra bãi biển',
+  needs: ['streets', 'buildings'], // (they claim the ground first: the beach keeps off what they claimed)
   build(world, { rng, umbrellas = 10, sitters = 5, kids = 3, swimmers = 5, joggers = 2, walkers = 3, reach = 450 }) {
     const k = world.scale.props;
     world.need('lớp phủ đất có bãi cát (cfg.landcover)', 'beach', world.cfg.landcover);

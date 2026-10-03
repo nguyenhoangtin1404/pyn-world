@@ -45,3 +45,14 @@ describe('findCoast, the shallows', () => {
     for (const p of coast.shore) expect(p.x).toBeCloseTo(10, 0);
   });
 });
+
+describe('findCoast, a lake', () => {
+  it('leaves out water that does not reach the edge of the world, whatever the cover calls it', () => {
+    // The sea to the east as before, and a round lake inland (below 0 m: the land cover calls it sea too).
+    const lake = (x, z) => (Math.hypot(x + 35, z) < 12 ? WATER_Y - 2 : ground(x));
+    const coast = findCoast({ size: 120, ground: lake, isSeaCover: (x, z) => lake(x, z) < WATER_Y });
+    expect(coast.isSea(-35, 0)).toBe(false);
+    expect(coast.isSea(40, 0)).toBe(true);
+    for (const p of coast.shore) expect(p.x).toBeCloseTo(10, 0);
+  });
+});
