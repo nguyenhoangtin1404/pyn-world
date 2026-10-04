@@ -4,7 +4,8 @@
 //   VBEE_APP_ID=… VBEE_TOKEN=… node tools/tour/voice-vbee.mjs
 //
 // From the Vbee console (API → app): the app id and its token. Never commit them.
-// Optional: VBEE_VOICE (voice code, from the console's voice list; default below), VBEE_SPEED (1.0),
+// Optional: VBEE_VOICE (voice code, from the console's voice list, e.g. n_hanoi_male_tuananhnews_news_vc —
+// check the default below is in yours), VBEE_SPEED (1.0),
 // VBEE_API (default https://vbee.vn/api/v1/tts). Each request is queued at Vbee: the script asks for
 // it, then polls until the audio link is ready and downloads it. If Vbee answers something
 // unexpected the script stops and prints the answer as it came.
@@ -47,8 +48,8 @@ async function record(text) {
   }), 'Gửi yêu cầu');
   const id = asked.result?.request_id;
   if (!id) throw new Error(`Vbee không trả request_id:\n${JSON.stringify(asked, null, 2)}`);
-  for (let tries = 0; tries < 60; tries++) {
-    await sleep(2000);
+  for (let tries = 0; tries < 200; tries++) { // (Vbee's docs: every 3 s, up to 10 minutes)
+    await sleep(3000);
     const got = await json(await fetch(`${api}/${id}`, { headers }), 'Hỏi kết quả');
     const r = got.result ?? {};
     if (r.audio_link) {
@@ -58,7 +59,7 @@ async function record(text) {
     }
     if (/fail|error/i.test(String(r.status))) throw new Error(`Vbee báo lỗi:\n${JSON.stringify(got, null, 2)}`);
   }
-  throw new Error(`Quá 2 phút chưa xong (request ${id}).`);
+  throw new Error(`Quá 10 phút chưa xong (request ${id}).`);
 }
 
 mkdirSync('public/tour', { recursive: true });
