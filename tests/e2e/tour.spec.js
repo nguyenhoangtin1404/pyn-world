@@ -5,7 +5,7 @@ import { test, expect, openWorld, waitForWorld } from './helpers.js';
 test('narrated tour of the tower', async ({ page }) => {
   test.setTimeout(300_000);
   // The real recordings are in public/tour now; this test is about the no-recording path.
-  await page.route('**/tour/*.mp3', (route) => route.fulfill({ status: 404 }));
+  await page.route('**/tour/*.mp3*', (route) => route.fulfill({ status: 404 }));
   await openWorld(page, 'nghinhphong');
   const box = page.locator('#narration'), text = page.locator('#narration-text'), step = page.locator('#narration-step');
   const cam = () => page.evaluate(() => window.__pyn.camera.position.toArray());
@@ -74,15 +74,17 @@ test('no tour where there is no landmark', async ({ page }) => {
 // them, says nothing about voices, and moves on when each ends.
 test('narrated tour plays its recordings', async ({ page }) => {
   test.setTimeout(300_000);
-  const played = [];
-  await page.route('**/tour/*.mp3', (route) => {
-    played.push(route.request().url().split('/').pop());
+  const played = [], urls = [];
+  await page.route('**/tour/*.mp3*', (route) => {
+    urls.push(route.request().url());
+    played.push(route.request().url().split('/').pop().split('?')[0]);
     return route.fulfill({ path: 'tests/e2e/fixtures/silence.mp3', contentType: 'audio/mpeg' });
   });
   await openWorld(page, 'nghinhphong');
   const stops = await page.evaluate(() => window.__pyn.W.landmarks[0].tour.length);
   await page.keyboard.press('KeyI');
   await expect.poll(() => played[0]).toBe('nghinh-phong-welcome.mp3');
+  expect(urls[0]).toMatch(/\?v=[0-9a-f]{10}$/); // the recording's hash: a new recording is a new URL
   await expect(page.locator('#narration-note')).toBeHidden();
   await page.waitForFunction(() => !window.__pyn.rig.fly, null, { timeout: 180_000 });
   await expect(page.locator('#narration-step')).toHaveText(`2/${stops}`, { timeout: 30_000 });
@@ -95,7 +97,7 @@ test('narrated tour plays its recordings', async ({ page }) => {
 // touch, when the browser would not play it before); ?world= and ?notour leave the app alone.
 test('the tour starts by itself on arrival', async ({ page }) => {
   test.setTimeout(300_000);
-  await page.route('**/tour/*.mp3', (route) => route.fulfill({ path: 'tests/e2e/fixtures/silence.mp3', contentType: 'audio/mpeg' }));
+  await page.route('**/tour/*.mp3*', (route) => route.fulfill({ path: 'tests/e2e/fixtures/silence.mp3', contentType: 'audio/mpeg' }));
   await page.goto('/');
   await waitForWorld(page, 'nghinhphong');
   await expect(page.locator('#narration')).toBeVisible();
