@@ -1,6 +1,6 @@
 // Điền SITE_URL vào index.html và sinh robots.txt, sitemap.xml, llms.txt khi build.
 // Đổi tên miền: SITE_URL=https://example.com/ npm run build
-const DEFAULT_URL = 'https://nguyenhoangtin1404.github.io/pyn-world/'
+const DEFAULT_URL = 'https://thapnghinhphong.vn/'
 
 const robots = (url) => `# Cho phép mọi bot, kể cả bot tìm kiếm và bot AI. Muốn chặn bot huấn luyện thì đổi Allow thành Disallow.
 User-agent: *

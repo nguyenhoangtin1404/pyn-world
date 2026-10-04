@@ -110,8 +110,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Pages serves the site under /<repo>/.
-      - run: npm run build -- --base=/${{ github.event.repository.name }}/
+      # Tên miền riêng thapnghinhphong.vn (public/CNAME) phục vụ ở gốc /, không cần --base.
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
