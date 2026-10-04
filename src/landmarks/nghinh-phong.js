@@ -6,7 +6,8 @@ import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
 import { WATER_Y } from '../config.js';
 import { toWorld } from './common.js';
-import { guard, sealText, sealTexture, tamper } from '../world/seal.js';
+import { guard, sealTexture, tamper } from '../world/seal.js';
+import { tourAudio, tourWords } from './nghinh-phong-tour.js';
 
 // Tháp Nghinh Phong, Tuy Hòa (HUNI architectes, 2021), after Gành Đá Đĩa's basalt columns and the
 // legend of Lạc Long Quân and Âu Cơ: two towers of 50 hexagonal stone columns each (basalt-like prisms, as at Gành Đá Đĩa), packed close
@@ -306,23 +307,17 @@ export default {
     // the tower's own frame (x towards the sea along the slot, z across it: Lạc Long Quân at −z).
     const P = (/** @type {number} */ lx, /** @type {number} */ ly, /** @type {number} */ lz) => new THREE.Vector3(...toWorld(site, lx, base0 - site.y + ly, lz));
     const spireX = 2.5 * cell, tall = peak, mid = -B + 0.4 * R;
-    const words = sealText().toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace(/(hoàng sa|trường sa|việt nam)/gi, (w) => w.replace(/(^| )./g, (c) => c.toUpperCase()));
+    const say = Object.fromEntries(tourWords().map((w) => [w.id, w.say]));
+    const stop = (/** @type {string} */ id, /** @type {THREE.Vector3} */ from, /** @type {THREE.Vector3} */ look) => ({ say: say[id], audio: tourAudio(id), from, look });
     /** @type {import('./common.js').TourStop[]} */
     const tour = [
-      { say: 'Chào mừng bạn đến với Tháp Nghinh Phong, bên bờ biển Tuy Hòa. Nghinh Phong nghĩa là đón gió: công trình quay thẳng ra biển Đông.',
-        from: P(-B - R * 0.9, tall * 1.6, -R * 0.6), look: P(0, tall * 0.45, 0) },
-      { say: 'Tháp do HUNI architectes thiết kế, năm 2021. Hai khối tháp, mỗi khối năm mươi cột đá lục giác xếp so le như tổ ong, lấy cảm hứng từ những cột đá ba dan ở Gành Đá Đĩa.',
-        from: P(-B - tall * 0.6, tall * 0.35, R * 0.3), look: P(0, tall * 0.45, 0) },
-      { say: 'Hai cột nhọn cao nhất là Lạc Long Quân, cao 35 mét, bên trái nhìn từ đất liền, và Âu Cơ, cao 30 mét, bên phải. Các cột quanh chúng thấp dần theo từng bậc.',
-        from: P(-tall * 0.9, tall * 0.55, -tall * 1.7), look: P(spireX, tall * 0.6, 0) },
-      { say: 'Giữa hai tháp là khe đón gió, rộng 2 mét, dài 15 mét, mở ra phía biển. Trên hai vách khe là phù điêu kể truyền thuyết con Rồng cháu Tiên.',
-        from: P(tall * 1.1, tall * 0.22, 0), look: P(0, tall * 0.2, 0) },
-      { say: 'Tháp đứng trên quảng trường hình bán nguyệt rộng 7 190 mét vuông, lát đá granite: mặt thẳng hướng về phố, mặt cong nhìn xuống bãi cát. Trước tháp, lá cờ đỏ sao vàng bay trong gió biển.',
-        from: P(-B - R * 0.35, R * 1.3, R * 0.85), look: P(mid, 0, 0) },
-      ...(sea ? [{ say: `Ngoài khơi, trên mặt biển, là dòng chữ: ${words}.`,
-        from: P(R - B - 2 * map, tall * 0.35, R * 0.15), look: P(sea[0] * map, 0, 0) }] : []),
-      { say: 'Khi trời tối, đèn trên đỉnh các cột đá sáng lên nhiều màu và hai đỉnh tháp mang đèn đỏ. Cảm ơn bạn đã ghé thăm, mời bạn tự do khám phá sa bàn.',
-        from: P(tall * 1.8, tall * 1.3, tall * 1.5), look: P(0, tall * 0.4, 0) },
+      stop('welcome', P(-B - R * 0.9, tall * 1.6, -R * 0.6), P(0, tall * 0.45, 0)),
+      stop('design', P(-B - tall * 0.6, tall * 0.35, R * 0.3), P(0, tall * 0.45, 0)),
+      stop('spires', P(-tall * 0.9, tall * 0.55, -tall * 1.7), P(spireX, tall * 0.6, 0)),
+      stop('slot', P(tall * 1.1, tall * 0.22, 0), P(0, tall * 0.2, 0)),
+      stop('square', P(-B - R * 0.35, R * 1.3, R * 0.85), P(mid, 0, 0)),
+      ...(sea ? [stop('sea', P(R - B - 2 * map, tall * 0.35, R * 0.15), P(sea[0] * map, 0, 0))] : []),
+      stop('night', P(tall * 1.8, tall * 1.3, tall * 1.5), P(0, tall * 0.4, 0)),
     ];
 
     return {

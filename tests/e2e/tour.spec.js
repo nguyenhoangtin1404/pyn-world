@@ -17,6 +17,12 @@ test('narrated tour of the tower', async ({ page }) => {
   await expect(page.locator('#narration-title')).toHaveText('Tháp Nghinh Phong');
   await expect(text).toContainText('Tháp Nghinh Phong');
   await expect(step).toHaveText(`1/${stops}`);
+  // A headless browser has no recordings here and no Vietnamese voice: it says so, and shows the words.
+  await expect(page.locator('#narration-note')).toContainText('chỉ hiện phụ đề');
+  await page.keyboard.press('KeyM');
+  await expect(page.locator('#narration-note')).toContainText('Đang tắt tiếng');
+  await page.keyboard.press('KeyM');
+  await expect(page.locator('#narration-note')).toContainText('chỉ hiện phụ đề');
   await expect.poll(async () => Math.hypot(...(await cam()).map((v, i) => v - before[i])), { timeout: 30_000 }).toBeGreaterThan(5);
 
   // By hand: on, back; every stop says something; the last one ends the tour.
@@ -59,5 +65,26 @@ test('no tour where there is no landmark', async ({ page }) => {
   await page.keyboard.press('KeyI');
   await expect(page.locator('#toast')).toHaveText('Thế giới này không có thuyết minh');
   await expect(page.locator('#narration')).toBeHidden();
+  expect(page.errors).toEqual([]);
+});
+
+// With recordings (public/tour/*.mp3, here a second and a half of silence for each), the tour plays
+// them, says nothing about voices, and moves on when each ends.
+test('narrated tour plays its recordings', async ({ page }) => {
+  test.setTimeout(300_000);
+  const played = [];
+  await page.route('**/tour/*.mp3', (route) => {
+    played.push(route.request().url().split('/').pop());
+    return route.fulfill({ path: 'tests/e2e/fixtures/silence.mp3', contentType: 'audio/mpeg' });
+  });
+  await openWorld(page, 'nghinhphong');
+  const stops = await page.evaluate(() => window.__pyn.W.landmarks[0].tour.length);
+  await page.keyboard.press('KeyI');
+  await expect.poll(() => played[0]).toBe('nghinh-phong-welcome.mp3');
+  await expect(page.locator('#narration-note')).toBeHidden();
+  await page.waitForFunction(() => !window.__pyn.rig.fly, null, { timeout: 180_000 });
+  await expect(page.locator('#narration-step')).toHaveText(`2/${stops}`, { timeout: 30_000 });
+  await expect.poll(() => played).toContain('nghinh-phong-design.mp3');
+  await page.keyboard.press('Escape');
   expect(page.errors).toEqual([]);
 });

@@ -214,7 +214,7 @@ export class AudioEngine {
     this.applyMaster();
   }
 
-  // Quieter while the tour's narrator speaks (src/app/tour.js).
+  // Near silent while the tour's narrator speaks (src/app/tour.js): the voice heard on its own.
   duck(on) {
     this.ducked = on;
     this.applyMaster();
@@ -222,6 +222,6 @@ export class AudioEngine {
 
   applyMaster() {
     if (!this.ctx) return;
-    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * (this.ducked ? 0.3 : 1), this.ctx.currentTime, 0.05);
+    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * (this.ducked ? 0.06 : 1), this.ctx.currentTime, 0.05);
   }
 }
