@@ -31,8 +31,9 @@ export class Person {
    * kind: 'villager' | 'hiker' | 'child' | 'passenger' | 'tourist' (a villager with a camera: photo())
    * carry: what the left hand holds, chosen here instead of at random — 'laptop' (open, on the forearm: the author,
    * features/host.js), 'basket', 'bag' or null
+   * smile: a grin over the mouth that smile(true) shows (a bone scaled to nothing otherwise)
    */
-  constructor(rng, { kind = 'villager', indoor = false, carry = undefined } = {}) {
+  constructor(rng, { kind = 'villager', indoor = false, carry = undefined, smile = false } = {}) {
     const pick = (a) => a[Math.floor(rng() * a.length)];
     const chance = (p) => rng() < p;
     const mat = indoor ? INDOOR : OUTDOOR;
@@ -120,6 +121,23 @@ export class Person {
     if (hat === 'bucket') head.push(cyl(0.25, 0.3, 0.18, '#a8956a', [0, 0.4, 0], {}, 10), cyl(0.37, 0.37, 0.03, '#a8956a', [0, 0.32, 0], {}, 12));
     this.head.add(segment(head, mat));
     this.root.add(this.head);
+    if (smile) {
+      // A gentle smile over the plain mouth: lips closed, the corners turned up a little, a touch of colour in the cheeks.
+      this.grin = new THREE.Bone();
+      this.grin.add(
+        segment(
+          [
+            box(0.1, 0.022, 0.02, MOUTH, [0, 0.07, 0.224]),
+            box(0.03, 0.02, 0.02, MOUTH, [-0.058, 0.08, 0.222]), // the corners, up
+            box(0.03, 0.02, 0.02, MOUTH, [0.058, 0.08, 0.222]),
+            box(0.045, 0.022, 0.012, skinDark, [-0.13, 0.115, 0.2]), // cheeks, barely
+            box(0.045, 0.022, 0.012, skinDark, [0.13, 0.115, 0.2]),
+          ],
+          mat,
+        ),
+      );
+      this.head.add(this.grin); // (hidden after skinning, below: a bone scaled to nothing at bind time breaks it)
+    }
 
     // ---- arms: shoulder → elbow → hand
     this.shoulders = [];
@@ -218,9 +236,15 @@ export class Person {
     // A bone can't be hidden, so the folded-away umbrella is scaled to nothing instead.
     this.umbrellaOn = false;
     this.umbrella.scale.setScalar(0);
+    this.grin?.scale.setScalar(0);
 
     this.child = child;
     this.group.scale.setScalar(child ? 0.55 : 0.85);
+  }
+
+  /** Show or hide the grin (people made with { smile: true }). */
+  smile(on) {
+    this.grin?.scale.setScalar(on ? 1 : 0);
   }
 
   setUmbrella(on) {

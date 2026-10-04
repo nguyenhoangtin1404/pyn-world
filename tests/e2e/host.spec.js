@@ -15,6 +15,15 @@ test('the author shows a QR code of their portfolio when tapped', async ({ page 
     const m = W.host.marker, v = m.position.clone().project(camera), h = innerHeight;
     return { x: ((v.x + 1) / 2) * innerWidth, y: ((1 - v.y) / 2) * h - m.scale.y * h * 0.55, behind: v.z > 1 };
   });
+  // From afar they look at the tower, not grinning.
+  const turned = () => page.evaluate(() => {
+    const { W, camera } = window.__pyn, h = W.host, g = h.person.group;
+    const toCam = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
+    return { facing: h.facingCamera, off: Math.abs(Math.atan2(Math.sin(toCam - g.rotation.y), Math.cos(toCam - g.rotation.y))), grin: h.person.grin.scale.x };
+  });
+  const far = await turned();
+  expect(far.facing).toBe(false);
+  expect(far.grin).toBe(0);
   const at = await marker();
   expect(at.behind).toBe(false);
   expect(at.x).toBeGreaterThan(0);
@@ -38,6 +47,11 @@ test('the author shows a QR code of their portfolio when tapped', async ({ page 
   await page.waitForFunction(() => !window.__pyn.rig.fly, null, { timeout: 60_000 });
   const near = await page.evaluate(() => window.__pyn.camera.position.distanceTo(window.__pyn.W.host.head));
   expect(near).toBeLessThan(15);
+  // Up close they turn round to the camera, look into it and grin.
+  await page.waitForFunction(() => window.__pyn.W.host.facingCamera, null, { timeout: 30_000 });
+  const close = await turned();
+  expect(close.off).toBeLessThan(0.35);
+  expect(close.grin).toBe(1);
 
   await page.keyboard.press('Escape');
   await expect(card).toBeHidden();
