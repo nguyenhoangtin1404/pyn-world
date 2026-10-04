@@ -214,8 +214,14 @@ export class AudioEngine {
     this.applyMaster();
   }
 
+  // Quieter while the tour's narrator speaks (src/app/tour.js).
+  duck(on) {
+    this.ducked = on;
+    this.applyMaster();
+  }
+
   applyMaster() {
     if (!this.ctx) return;
-    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.05);
+    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume * (this.ducked ? 0.3 : 1), this.ctx.currentTime, 0.05);
   }
 }

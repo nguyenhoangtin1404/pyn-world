@@ -7,6 +7,7 @@ import { AudioEngine } from './audio.js';
 import { initHud } from './hud.js';
 import { createLoader } from './app/loader.js';
 import { createKeyHandler } from './app/keys.js';
+import { createTour } from './app/tour.js';
 import { createResolutionAdapter, createStats } from './app/perf.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
@@ -71,12 +72,14 @@ function resize() {
 
 let hud;
 let landmarkIndex = -1;
+const tour = createTour({ rig, camera, muted: () => state.muted, duck: (on) => audio.duck(on), onEnd: () => document.getElementById('app').classList.remove('touring') });
 const actions = {
   setWorld(id) {
     switchWorld(id);
   },
   // False when there is nothing to follow in this world (no vehicles, say).
   setMode(id) {
+    tour.stop();
     if (!rig.setMode(id)) {
       hud.toast('Thế giới này không có gì để theo');
       return false;
@@ -87,6 +90,7 @@ const actions = {
   },
   // Famous buildings (worlds from map data): fly to the next one.
   flyToLandmark() {
+    tour.stop();
     const list = world?.landmarks ?? [];
     if (!list.length) {
       hud.toast('Thế giới này không có công trình nổi tiếng');
@@ -98,6 +102,24 @@ const actions = {
     state.mode = 'overview';
     hud.sync();
     hud.toast(`Bay tới ${lm.name} 🏛`);
+  },
+  // The narrated tour of the (first) landmark that has one: I to start, again (or Esc) to stop.
+  toggleTour() {
+    if (tour.active) return actions.stopTour();
+    const lm = world?.landmarks.find((l) => l.tour?.length);
+    if (!lm) return hud.toast('Thế giới này không có thuyết minh');
+    audio.init();
+    if (rig.mode !== 'overview') rig.setMode('overview', { fly: false });
+    state.mode = 'overview';
+    tour.start(lm);
+    document.getElementById('app').classList.add('touring'); // (the panel steps aside for the subtitles)
+    hud.sync();
+  },
+  // `quiet`: the camera is going elsewhere anyway (another key), no need to say so.
+  stopTour(quiet = false) {
+    if (!tour.active) return;
+    tour.stop();
+    if (!quiet) hud.toast('Đã dừng thuyết minh');
   },
   // Jump the clock to a preset's hour (the automatic cycle keeps running from there).
   setTime(id) {
@@ -179,6 +201,7 @@ function frame() {
   hud.setClock(state.hour, state.autoDay);
 
   world.update({ dt, raw, speed: state.speed, camera });
+  tour.update(Math.min(delta, 1)); // (real time: the narrator speaks in it)
   rig.update(raw);
   world.lateUpdate({ raw, camera, focus: rig.focus });
 
@@ -240,6 +263,7 @@ async function switchWorld(id) {
   if (state.switchingTo || id === state.world) return;
   const cfg = worldById(id);
   state.switchingTo = cfg.id; // the world picker shows it pending and waits
+  tour.stop();
   hud.sync();
   loader.show(cfg);
   // Free the old world first: two worlds in memory at once is a lot for a phone.
