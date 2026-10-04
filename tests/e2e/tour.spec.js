@@ -4,6 +4,8 @@ import { test, expect, openWorld } from './helpers.js';
 // and the ways out (‹ ›, Esc, another camera).
 test('narrated tour of the tower', async ({ page }) => {
   test.setTimeout(300_000);
+  // The real recordings are in public/tour now; this test is about the no-recording path.
+  await page.route('**/tour/*.mp3', (route) => route.fulfill({ status: 404 }));
   await openWorld(page, 'nghinhphong');
   const box = page.locator('#narration'), text = page.locator('#narration-text'), step = page.locator('#narration-step');
   const cam = () => page.evaluate(() => window.__pyn.camera.position.toArray());
@@ -17,7 +19,7 @@ test('narrated tour of the tower', async ({ page }) => {
   await expect(page.locator('#narration-title')).toHaveText('Tháp Nghinh Phong');
   await expect(text).toContainText('Tháp Nghinh Phong');
   await expect(step).toHaveText(`1/${stops}`);
-  // A headless browser has no recordings here and no Vietnamese voice: it says so, and shows the words.
+  // With no recordings (blocked above) and no Vietnamese voice: it says so, and shows the words.
   await expect(page.locator('#narration-note')).toContainText('chỉ hiện phụ đề');
   await page.keyboard.press('KeyM');
   await expect(page.locator('#narration-note')).toContainText('Đang tắt tiếng');
