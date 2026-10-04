@@ -83,8 +83,8 @@ export function createKeyHandler(app) {
         break;
       }
       case 'KeyC':
-        actions.toggleAutoDay();
-        hud.toast(state.autoDay ? 'Ngày đêm tự động: bật' : 'Ngày đêm tự động: tắt');
+        actions.setClock(state.clock === 'fast' ? 'real' : 'fast');
+        hud.toast(state.clock === 'fast' ? '⟳ Ngày trôi nhanh (1 ngày = 4 phút)' : '🕒 Giờ thật (giờ Việt Nam)');
         break;
       case 'Space':
         e.preventDefault();

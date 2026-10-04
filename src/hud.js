@@ -32,17 +32,22 @@ export function initHud(state, actions, worlds) {
     $('world-picker').append(b);
     return [w.id, b];
   });
+  $('world-picker').hidden = worlds.length < 2; // (one world: nothing to pick)
 
-  const camBtns = CAMERA_MODES.map((m) => {
-    const b = chip(`<kbd>${m.key}</kbd>${m.label}`, () => actions.setMode(m.id));
-    $('camera-modes').append(b);
+  // What most people want up front: the whole view, the tower and its tour. The cameras that follow something
+  // (and the train's) wait under "Nâng cao"; not 9 (tourists) and 0 (balloons) — 6 follows tourists too, 7 the
+  // balloons (their keys still work). Keys are in the tooltips, not on the chips.
+  const keyed = (/** @type {HTMLElement} */ b, /** @type {string} */ key, /** @type {string} */ what) => ((b.title = `${what} (phím ${key})`), b);
+  const camBtns = CAMERA_MODES.filter((m) => m.id !== 'tourist' && m.id !== 'balloon').map((m) => {
+    const b = keyed(chip(m.id === 'overview' ? '🗺 Toàn cảnh' : m.label, () => actions.setMode(m.id)), m.key, m.label);
+    $(m.id === 'overview' ? 'camera-modes' : 'follow-modes').append(b);
     return [m.id, b];
   });
   // The famous building: fly to it (V; again for the next one).
-  const landmarkBtn = chip('<kbd>V</kbd>Tháp', () => actions.flyToLandmark());
+  const landmarkBtn = keyed(chip('🏛 Tháp', () => actions.flyToLandmark()), 'V', 'Bay tới tháp');
   $('camera-modes').append(landmarkBtn);
   // Its narrated tour (I; again, or Esc, to stop).
-  const tourBtn = chip('<kbd>I</kbd>🎙 Thuyết minh', () => actions.toggleTour());
+  const tourBtn = keyed(chip('🎙 Thuyết minh', () => actions.toggleTour()), 'I', 'Thuyết minh');
   $('camera-modes').append(tourBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
@@ -53,13 +58,18 @@ export function initHud(state, actions, worlds) {
     $('time-of-day').append(b);
     return [p.id, b];
   });
-  const autoBtn = chip('<kbd>C</kbd>⟳ Tự động', () => actions.toggleAutoDay());
-  autoBtn.title = 'Ngày đêm tự trôi (1 ngày = 4 phút)';
-  $('time-of-day').append(autoBtn);
+  const realBtn = chip('🕒 Giờ thật', () => actions.setClock('real'));
+  realBtn.title = 'Giờ Việt Nam lúc này, trôi như thật (phím C)';
+  const fastBtn = chip('⟳ Tua nhanh', () => actions.setClock('fast'));
+  fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút (phím C)';
+  $('time-of-day').append(realBtn);
 
-  const weather = $('weather');
-  weather.innerHTML = WEATHER_OPTIONS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
-  weather.addEventListener('change', () => actions.setWeather(weather.value));
+  // The weather as buttons, one tap each (the one on is pressed).
+  const weatherBtns = WEATHER_OPTIONS.map((o) => {
+    const b = chip(o.label, () => actions.setWeather(o.id));
+    $('weather').append(b);
+    return [o.id, b];
+  });
 
   $('sound-toggle').addEventListener('click', (e) => {
     actions.toggleMute();
@@ -87,7 +97,7 @@ export function initHud(state, actions, worlds) {
 
   const outlineBtn = chip('✎ Viền mực', () => actions.setOutline(!state.outline));
   const shadowBtn = chip('◐ Bóng đổ', () => actions.setShadows(!state.shadows));
-  $('toggles').append(outlineBtn, shadowBtn);
+  $('toggles').append(fastBtn, outlineBtn, shadowBtn); // (under "Nâng cao")
 
   const helpBtn = $('help-btn');
   const help = $('help');
@@ -116,8 +126,14 @@ export function initHud(state, actions, worlds) {
     }
     camBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.mode));
     timeBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.timeOfDay));
-    autoBtn.classList.toggle('active', state.autoDay);
-    weather.value = state.weather;
+    realBtn.classList.toggle('active', state.clock === 'real');
+    fastBtn.classList.toggle('active', state.clock === 'fast');
+    // (Real time: the buttons of the times of day are not "on" — the time is what it is.)
+    if (state.clock === 'real') timeBtns.forEach(([, b]) => b.classList.remove('active'));
+    for (const [id, b] of weatherBtns) {
+      b.classList.toggle('active', id === state.weather);
+      b.setAttribute('aria-pressed', String(id === state.weather));
+    }
     volume.value = state.volume;
     $('volume-value').textContent = `${Math.round(state.volume * 100)}%`;
     const snd = $('sound-toggle');
@@ -168,6 +184,12 @@ export function initHud(state, actions, worlds) {
     landmarkBtn.hidden = world.landmarks.length === 0;
     tourBtn.hidden = !world.landmarks.some((l) => l.tour?.length);
     speed.closest('label').hidden = !world.train;
+    // The shortcuts list too: only the keys that do something here.
+    const can = { ...has, landmark: world.landmarks.length > 0, tour: !tourBtn.hidden, worlds: worlds.length > 1 };
+    for (const row of document.querySelectorAll('#help [data-needs]')) {
+      const need = /** @type {HTMLElement} */ (row).dataset.needs ?? '';
+      /** @type {HTMLElement} */ (row).hidden = need.startsWith('spot:') ? !world.spots[need.slice(5)] : can[need] === false;
+    }
   }
 
   return { sync, toast, toggleHud, setClock, setWorld };

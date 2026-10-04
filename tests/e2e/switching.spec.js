@@ -53,12 +53,12 @@ test('the world picker switches worlds', async ({ page }) => {
   expect(page.errors).toEqual([]);
 });
 
-// The app opens on the first world shown, the only button in the picker when it is the only one.
+// The app opens on the first world shown; the picker shows only when there is more than one to pick from.
 test('opens on the world shown', async ({ page }) => {
   await page.goto('/');
   await waitForWorld(page, SHOWN[0].id);
-  const picker = page.getByRole('group', { name: /Chọn thế giới/ });
-  await expect(picker.getByRole('button')).toHaveCount(SHOWN.length);
-  await expect(picker.getByRole('button', { name: SHOWN[0].name, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const picker = page.locator('#world-picker');
+  if (SHOWN.length < 2) await expect(picker).toBeHidden();
+  else await expect(picker.getByRole('button', { name: SHOWN[0].name, exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(page.errors).toEqual([]);
 });

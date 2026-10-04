@@ -109,7 +109,7 @@ export class World {
     this.beach = null;
     /** @type {{ group: THREE.Group, props: { x: number, z: number, r: number, kind: string }[], shops: number, bikes: number, cars: number, cafes: number, carts: number } | null} what stands along a town's streets (features/streetlife.js): props are the circles they take on the ground */
     this.streetLife = null;
-    /** @type {{ url: string, title: string, greeting: string, person: any, marker: THREE.Sprite, head: THREE.Vector3, facing: THREE.Vector3, group: THREE.Group, facingCamera: boolean } | null} the author standing by the landmark, who shows a QR code to their portfolio when tapped (facingCamera: turned round to a camera that came close, grinning) (features/host.js, src/app/host.js) */
+    /** @type {{ url: string, title: string, greeting: string, person: any, head: THREE.Vector3, facing: THREE.Vector3, group: THREE.Group, facingCamera: boolean } | null} the author standing by the landmark, who shows a QR code to their portfolio when tapped (facingCamera: turned round to a camera that came close, grinning) (features/host.js, src/app/host.js) */
     this.host = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();

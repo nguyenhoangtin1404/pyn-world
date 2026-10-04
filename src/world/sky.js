@@ -21,6 +21,12 @@ const KEYFRAMES = [
   [24, 'night'],
 ];
 
+/** The hour of the day in Vietnam (UTC+7, no daylight saving) at `date`, as a fraction: 9:30 → 9.5. The app's clock
+ * runs on it by default (main.js, clock 'real'), whatever the viewer's own time zone. @param {Date} date */
+export function vietnamHour(date) {
+  return (((date.getTime() / 3_600_000 + 7) % 24) + 24) % 24;
+}
+
 // Which preset button best describes this hour (for highlighting the HUD).
 export function presetAtHour(h) {
   if (h >= 5.5 && h < 9) return 'morning';

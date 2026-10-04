@@ -329,6 +329,19 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Chỉ hiện NGHINH PHONG**: `SHOWN` (`worlds/index.js`) là các world app đưa ra (nút chọn, phím N, world mặc định);
   world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>`. Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
   bản dev) thay phím N.
+- **Đồng hồ theo giờ thật** (`state.clock` trong `main.js`): mặc định `'real'` = **giờ Việt Nam lúc này** (`vietnamHour`, UTC+7,
+  `sky.js`, có test), trôi như thật; bấm một buổi (Sáng/Trưa/Chiều/Đêm, phím T) hay `⟳ Tua nhanh`/phím C thì `'fast'` (1 giờ
+  = 10 s, 1 ngày = 4 phút, như trước); `🕒 Giờ thật`/C quay lại. `'still'` = đứng (test ảnh). **Test luôn mở bằng
+  `?clock=fast`** (`openWorld` trong `tests/e2e/helpers.js`): 9:00 chạy nhanh như cũ — golden, tua 300 s, nhịp ngày không phụ
+  thuộc lúc chạy test. E2E `clock.spec.js`.
+- **Bảng điều khiển gọn** (`hud.js`) cho người xem thường: bảng chính chỉ có 🗺 Toàn cảnh, 🏛 Tháp, 🎙 Thuyết minh, giờ + các
+  buổi + 🕒 Giờ thật, thời tiết (ba nút ☀ Nắng / ☂ Mưa / ❄ Tuyết trong `#weather`, nút đang chọn `aria-pressed`), âm lượng; **phím tắt không in trên nút** (nằm trong `title`). Máy quay đi theo (`#follow-modes`,
+  cả máy quay tàu), ⟳ Tua nhanh, ⌨ Phím tắt (`#help-btn`, ẩn trên màn hình cảm ứng — `pointer: coarse`) nằm trong "Nâng cao".
+  Chỉ một world thì ẩn nút chọn world; không có chip 9 (du khách — 6 đã theo cả du khách)
+  và 0 (khinh khí cầu — 7 đã gồm), phím vẫn chạy; nút ♪ là biểu tượng của thanh âm lượng; tốc độ tàu, tốc độ thời gian, viền
+  mực, bóng đổ, pixel art gom vào `<details id="advanced">` "Nâng cao" (đóng sẵn). **Bảng phím tắt lọc theo world**: mỗi dòng
+  một `<div data-needs="…">` trong `<dl>` (`display: contents`) — `train`, `bridge`, `person`, `bird`, `vehicle`, `tourist`,
+  `balloon`, `landmark`, `tour`, `worlds` (> 1 world), `spot:<id>` (`world.spots`); `hud.setWorld` ẩn dòng không dùng được.
 - **Màn hình tải theo world** (`app/loader.js`): `🚂`/`🏛` (có/không tàu, hoặc `cfg.icon`) + tên + `cfg.tagline` (mặc định
   "SA BÀN LOW-POLY"); gợi ý chỉ nói thứ world có (`hintsFor`: mỗi gợi ý `needs` một feature id). **Bảng điều khiển đóng sẵn**
   (`#panel.collapsed` trong `index.html`) — nút "Mở bảng điều khiển"; test nào bấm chip/ô trong bảng thì mở nó trước.
@@ -339,12 +352,11 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   cát mượt). Công thức world có `cell` (ô lưới địa hình, mặc định 3; NGHINH PHONG 1,5). Và `groundSmooth` (0..1, mặc định 0 = mặt đất tam giác phẳng low-poly như PYN/MAPLE): pha màu và pháp tuyến của từng tam giác về phía các tam giác kề (`terrain.js`: màu mỗi đỉnh → trung bình các tam giác chung đỉnh, pháp tuyến → pháp tuyến mịn, vật liệu `flatShading: false`) cho khỏi lộ từng mảng tam giác trên bãi cát và bãi cỏ — NGHINH PHONG 0,75. Hình học không đổi (golden hình học không bắt, ảnh chuẩn trong ngưỡng).
 - **Tác giả trên quảng trường** (`features/host.js`, `src/app/host.js`, `src/app/qr.js`; công thức `{ id: 'host', url, greeting? }`,
   đặt cuối danh sách feature): một `Person` đứng ngay trong vòng `walk` quanh tháp (du khách đi theo các điểm của vòng, không vào
-  trong), góc phía phố, **nhìn lên tháp**; camera tới gần (< 14 lần chiều cao, rời > 17) thì quay người lại nhìn thẳng ống kính, **cười nhẹ** (`new Person(rng, { smile: true })`, `person.smile(on)`; bone thu về 0 **sau** `skinFigure` — thu trước thì hình bị nén mất) và vẫy, đi xa thì quay về nhìn tháp (`lateUpdate`, `world.host.facingCamera`); trên đầu bong bóng "👋" **giữ cỡ trên màn hình** (`sizeAttenuation: false`)
-  để từ góc mặc định vẫn thấy. Chạm vào người hoặc bong bóng (cầm laptop mở bằng tay trái — `new Person(rng, { carry: 'laptop' })`; nhấn-nhả không kéo; so vị trí trên màn hình, **không raycast**)
+  trong), góc phía phố, **nhìn lên tháp**; camera tới gần (< 14 lần chiều cao, rời > 17) thì quay người lại nhìn thẳng ống kính, **cười nhẹ** (`new Person(rng, { smile: true })`, `person.smile(on)`; bone thu về 0 **sau** `skinFigure` — thu trước thì hình bị nén mất) và vẫy, đi xa thì quay về nhìn tháp (`lateUpdate`, `world.host.facingCamera`). **Không có bong bóng/dấu gì trên đầu** (từng có "👋" giữ cỡ trên màn hình — bỏ theo ý tác giả): từ góc mặc định họ chỉ cao vài điểm ảnh, ô chạm tối thiểu 16 px. Chạm vào người (cầm laptop mở bằng tay trái — `new Person(rng, { carry: 'laptop' })`; nhấn-nhả không kéo; so vị trí trên màn hình, **không raycast**)
   → camera bay tới, khung `#host-card` hiện lời chào + **mã QR tạo ngay trong trang** (`qrcode-generator`, MIT; chữ mã hoá
   UTF-8) + nút mở link (tab mới). ✕, Esc, chạm chỗ khác, đổi world thì đóng. `url` phải là http(s) (`linkable`) — sai thì lỗi
   lúc dựng. Đứng cả đêm (không theo `Curfew`): e2e ban đêm không đếm `W.host`; ảnh chuẩn ẩn `W.host.group`. Test:
-  `tests/unit/qr.test.js` (đọc lại QR bằng `jsqr`), `tests/e2e/host.spec.js`. NGHINH PHONG: +1 mesh, +2 draw call, +1 shader.
+  `tests/unit/qr.test.js` (đọc lại QR bằng `jsqr`), `tests/e2e/host.spec.js`. NGHINH PHONG: +1 mesh, +1 draw call.
 - **Xe không quay đầu trong ngã tư**: phố có xe mà kết thúc ở chỗ cắt phố khác thì bị cắt ngắn (`trimEnds` + `crossedAt`:
   cách phố kia nửa bề rộng + bề rộng phố mình + 1) — quay đầu giữa ngã tư làm xe cắt ngang xe khác quá gần để kịp phanh.
   Luật: chỉ bỏ qua xe **ngược chiều và lệch sang bên** (`gapTo`: `cos < −0,7` và cách trục làn mình > `LANE / 2`).
