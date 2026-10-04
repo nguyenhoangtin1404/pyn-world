@@ -41,6 +41,11 @@ export function createTour({ rig, camera, muted, duck, onEnd }) {
     synth?.cancel();
     speaking = spoken = false;
     const vi = voice();
+    // Chrome hands out its voices a moment after the first asking: the first stop would be silent.
+    if (synth && !vi && !synth.getVoices().length) {
+      const stop = i;
+      synth.addEventListener('voiceschanged', () => { if (i === stop && t === 0) speak(words); }, { once: true });
+    }
     if (!synth || !vi || muted()) return;
     const parts = sentences(words), id = ++said;
     speaking = spoken = true;
