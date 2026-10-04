@@ -8,6 +8,7 @@ import { initHud } from './hud.js';
 import { createLoader } from './app/loader.js';
 import { createKeyHandler } from './app/keys.js';
 import { createTour } from './app/tour.js';
+import { createHostCard } from './app/host.js';
 import { createResolutionAdapter, createStats } from './app/perf.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
@@ -176,6 +177,20 @@ const actions = {
   },
 };
 
+// The author on the landmark's square: a tap shows their bubble with a QR code (features/host.js).
+const hostCard = createHostCard({
+  camera,
+  rig,
+  canvas: renderer.domElement,
+  world: () => world,
+  onOpen: () => {
+    actions.stopTour(true);
+    if (rig.mode !== 'overview') rig.setMode('overview', { fly: false });
+    state.mode = 'overview';
+    hud?.sync();
+  },
+});
+
 const onKey = createKeyHandler({ state, actions, rig, audio, worlds: SHOWN, hud: () => hud, world: () => world, switchWorld });
 
 const clock = new THREE.Clock();
@@ -265,6 +280,7 @@ async function switchWorld(id) {
   const cfg = worldById(id);
   state.switchingTo = cfg.id; // the world picker shows it pending and waits
   tour.stop();
+  hostCard.hide();
   hud.sync();
   loader.show(cfg);
   // Free the old world first: two worlds in memory at once is a lot for a phone.

@@ -35,5 +35,6 @@ export default defineGeoWorld({
     { id: 'seacraft', parasails: 1 }, // a jet ski towing a parasail, fishing boats and coasters on the sea, foam along the waterline
     { id: 'beach', sitters: 3, kids: 2, swimmers: 2, joggers: 1, walkers: 1 }, // sunshades, swimmers, joggers and children on the sand
     { id: 'streetlife', sitters: 4, carts: 3, cars: 7, bikes: 0.5 }, // shop signs and awnings, parked bikes and cars, pavement cafés, food carts
+    { id: 'host', url: 'https://nguyenhoangtin.com' }, // the author on the tower's square: tap them (or the 👋 over their head) for a QR code of their portfolio
   ],
 });

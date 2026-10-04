@@ -23,6 +23,12 @@ ODbL. The tools that build them (`tools/import/`) are part of the source code (A
 licenses above: all rights are reserved. Do not reuse them without permission. The narration voice is
 subject to Vbee's own terms.
 
+## The author's link
+
+The person on the tower's square who shows a QR code (`features/host.js`) points at the author's own portfolio
+(`url` in `src/worlds/nghinhphong.js`). That site and what it shows are the author's, not part of this
+repository; a fork should put its own link there or leave the feature out.
+
 ## Third parties
 
 - The tower itself, Tháp Nghinh Phong, was designed by HUNI architectes. The 3D model in this project is an

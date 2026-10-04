@@ -337,6 +337,14 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   trung bình → mép nước theo đường cong, không theo bậc thang lưới), `verticalScale` thấp hơn. Biển giờ là mọi điểm
   **< `WATER_BED`** (−4 m; bờ đã làm mịn có biển nông hơn `SEA_BED`); `seaDistanceAt` nội suy giữa 4 điểm lưới (mép bãi
   cát mượt). Công thức world có `cell` (ô lưới địa hình, mặc định 3; NGHINH PHONG 1,5). Và `groundSmooth` (0..1, mặc định 0 = mặt đất tam giác phẳng low-poly như PYN/MAPLE): pha màu và pháp tuyến của từng tam giác về phía các tam giác kề (`terrain.js`: màu mỗi đỉnh → trung bình các tam giác chung đỉnh, pháp tuyến → pháp tuyến mịn, vật liệu `flatShading: false`) cho khỏi lộ từng mảng tam giác trên bãi cát và bãi cỏ — NGHINH PHONG 0,75. Hình học không đổi (golden hình học không bắt, ảnh chuẩn trong ngưỡng).
+- **Tác giả trên quảng trường** (`features/host.js`, `src/app/host.js`, `src/app/qr.js`; công thức `{ id: 'host', url, greeting? }`,
+  đặt cuối danh sách feature): một `Person` đứng ngay trong vòng `walk` quanh tháp (du khách đi theo các điểm của vòng, không vào
+  trong), góc phía phố, quay ra phố, thỉnh thoảng vẫy; trên đầu bong bóng "👋" **giữ cỡ trên màn hình** (`sizeAttenuation: false`)
+  để từ góc mặc định vẫn thấy. Chạm vào người hoặc bong bóng (nhấn-nhả không kéo; so vị trí trên màn hình, **không raycast**)
+  → camera bay tới, khung `#host-card` hiện lời chào + **mã QR tạo ngay trong trang** (`qrcode-generator`, MIT; chữ mã hoá
+  UTF-8) + nút mở link (tab mới). ✕, Esc, chạm chỗ khác, đổi world thì đóng. `url` phải là http(s) (`linkable`) — sai thì lỗi
+  lúc dựng. Đứng cả đêm (không theo `Curfew`): e2e ban đêm không đếm `W.host`; ảnh chuẩn ẩn `W.host.group`. Test:
+  `tests/unit/qr.test.js` (đọc lại QR bằng `jsqr`), `tests/e2e/host.spec.js`. NGHINH PHONG: +1 mesh, +2 draw call, +1 shader.
 - **Xe không quay đầu trong ngã tư**: phố có xe mà kết thúc ở chỗ cắt phố khác thì bị cắt ngắn (`trimEnds` + `crossedAt`:
   cách phố kia nửa bề rộng + bề rộng phố mình + 1) — quay đầu giữa ngã tư làm xe cắt ngang xe khác quá gần để kịp phanh.
   Luật: chỉ bỏ qua xe **ngược chiều và lệch sang bên** (`gapTo`: `cos < −0,7` và cách trục làn mình > `LANE / 2`).
