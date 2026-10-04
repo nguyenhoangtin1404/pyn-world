@@ -13,11 +13,13 @@ test('night: the town goes home, two night owls stay out, everyone back in the m
       for (; o; o = o.parent) if (!o.visible) return false;
       return true;
     };
-    // Everyone on the map is a figure (a SkinnedMesh): on foot, on a bike, in a parasail.
+    // Everyone on the map is a figure (a SkinnedMesh): on foot, on a bike, in a parasail. Not the author
+    // (features/host.js): not one of the town's people, they stay by the tower day and night with their QR code.
+    const author = W.host?.person.mesh;
     const count = () => {
       let people = 0;
       W.scene.traverse((o) => {
-        if (o.isSkinnedMesh && shown(o)) people++;
+        if (o.isSkinnedMesh && o !== author && shown(o)) people++;
       });
       return { people, vehicles: W.vehicles.filter((v) => !v.spec.flies && !v.away).length };
     };

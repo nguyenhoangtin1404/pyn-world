@@ -22,7 +22,7 @@ const QUIET = (keepKind) => {
   const keep = keepKind && W.vehicles.find((c) => c.kind === keepKind);
   for (const v of W.vehicles) if (v !== keep) v.group.visible = false;
   for (const list of [W.followables.birds, W.followables.balloons]) for (const f of list) f.anchor().visible = false;
-  for (const g of [W.seacraft?.group, W.beach?.group]) if (g) g.visible = false; // (boats, foam, beach people: they move)
+  for (const g of [W.seacraft?.group, W.beach?.group, W.host?.group]) if (g) g.visible = false; // (boats, foam, beach people, the waving author: they move)
   W.scene.traverse((o) => { if (o.isSprite) o.visible = false; });
   return keep;
 };
@@ -40,7 +40,7 @@ const SETTLE = () => {
 };
 const SHOWN = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 // No panels over the picture (not a fade: a slow page would catch it half way).
-const HIDE_HUD = '#hud-top, #panel, #toast { display: none !important }';
+const HIDE_HUD = '#hud-top, #panel, #toast, #credits { display: none !important }';
 
 const SHOTS = {
   // The tower from the street side of its square.

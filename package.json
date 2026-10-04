@@ -2,6 +2,7 @@
   "name": "pyn-world",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "description": "Procedural low-poly train diorama built with Three.js",
   "scripts": {
@@ -16,6 +17,7 @@
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
+    "qrcode-generator": "^2.0.4",
     "three": "^0.186.1"
   },
   "devDependencies": {
@@ -25,6 +27,7 @@
     "@playwright/test": "^1.56.1",
     "eslint": "^9.39.5",
     "globals": "^17.12.0",
+    "jsqr": "^1.4.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"

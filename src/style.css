@@ -305,6 +305,84 @@ input[type='range'] {
 }
 
 /* ---------- Toast ---------- */
+/* The author's chat bubble (src/app/host.js): a message with a tail, a QR code and a link. */
+.host-card {
+  position: absolute;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 7;
+  transform: translateX(-50%);
+  width: min(19rem, calc(100% - 32px));
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 18px;
+  background: #fff;
+  color: #2a2a3a;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+.host-card[hidden] { display: none; }
+.host-card::after { /* the tail, up to the person who says it */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  transform: translateX(-50%);
+  border: 10px solid transparent;
+  border-bottom-color: #fff;
+  border-top: 0;
+}
+.host-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  font-weight: 700;
+}
+.host-avatar { font-size: 1.3em; }
+.host-card p { margin: 0.4em 0 0.6em; line-height: 1.35; }
+.host-qr {
+  width: min(11rem, 60vw);
+  margin: 0 auto 0.7rem;
+}
+.host-qr svg { display: block; width: 100%; height: auto; }
+.host-link {
+  display: inline-block;
+  padding: 0.5em 1.1em;
+  border-radius: 999px;
+  background: #2f5d7c;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.host-link:focus-visible, .host-close:focus-visible { outline: 3px solid #f2c14e; outline-offset: 2px; }
+.host-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  color: #555;
+  cursor: pointer;
+  padding: 6px;
+}
+
+/* Credits: the map data's attribution (ODbL) and the offer of the source (AGPL-3.0, section 13). */
+#credits {
+  position: absolute;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(2px, env(safe-area-inset-bottom));
+  z-index: 4;
+  margin: 0;
+  max-width: 70vw;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-align: right;
+}
+#credits a { color: inherit; }
+
 #toast {
   position: absolute;
   left: 50%;
