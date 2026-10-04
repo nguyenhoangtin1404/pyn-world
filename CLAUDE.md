@@ -368,6 +368,10 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - Chưa làm: xe rẽ sang phố khác (mỗi xe một phố), nhà theo đúng hình móng
   (chữ L…), sa bàn chữ nhật.
 
+## Nội dung thuyết minh (Tháp Nghinh Phong)
+
+Lời thuyết minh, JSON-LD, `.seo-copy` và `llms.txt` chỉ nói điều **nhiều nguồn độc lập cùng nêu** (cổng thông tin Sở VHTTDL Phú Yên, báo, Tạp chí Kiến Trúc): HUNI architectes thiết kế, **hoàn thành 30/11/2021** (ý tưởng 2019–2020, đừng viết "thiết kế năm 2021"), hai tháp mỗi tháp 50 cột đá lục giác, Lạc Long Quân 35 m và Âu Cơ 30 m, khe đón gió 2 m × 15 m, phù điêu trên hai vách, quảng trường **hơn 7 000 m²**, đèn nhiều màu ban đêm. **Chưa kiểm chứng nên không đưa vào lời** (dù mô hình 3D vẽ vậy): 7 190 m² chính xác, hình bán nguyệt, đá granite, tháp nào bên trái/phải, đèn đỏ trên đỉnh, cột xếp so le, cờ trước tháp. Đổi lời thì tạo lại bản thu (`node tools/tour/voice-vbee.mjs`).
+
 ## Tỉ lệ (`world.scale`, `world/scale.js`)
 
 Kích thước vẽ ra hỏi `world.scale`, **đừng viết số đơn vị cứng** cho thứ có kích thước ngoài đời. Hai tỉ lệ

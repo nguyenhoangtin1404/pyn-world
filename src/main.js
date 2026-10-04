@@ -104,11 +104,11 @@ const actions = {
     hud.toast(`Bay tới ${lm.name} 🏛`);
   },
   // The narrated tour of the (first) landmark that has one: I to start, again (or Esc) to stop.
-  toggleTour() {
+  toggleTour(auto = false) {
     if (tour.active) return actions.stopTour();
     const lm = world?.landmarks.find((l) => l.tour?.length);
     if (!lm) return hud.toast('Thế giới này không có thuyết minh');
-    audio.init();
+    if (!auto) audio.init(); // (a page that starts it by itself can't make sound yet)
     if (rig.mode !== 'overview') rig.setMode('overview', { fly: false });
     state.mode = 'overview';
     tour.start(lm);
@@ -306,6 +306,9 @@ async function boot() {
 
   requestAnimationFrame(frame);
   loader.hide();
+  // A visitor who just arrives (no ?world=, no ?notour) is given the narrated tour of the landmark.
+  const params = new URLSearchParams(location.search);
+  if (!params.has('world') && !params.has('notour')) actions.toggleTour(true);
 }
 
 boot();

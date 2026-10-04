@@ -65,7 +65,30 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
     player.onerror = () => { if (id !== said) return; noFiles = true; speaking = false; duck(false); speak(s.say); };
     speaking = spoken = true;
     duck(true);
-    player.play().catch(() => player.onerror?.(new Event('error')));
+    player.play().catch((err) => {
+      if (id !== said) return;
+      if (err?.name === 'NotAllowedError') return awaitGesture();
+      player.onerror?.(new Event('error'));
+    });
+  }
+
+  // A page that starts the tour by itself may not make sound before the visitor touches it (autoplay
+  // rules): the subtitles and the flight go on, and the first touch or key says the current stop.
+  let waiting = false;
+  function awaitGesture() {
+    speaking = spoken = false;
+    duck(false);
+    tell('🔈 Chạm vào màn hình hoặc bấm một phím để nghe thuyết minh.');
+    if (waiting) return;
+    waiting = true;
+    const resume = () => {
+      removeEventListener('pointerdown', resume, true);
+      removeEventListener('keydown', resume, true);
+      waiting = false;
+      if (i >= 0) { t = 0; wait = 0; say(stops[i]); }
+    };
+    addEventListener('pointerdown', resume, true);
+    addEventListener('keydown', resume, true);
   }
 
   function speak(/** @type {string} */ words) {
