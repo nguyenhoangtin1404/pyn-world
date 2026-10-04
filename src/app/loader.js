@@ -7,6 +7,7 @@ const HINTS = [
   { text: 'Ngày đêm tự trôi; bấm C để dừng/chạy đồng hồ, T để nhảy giờ.' },
   { text: 'Bảng điều khiển ở dưới màn hình: bấm "Mở bảng điều khiển" để đổi giờ, thời tiết, âm lượng.' },
   { text: 'Bấm V để bay tới tháp Nghinh Phong.', needs: 'landmarks' },
+  { text: 'Bấm I để nghe thuyết minh giới thiệu tháp Nghinh Phong.', needs: 'landmarks' },
   { text: 'Bấm 9 để đi theo một du khách trên quảng trường tháp.', needs: 'tourists' },
   { text: 'Bấm 0 để theo một quả khinh khí cầu.', needs: 'balloons' },
   { text: 'Bấm 8 để đi theo một chiếc xe trên phố.', needs: 'citytraffic' },
