@@ -189,7 +189,8 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   tháp trên mặt lát; **thuyết minh** (phím **I**, chip "🎙 Thuyết minh"; `tour` của công trình: mỗi điểm dừng `{ say, from, look }`
   tính trong khung toạ độ của tháp, câu chữ trên biển lấy từ `sealText()` — không chép lại; `src/app/tour.js`: camera bay
   tới từng điểm rồi lượn chậm, phụ đề ở khung `#narration` (bảng điều khiển ẩn đi khi đang thuyết minh), đọc bằng **bản thu**
-  `public/tour/nghinh-phong-<id>.mp3` nếu có (tạo bằng `node tools/tour/voice.mjs`, cần `pip install edge-tts`; lời ở
+  `public/tour/nghinh-phong-<id>.mp3` nếu có (tạo bằng `node tools/tour/voice.mjs`, cần `pip install edge-tts`, hoặc giọng Vbee: `VBEE_APP_ID=… VBEE_TOKEN=…
+  node tools/tour/voice-vbee.mjs` — khoá chỉ để trong biến môi trường, không commit; `VBEE_VOICE` chọn giọng; lời ở
   `landmarks/nghinh-phong-tour.js`, dùng chung cho app và script — thiếu file thì thử một lần rồi thôi), không thì
   `speechSynthesis` khi trình duyệt có giọng tiếng Việt (Chrome trên Windows/Mac **không có**), và không tắt tiếng — tiếng nền gần như tắt hẳn lúc đang đọc (`audio.duck`: 6 %), để nghe riêng giọng đọc; không có
   giọng thì khung báo "chỉ hiện phụ đề" (tắt tiếng thì báo bấm M, M đọc lại đoạn đang dừng) và đợi đủ thời gian đọc. Nhịp tính bằng **thời gian thật**, và chỉ đếm khi camera **đã tới nơi** (máy chậm: chuyến
