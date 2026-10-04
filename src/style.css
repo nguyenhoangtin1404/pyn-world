@@ -458,3 +458,13 @@ input[type='range'] {
 .touring #panel {
   display: none;
 }
+
+.narration-note {
+  margin: -0.3em 0 0.7em;
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
+.narration-note[hidden] {
+  display: none;
+}

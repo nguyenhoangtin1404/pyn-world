@@ -72,7 +72,7 @@ function resize() {
 
 let hud;
 let landmarkIndex = -1;
-const tour = createTour({ rig, camera, muted: () => state.muted, duck: (on) => audio.duck(on), onEnd: () => document.getElementById('app').classList.remove('touring') });
+const tour = createTour({ rig, camera, muted: () => state.muted, volume: () => state.volume, base: import.meta.env.BASE_URL, duck: (on) => audio.duck(on), onEnd: () => document.getElementById('app').classList.remove('touring') });
 const actions = {
   setWorld(id) {
     switchWorld(id);
@@ -165,6 +165,7 @@ const actions = {
     audio.init();
     state.muted = !state.muted;
     audio.setMuted(state.muted);
+    tour.retell();
     hud.sync();
   },
   setVolume(v) {
