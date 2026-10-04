@@ -340,7 +340,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Tác giả trên quảng trường** (`features/host.js`, `src/app/host.js`, `src/app/qr.js`; công thức `{ id: 'host', url, greeting? }`,
   đặt cuối danh sách feature): một `Person` đứng ngay trong vòng `walk` quanh tháp (du khách đi theo các điểm của vòng, không vào
   trong), góc phía phố, quay ra phố, thỉnh thoảng vẫy; trên đầu bong bóng "👋" **giữ cỡ trên màn hình** (`sizeAttenuation: false`)
-  để từ góc mặc định vẫn thấy. Chạm vào người hoặc bong bóng (nhấn-nhả không kéo; so vị trí trên màn hình, **không raycast**)
+  để từ góc mặc định vẫn thấy. Chạm vào người hoặc bong bóng (cầm laptop mở bằng tay trái — `new Person(rng, { carry: 'laptop' })`; nhấn-nhả không kéo; so vị trí trên màn hình, **không raycast**)
   → camera bay tới, khung `#host-card` hiện lời chào + **mã QR tạo ngay trong trang** (`qrcode-generator`, MIT; chữ mã hoá
   UTF-8) + nút mở link (tab mới). ✕, Esc, chạm chỗ khác, đổi world thì đóng. `url` phải là http(s) (`linkable`) — sai thì lỗi
   lúc dựng. Đứng cả đêm (không theo `Curfew`): e2e ban đêm không đếm `W.host`; ảnh chuẩn ẩn `W.host.group`. Test:

@@ -29,8 +29,10 @@ export const PERSON_HEIGHT = 2.2;
 export class Person {
   /**
    * kind: 'villager' | 'hiker' | 'child' | 'passenger' | 'tourist' (a villager with a camera: photo())
+   * carry: what the left hand holds, chosen here instead of at random — 'laptop' (open, on the forearm: the author,
+   * features/host.js), 'basket', 'bag' or null
    */
-  constructor(rng, { kind = 'villager', indoor = false } = {}) {
+  constructor(rng, { kind = 'villager', indoor = false, carry = undefined } = {}) {
     const pick = (a) => a[Math.floor(rng() * a.length)];
     const chance = (p) => rng() < p;
     const mat = indoor ? INDOOR : OUTDOOR;
@@ -123,7 +125,7 @@ export class Person {
     this.shoulders = [];
     this.elbows = [];
     const sleeve = top;
-    this.carry = !hiker && !child && chance(0.3) ? pick(['basket', 'bag']) : null;
+    this.carry = carry !== undefined ? carry : !hiker && !child && chance(0.3) ? pick(['basket', 'bag']) : null;
     for (const side of [-1, 1]) {
       const shoulder = new THREE.Bone();
       shoulder.position.set(side * 0.37, 1.53, 0);
@@ -138,6 +140,17 @@ export class Person {
       if (side === 1 && hiker) fore.push(cyl(0.022, 0.022, 1.3, '#9a9a9a', [0, -0.55, 0.06]), cyl(0.04, 0.04, 0.14, '#3a302b', [0, -0.3, 0.06]));
       if (side === -1 && this.carry === 'basket') {
         fore.push(box(0.34, 0.22, 0.26, '#b0803a', [0, -0.5, 0.06]), box(0.36, 0.04, 0.28, '#8a6038', [0, -0.39, 0.06]), ball(0.06, '#c8453a', [0.06, -0.37, 0.06], {}, 0), ball(0.06, '#f2c14e', [-0.07, -0.37, 0.1], {}, 0));
+      }
+      if (side === -1 && this.carry === 'laptop') {
+        // Open on the forearm held out in front (pose(): the forearm level, so its local +z is up): the base on the
+        // hand, the lid up at the far edge with its screen towards the person and its silver back to the world.
+        fore.push(
+          box(0.44, 0.32, 0.03, '#b9bcc2', [0.06, -0.32, 0.09]),
+          box(0.38, 0.2, 0.01, '#3a3d44', [0.06, -0.3, 0.106]),
+          box(0.44, 0.03, 0.3, '#b9bcc2', [0.06, -0.49, 0.25]),
+          box(0.38, 0.01, 0.24, '#4aa3df', [0.06, -0.474, 0.25]),
+          ball(0.03, '#e8eaee', [0.06, -0.507, 0.27], {}, 0),
+        );
       }
       if (side === -1 && this.carry === 'bag') fore.push(box(0.1, 0.34, 0.3, pick(['#8a6038', '#5a3b2a', '#2f5d7c']), [0, -0.52, 0.02]));
       elbow.add(segment(fore, mat));
@@ -259,7 +272,11 @@ export class Person {
     this.shoulders[0].rotation.set(sway(0) - s * 0.5, 0, 0);
     this.shoulders[1].rotation.set(sway(1) + s * 0.5, 0, 0);
     this.elbows.forEach((e) => (e.rotation.x = -0.15 - 0.2 * w));
-    if (this.carry) {
+    if (this.carry === 'laptop') {
+      // The forearm out level in front, the laptop open on it.
+      this.shoulders[0].rotation.set(-0.3, 0, 0.08);
+      this.elbows[0].rotation.x = -1.25;
+    } else if (this.carry) {
       this.elbows[0].rotation.x = -0.6;
       this.shoulders[0].rotation.x = -0.15 * w;
     }

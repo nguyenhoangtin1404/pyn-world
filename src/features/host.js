@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { Person, PERSON_HEIGHT } from '../world/people.js';
 import { linkable } from '../app/qr.js';
 
-// The author of the diorama, standing on the landmark's grounds (world.landmarks[0]) and waving now and
-// then, with a little "👋" bubble over their head that keeps the same size on screen however far the camera
-// is (a marker: from the default view the person is a few pixels tall). Tapping either opens a chat bubble
+// The author of the diorama, standing on the landmark's grounds (world.landmarks[0]) with an open laptop on
+// one arm and waving now and then with the other, a little "👋" bubble over their head that keeps the same
+// size on screen however far the camera is (a marker: from the default view the person is a few pixels tall). Tapping either opens a chat bubble
 // with a QR code of their portfolio and a link to it (src/app/host.js); this feature only puts them there
 // and leaves world.host for the app.
 // They stand just inside the path people take round the landmark (its `walk` loop: the tourists go round
@@ -61,7 +61,7 @@ export default {
     at.y = lm.walkHeight ? lm.walkHeight(at.x, at.z) : world.heightAt(at.x, at.z);
     const facing = toIn.clone().negate();
 
-    const person = new Person(rng, { kind: 'villager' });
+    const person = new Person(rng, { kind: 'villager', carry: 'laptop' });
     person.group.scale.multiplyScalar(k);
     person.group.position.copy(at);
     person.group.rotation.y = Math.atan2(facing.x, facing.z); // (the figure faces local +z)
