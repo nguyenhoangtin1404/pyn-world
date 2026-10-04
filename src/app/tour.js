@@ -10,6 +10,11 @@ import * as THREE from 'three';
 // words are said (or, with no voice, when there has been time to read them); ‹ › step by hand, ✕ or
 // Esc ends it, and so does choosing a camera or another world.
 
+/* global __TOUR_VERSIONS__ */
+// Hash of each recording, set by vite.config.js (absent under Vitest): the URL changes when the file does.
+const versions = typeof __TOUR_VERSIONS__ === 'undefined' ? {} : /** @type {Record<string, string>} */ (__TOUR_VERSIONS__);
+const recording = (/** @type {string} */ base, /** @type {string} */ path) => base + path + (versions[path] ? `?v=${versions[path]}` : '');
+
 const FLY = 2.4; // s, the flight to each stop (in the simulation's time: longer on a slow machine)
 const PAUSE = 1.2; // s, a breath after the words before flying on
 const DRIFT = 0.035; // rad/s, the slow circling at a stop
@@ -59,7 +64,7 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
     tell('');
     if (!s.audio || noFiles) return speak(s.say);
     const id = ++said;
-    player.src = base + s.audio;
+    player.src = recording(base, s.audio);
     player.volume = Math.min(1, Math.max(0.2, volume() * 1.4));
     player.onended = finished(id);
     player.onerror = () => { if (id !== said) return; noFiles = true; speaking = false; duck(false); speak(s.say); };
