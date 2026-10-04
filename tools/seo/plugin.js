@@ -40,7 +40,7 @@ const llms = (url) => `# PYN World – Tháp Nghinh Phong 3D
 - [PYN World – Tháp Nghinh Phong](${url}): sa bàn 2 × 2 km quanh tháp, có phố, nhà, biển, bãi biển, xe cộ, du khách, ngày đêm.
 
 ## Thông tin nhanh
-- Tháp Nghinh Phong: công trình ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), thiết kế bởi HUNI architectes (2021); hai tháp, mỗi tháp 50 cột đá lục giác; cột nhọn cao 35 m (Lạc Long Quân) và 30 m (Âu Cơ); quảng trường 1/4 bán nguyệt 7 190 m².
+- Tháp Nghinh Phong: công trình ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), thiết kế bởi HUNI architectes (hoàn thành 2021); hai tháp, mỗi tháp 50 cột đá lục giác; cột nhọn cao 35 m (Lạc Long Quân) và 30 m (Âu Cơ); quảng trường rộng hơn 7 000 m².
 - Tọa độ: khoảng 13.1163 N, 109.3076 E.
 - Dữ liệu: độ cao SRTM 1″; phố, nhà từ OpenStreetMap / Overture Maps (ODbL).
 - Mã nguồn: https://github.com/nguyenhoangtin1404/pyn-world
