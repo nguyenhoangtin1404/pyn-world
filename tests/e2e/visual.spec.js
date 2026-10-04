@@ -40,7 +40,7 @@ const SETTLE = () => {
 };
 const SHOWN = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 // No panels over the picture (not a fade: a slow page would catch it half way).
-const HIDE_HUD = '#hud-top, #panel, #toast { display: none !important }';
+const HIDE_HUD = '#hud-top, #panel, #toast, #credits { display: none !important }';
 
 const SHOTS = {
   // The tower from the street side of its square.

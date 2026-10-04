@@ -60,3 +60,11 @@ World TUY HÒA và NGHINH PHONG dùng độ cao SRTM (NASA/USGS, public domain) 
 [Overture Maps](https://overturemaps.org) (đường sắt, đường phố, nhà, sông hồ) —
 © OpenStreetMap contributors, cấp phép [ODbL](https://opendatacommons.org/licenses/odbl/); nhà có thêm
 nguồn mở khác qua Overture. Nguồn ghi trong `sources` của `src/worlds/data/tuyhoa.json`.
+
+## Giấy phép
+
+- **Mã nguồn**: [GNU AGPL-3.0 trở lên](LICENSE). Chạy bản đã sửa trên mạng thì phải cho người dùng lấy được mã của bản đó
+  (site có liên kết "Mã nguồn" ở góc dưới). Cần dùng ngoài điều khoản này (ví dụ bản tùy biến đóng mã): liên hệ chủ repo.
+- **Dữ liệu bản đồ** (`src/worlds/data/`): [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/), © OpenStreetMap contributors.
+- **Âm thanh và hình** (`public/tour/`, `public/og.png`): bảo lưu mọi quyền.
+- Chi tiết và lưu ý về công trình thật: [LICENSE-DATA.md](LICENSE-DATA.md).
