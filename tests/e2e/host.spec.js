@@ -1,20 +1,22 @@
 import { test, expect, openWorld } from './helpers.js';
 
-// The author on the tower's square (features/host.js, src/app/host.js): the "👋" over their head is on screen
-// from the default view; a tap on it flies up to them and opens a bubble with a QR code and a link to their
-// portfolio; Esc closes it, and a tap elsewhere doesn't open it.
+// The author on the tower's square (features/host.js, src/app/host.js): on screen from the default view, a
+// few pixels tall and nothing over their head; a tap on them flies up to them and opens a bubble with a QR
+// code and a link to their portfolio; Esc closes it, and a tap elsewhere doesn't open it.
 test('the author shows a QR code of their portfolio when tapped', async ({ page }) => {
   test.setTimeout(300_000);
   await openWorld(page, 'nghinhphong');
   const card = page.locator('#host-card');
   await expect(card).toBeHidden();
 
-  // Where the marker's bubble is on screen (its tail is at its position; the round part just above).
-  const marker = () => page.evaluate(() => {
+  // Where they are on screen: halfway between their head and their feet.
+  const body = () => page.evaluate(() => {
     const { W, camera } = window.__pyn;
-    const m = W.host.marker, v = m.position.clone().project(camera), h = innerHeight;
-    return { x: ((v.x + 1) / 2) * innerWidth, y: ((1 - v.y) / 2) * h - m.scale.y * h * 0.55, behind: v.z > 1 };
+    const v = W.host.head.clone().lerp(W.host.person.group.position, 0.4).project(camera);
+    return { x: ((v.x + 1) / 2) * innerWidth, y: ((1 - v.y) / 2) * innerHeight, behind: v.z > 1 };
   });
+  // Nothing over their head.
+  expect(await page.evaluate(() => window.__pyn.W.host.group.children.some((o) => o.isSprite))).toBe(false);
   // From afar they look at the tower, not grinning.
   const turned = () => page.evaluate(() => {
     const { W, camera } = window.__pyn, h = W.host, g = h.person.group;
@@ -24,7 +26,7 @@ test('the author shows a QR code of their portfolio when tapped', async ({ page 
   const far = await turned();
   expect(far.facing).toBe(false);
   expect(far.grin).toBe(0);
-  const at = await marker();
+  const at = await body();
   expect(at.behind).toBe(false);
   expect(at.x).toBeGreaterThan(0);
   expect(at.x).toBeLessThan(page.viewportSize().width);
@@ -45,8 +47,8 @@ test('the author shows a QR code of their portfolio when tapped', async ({ page 
   await expect(page.locator('#host-qr svg')).toHaveAttribute('aria-label', /nguyenhoangtin\.com/);
   // The camera has come up to them.
   await page.waitForFunction(() => !window.__pyn.rig.fly, null, { timeout: 60_000 });
-  const near = await page.evaluate(() => window.__pyn.camera.position.distanceTo(window.__pyn.W.host.head));
-  expect(near).toBeLessThan(15);
+  const away = await page.evaluate(() => window.__pyn.camera.position.distanceTo(window.__pyn.W.host.head));
+  expect(away).toBeLessThan(15);
   // Up close they turn round to the camera, look into it and grin.
   await page.waitForFunction(() => window.__pyn.W.host.facingCamera, null, { timeout: 30_000 });
   const close = await turned();
@@ -56,12 +58,8 @@ test('the author shows a QR code of their portfolio when tapped', async ({ page 
   await page.keyboard.press('Escape');
   await expect(card).toBeHidden();
   // Tapping them up close opens it again.
-  const body = await page.evaluate(() => {
-    const { W, camera } = window.__pyn;
-    const p = W.host.head.clone().lerp(W.host.person.group.position, 0.4).project(camera);
-    return { x: ((p.x + 1) / 2) * innerWidth, y: ((1 - p.y) / 2) * innerHeight };
-  });
-  await page.mouse.click(body.x, body.y);
+  const near = await body();
+  await page.mouse.click(near.x, near.y);
   await expect(card).toBeVisible();
   await page.locator('#host-close').click();
   await expect(card).toBeHidden();

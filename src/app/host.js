@@ -2,15 +2,14 @@
 import * as THREE from 'three';
 import { qrSvg } from './qr.js';
 
-// The author's chat bubble (features/host.js puts them in the world as world.host): a tap on them, or on
-// the "👋" over their head, flies the camera up to them and opens a bubble with their greeting, a QR code of
-// their portfolio and a link to it (a new tab). ✕, Esc, a tap elsewhere on the scene or another world closes it.
+// The author's chat bubble (features/host.js puts them in the world as world.host): a tap on them flies the
+// camera up to them and opens a bubble with their greeting, a QR code of their portfolio and a link to it
+// (a new tab). ✕, Esc, a tap elsewhere on the scene or another world closes it.
 // A tap is a press and release that hardly moved (a drag turns the camera); it is tested against where
 // the two are on screen — no raycast into the merged meshes (CLAUDE.md).
 
 const TAP = 8; // px a press may move and still be a tap
-const MARKER_HIT = 30; // px round the marker
-const BODY_HIT = 22; // px at least round the person (more when they are drawn bigger)
+const BODY_HIT = 16; // px at least round the person (more when they are drawn bigger): a person a few pixels tall can still be tapped
 
 /**
  * @param {{ camera: THREE.PerspectiveCamera, rig: import('../cameras.js').CameraRig, canvas: HTMLElement, world: () => import('../World.js').World | null, onOpen?: () => void }} app
@@ -31,14 +30,10 @@ export function createHostCard({ camera, rig, canvas, world, onOpen }) {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   };
 
-  /** Is (x, y) on the author or their marker? */
+  /** Is (x, y) on the author? */
   const hits = (/** @type {number} */ x, /** @type {number} */ y) => {
     const host = world()?.host;
     if (!host || !host.group.visible) return false;
-    const r = canvas.getBoundingClientRect();
-    const m = screen(host.marker.position);
-    // The marker's tail is at its position; the round bubble is above it, about MARKER of the screen tall.
-    if (m && Math.hypot(x - m.x, y - (m.y - host.marker.scale.y * r.height * 0.55)) < Math.max(MARKER_HIT, host.marker.scale.y * r.height * 0.6)) return true;
     const head = screen(host.head), feet = screen(host.person.group.position);
     if (!head || !feet) return false;
     const tall = Math.abs(feet.y - head.y) * 1.25; // (head → soles, plus the hair)

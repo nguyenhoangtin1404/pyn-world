@@ -4,10 +4,9 @@ import { Person, PERSON_HEIGHT } from '../world/people.js';
 import { linkable } from '../app/qr.js';
 
 // The author of the diorama, standing on the landmark's grounds (world.landmarks[0]) with an open laptop on
-// one arm and waving now and then with the other, a little "👋" bubble over their head that keeps the same
-// size on screen however far the camera is (a marker: from the default view the person is a few pixels tall). Tapping either opens a chat bubble
-// with a QR code of their portfolio and a link to it (src/app/host.js); this feature only puts them there
-// and leaves world.host for the app.
+// one arm. Tapping them opens a chat bubble with a QR code of their portfolio and a link to it
+// (src/app/host.js); this feature only puts them there and leaves world.host for the app. Nothing marks them
+// from afar: from the default view they are a few pixels tall, there to be found.
 // They stand just inside the path people take round the landmark (its `walk` loop: the tourists go round
 // it, along its points, and never inside), at its front corner on the street side, looking up at the
 // landmark; when the camera comes close (zoomed in on them, or flying up to them for the bubble) they turn
@@ -15,37 +14,10 @@ import { linkable } from '../app/qr.js';
 // Options: url (the portfolio, required: http(s)), greeting (what the bubble says), corner (which point of
 // the walk loop, as a fraction of the way round: 0.56, the street side towards the left spire).
 
-const MARKER = 0.05; // the marker's height, as a share of the screen's (sizeAttenuation off)
 const INSET = 1.5; // metres inside the walk loop
 const WAVE_EVERY = 6, WAVE_FOR = 2.2; // seconds: a wave as they turn to the camera, then now and then
 const NEAR = 14, FAR = 17; // the camera this many times their height away (or nearer) has come to see them; further, it has gone
 const TURN = 3.5; // how quickly they turn (1/s, an easing rate)
-
-/** The "👋" marker: a small round speech bubble, drawn once. */
-function markerTexture() {
-  const c = document.createElement('canvas');
-  c.width = 96;
-  c.height = 112;
-  const g = c.getContext('2d');
-  if (!g) throw new Error('host: no 2D canvas');
-  g.fillStyle = 'rgba(255,255,255,0.96)';
-  g.strokeStyle = 'rgba(40,40,60,0.6)';
-  g.lineWidth = 4;
-  g.beginPath();
-  g.arc(48, 46, 42, 0, Math.PI * 2);
-  g.moveTo(38, 84);
-  g.lineTo(48, 108);
-  g.lineTo(58, 84);
-  g.fill();
-  g.stroke();
-  g.font = '48px "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText('👋', 48, 50);
-  const map = new THREE.CanvasTexture(c);
-  map.colorSpace = THREE.SRGBColorSpace;
-  return map;
-}
 
 /** @type {import('../types').Feature} */
 export default {
@@ -73,26 +45,15 @@ export default {
     const tall = PERSON_HEIGHT * person.group.scale.y;
     world.scale.note('person', tall, 'host');
 
-    const mat = new THREE.SpriteMaterial({ map: markerTexture(), transparent: true, depthWrite: false, sizeAttenuation: false });
-    const marker = new THREE.Sprite(mat);
-    marker.center.set(0.5, 0); // (the bubble's tail at the point: it sits on the head)
-    marker.scale.set(MARKER * (96 / 112), MARKER, 1);
-    marker.position.set(at.x, at.y + tall * 1.05, at.z);
-    marker.renderOrder = 3;
-
-    const group = new THREE.Group().add(person.group, marker);
+    const group = new THREE.Group().add(person.group);
     const head = new THREE.Vector3(at.x, at.y + tall * 0.8, at.z);
-    const host = (world.host = { url, title: new URL(url).hostname.replace(/^www\./, ''), greeting, person, marker, head, facing, group, facingCamera: /** @type {boolean} */ (false) });
+    const host = (world.host = { url, title: new URL(url).hostname.replace(/^www\./, ''), greeting, person, head, facing, group, facingCamera: /** @type {boolean} */ (false) });
 
     let near = false, waveAt = -Infinity;
     /** The angle from `a` to `b`, the short way round. */
     const turnBy = (/** @type {number} */ a, /** @type {number} */ b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
     return {
       group,
-      dispose() {
-        mat.map?.dispose();
-        mat.dispose();
-      },
       // (After the camera has moved this frame: they turn to where it is now.)
       lateUpdate({ t = 0, raw = 0, camera }) {
         const cam = camera.position, d = cam.distanceTo(head);
@@ -116,9 +77,6 @@ export default {
         person.head.rotation.x = -Math.max(-0.5, Math.min(0.6, lookUp));
         person.smile(facingIt);
         host.facingCamera = facingIt;
-
-        // The marker bobs a little, so it reads as something to tap.
-        marker.position.y = at.y + tall * 1.05 + Math.abs(Math.sin(t * 2.2)) * tall * 0.08;
       },
     };
   },
