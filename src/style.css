@@ -409,3 +409,9 @@ input[type='range'] {
     display: none;
   }
 }
+
+/* Nội dung giới thiệu cho công cụ tìm kiếm / trình đọc màn hình: ẩn khỏi mắt, vẫn có trong HTML. */
+.seo-copy {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
