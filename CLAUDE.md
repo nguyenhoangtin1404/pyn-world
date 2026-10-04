@@ -37,7 +37,7 @@ xem diff của `tests/e2e/golden/*.json` có đúng ý không rồi commit cùng
 `world output changed`). **Không** cập nhật golden để cho qua một lần chạy đỏ mà mình không hiểu vì
 sao — nhất là golden của PYN. Không có retry: test đỏ là lỗi thật, không phải "flaky".
 
-**Commit và tiêu đề PR** theo Conventional Commits (`commitlint.config.js`): `feat(world): …`,
+**Commit và tiêu đề PR** viết **bằng tiếng Anh** (luật `header-english`/`body-english` chặn chữ có dấu tiếng Việt) và theo Conventional Commits (`commitlint.config.js`): `feat(world): …`,
 `fix(people): …`, `perf: …`, `refactor: …`, `test: …`, `docs: …`, `ci: …`, `chore: …`; thêm `!` nếu phá
 tương thích (`refactor!: …`). Hook `.githooks/commit-msg` chặn message sai ngay khi commit; CI soát lại
 từng commit và tiêu đề PR (PR được squash-merge theo tiêu đề).
