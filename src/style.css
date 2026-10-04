@@ -265,6 +265,14 @@ button:focus-visible {
   gap: 6px;
 }
 
+/* No keyboard on a phone: no shortcuts list. */
+@media (pointer: coarse) {
+  #help-btn,
+  #help {
+    display: none !important;
+  }
+}
+
 /* Rarely needed settings (src/hud.js): folded away under "Nâng cao". */
 .advanced {
   display: flex;
@@ -281,6 +289,10 @@ button:focus-visible {
 
 .advanced[open] summary {
   margin-bottom: 6px;
+}
+
+.advanced > .row + .row {
+  margin-top: 10px; /* (a <details> lays its content out as a block: the gap above does not apply) */
 }
 
 .field {

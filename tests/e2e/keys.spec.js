@@ -91,6 +91,7 @@ test('quick views: the tower, the tourists, the balloons', async ({ page }) => {
   await expect(page.locator('#camera-modes button', { hasText: 'Du khách' })).toHaveCount(0);
   await expect(page.locator('#camera-modes button', { hasText: 'Khinh khí cầu' })).toHaveCount(0);
   // The shortcuts list only names keys that do something here: no train, bridge, sheep, river or other world.
+  await page.locator('#advanced summary').click(); // (the shortcuts list opens from "Nâng cao")
   await page.locator('#help-btn').click();
   const help = page.locator('#help');
   for (const key of ['V', 'I', '6', '9']) await expect(help.locator('div:not([hidden]) > dt', { hasText: new RegExp(`^${key}$`) })).toHaveCount(1);

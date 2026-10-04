@@ -34,17 +34,20 @@ export function initHud(state, actions, worlds) {
   });
   $('world-picker').hidden = worlds.length < 2; // (one world: nothing to pick)
 
-  // Not 9 (tourists) and 0 (balloons) as chips: 6 follows tourists too, 7 the balloons (their keys still work).
+  // What most people want up front: the whole view, the tower and its tour. The cameras that follow something
+  // (and the train's) wait under "Nâng cao"; not 9 (tourists) and 0 (balloons) — 6 follows tourists too, 7 the
+  // balloons (their keys still work). Keys are in the tooltips, not on the chips.
+  const keyed = (/** @type {HTMLElement} */ b, /** @type {string} */ key, /** @type {string} */ what) => ((b.title = `${what} (phím ${key})`), b);
   const camBtns = CAMERA_MODES.filter((m) => m.id !== 'tourist' && m.id !== 'balloon').map((m) => {
-    const b = chip(`<kbd>${m.key}</kbd>${m.label}`, () => actions.setMode(m.id));
-    $('camera-modes').append(b);
+    const b = keyed(chip(m.id === 'overview' ? '🗺 Toàn cảnh' : m.label, () => actions.setMode(m.id)), m.key, m.label);
+    $(m.id === 'overview' ? 'camera-modes' : 'follow-modes').append(b);
     return [m.id, b];
   });
   // The famous building: fly to it (V; again for the next one).
-  const landmarkBtn = chip('<kbd>V</kbd>Tháp', () => actions.flyToLandmark());
+  const landmarkBtn = keyed(chip('🏛 Tháp', () => actions.flyToLandmark()), 'V', 'Bay tới tháp');
   $('camera-modes').append(landmarkBtn);
   // Its narrated tour (I; again, or Esc, to stop).
-  const tourBtn = chip('<kbd>I</kbd>🎙 Thuyết minh', () => actions.toggleTour());
+  const tourBtn = keyed(chip('🎙 Thuyết minh', () => actions.toggleTour()), 'I', 'Thuyết minh');
   $('camera-modes').append(tourBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
@@ -57,9 +60,9 @@ export function initHud(state, actions, worlds) {
   });
   const realBtn = chip('🕒 Giờ thật', () => actions.setClock('real'));
   realBtn.title = 'Giờ Việt Nam lúc này, trôi như thật (phím C)';
-  const fastBtn = chip('<kbd>C</kbd>⟳ Tua nhanh', () => actions.setClock('fast'));
-  fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút';
-  $('time-of-day').append(realBtn, fastBtn);
+  const fastBtn = chip('⟳ Tua nhanh', () => actions.setClock('fast'));
+  fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút (phím C)';
+  $('time-of-day').append(realBtn);
 
   const weather = $('weather');
   weather.innerHTML = WEATHER_OPTIONS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
@@ -91,7 +94,7 @@ export function initHud(state, actions, worlds) {
 
   const outlineBtn = chip('✎ Viền mực', () => actions.setOutline(!state.outline));
   const shadowBtn = chip('◐ Bóng đổ', () => actions.setShadows(!state.shadows));
-  $('toggles').append(outlineBtn, shadowBtn);
+  $('toggles').append(fastBtn, outlineBtn, shadowBtn); // (under "Nâng cao")
 
   const helpBtn = $('help-btn');
   const help = $('help');
