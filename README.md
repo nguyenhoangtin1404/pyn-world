@@ -64,7 +64,7 @@ nguồn mở khác qua Overture. Nguồn ghi trong `sources` của `src/worlds/d
 ## Giấy phép
 
 - **Mã nguồn**: [GNU AGPL-3.0 trở lên](LICENSE). Chạy bản đã sửa trên mạng thì phải cho người dùng lấy được mã của bản đó
-  (site có liên kết "Mã nguồn" ở góc dưới). Cần dùng ngoài điều khoản này (ví dụ bản tùy biến đóng mã): liên hệ chủ repo.
+  (site có liên kết "Mã nguồn" trong mục "Nâng cao" của bảng điều khiển). Cần dùng ngoài điều khoản này (ví dụ bản tùy biến đóng mã): liên hệ chủ repo.
 - **Dữ liệu bản đồ** (`src/worlds/data/`): [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/), © OpenStreetMap contributors.
 - **Âm thanh và hình** (`public/tour/`, `public/og.png`): bảo lưu mọi quyền.
 - Chi tiết và lưu ý về công trình thật: [LICENSE-DATA.md](LICENSE-DATA.md).
