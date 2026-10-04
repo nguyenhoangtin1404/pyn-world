@@ -225,10 +225,9 @@ export class Person {
     // ---- a tourist's camera, in front of the face while taking a photo (scaled to nothing otherwise)
     if (kind === 'tourist') {
       this.camera = new THREE.Bone();
-      this.camera.position.set(0, 1.58, 0.5);
+      this.camera.position.set(0, 1.84, 0.44); // (up at the eyes, between the hands)
       this.camera.add(segment([box(0.3, 0.2, 0.12, '#2a2a2e', [0, 0, 0]), box(0.12, 0.05, 0.1, '#c9c9c9', [-0.08, 0.12, 0]), ball(0.075, '#3b4a66', [0, 0, 0.08], {}, 0)], mat));
-      this.root.add(this.camera);
-      this.camera.scale.setScalar(0);
+      this.root.add(this.camera); // (hidden after skinning, below)
     }
 
     // Bake every segment into one skinned mesh (one draw call per person); the bones stay posable.
@@ -237,6 +236,8 @@ export class Person {
     this.umbrellaOn = false;
     this.umbrella.scale.setScalar(0);
     this.grin?.scale.setScalar(0);
+    // (Bones hidden before skinFigure() would bake their parts squashed to a point: shown later, they stay invisible.)
+    this.camera?.scale.setScalar(0);
 
     this.child = child;
     this.group.scale.setScalar(child ? 0.55 : 0.85);
