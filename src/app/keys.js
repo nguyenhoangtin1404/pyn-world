@@ -37,6 +37,7 @@ export function createKeyHandler(app) {
     const spot = SPOT_KEYS[e.code];
     if (spot) {
       // Features put these spots in the world; a world without sheep has no sheep to fly to.
+      actions.stopTour(true);
       const p = world.spots[spot.id];
       if (!p) return hud.toast('Thế giới này không có chỗ đó');
       rig.flyToSpot(p);
@@ -49,7 +50,14 @@ export function createKeyHandler(app) {
       case 'KeyV':
         actions.flyToLandmark();
         break;
+      case 'KeyI':
+        actions.toggleTour();
+        break;
+      case 'Escape':
+        actions.stopTour();
+        break;
       case 'KeyB':
+        actions.stopTour(true);
         rig.nextBridge();
         state.mode = 'bridge';
         hud.sync();

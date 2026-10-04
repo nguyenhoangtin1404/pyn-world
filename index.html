@@ -89,6 +89,7 @@
             <dt><kbd>J</kbd></dt><dd>Bay tới thuyền câu cá</dd>
             <dt><kbd>L</kbd></dt><dd>Bay tới tàu hơi nước trên sông</dd>
             <dt><kbd>V</kbd></dt><dd>Bay tới tháp / công trình nổi tiếng kế tiếp (thế giới từ bản đồ thật)</dd>
+            <dt><kbd>I</kbd></dt><dd>Thuyết minh giới thiệu tháp (bấm lại hoặc <kbd>Esc</kbd> để dừng)</dd>
             <dt><kbd>P</kbd></dt><dd>Đổi mức pixel art</dd>
             <dt><kbd>O</kbd></dt><dd>Bật/tắt viền mực</dd>
             <dt><kbd>T</kbd> / <kbd>Shift</kbd>+<kbd>T</kbd></dt><dd>Nhảy tới buổi kế tiếp / trước đó</dd>
@@ -141,6 +142,19 @@
       </div>
 
       <div id="toast" role="status" aria-live="polite"></div>
+
+      <section id="narration" class="card" hidden aria-label="Thuyết minh">
+        <div class="narration-head">
+          <span aria-hidden="true">🎙</span> <span id="narration-title"></span>
+          <span id="narration-step" class="narration-step"></span>
+        </div>
+        <p id="narration-text" aria-live="polite"></p>
+        <div class="narration-buttons">
+          <button id="narration-prev" type="button" class="chip" aria-label="Đoạn trước">‹</button>
+          <button id="narration-next" type="button" class="chip" aria-label="Đoạn sau">›</button>
+          <button id="narration-stop" type="button" class="chip" aria-label="Dừng thuyết minh (Esc)">✕ Dừng</button>
+        </div>
+      </section>
 
       <div id="loading" aria-busy="true">
         <div class="load-card">
