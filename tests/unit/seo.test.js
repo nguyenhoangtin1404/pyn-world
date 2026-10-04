@@ -14,6 +14,13 @@ describe('seo', () => {
     expect(data['@graph'].map((n) => n['@type'])).toContain('TouristAttraction')
   })
 
+  it('tháp ở Tuy Hòa, không phải Quy Nhơn', () => {
+    const llms = []
+    seo().generateBundle.call({ emitFile: (f) => llms.push(f.source) })
+    for (const text of [html, ...llms]) expect(text).not.toMatch(/Quy Nhơn|Bình Định/)
+    expect(html).toContain('Tuy Hòa')
+  })
+
   it('plugin thay SITE_URL và sinh robots/sitemap/llms', () => {
     const p = seo()
     expect(p.transformIndexHtml('<a href="%SITE_URL%">')).not.toContain('%SITE_URL%')

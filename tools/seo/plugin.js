@@ -34,13 +34,13 @@ const sitemap = (url) => `<?xml version="1.0" encoding="UTF-8"?>
 
 const llms = (url) => `# PYN World – Tháp Nghinh Phong 3D
 
-> Sa bàn 3D low-poly tương tác chạy ngay trên trình duyệt (Three.js), dựng từ dữ liệu bản đồ thật quanh Tháp Nghinh Phong, Quy Nhơn, Bình Định, Việt Nam. Không cần cài đặt, không có tài khoản.
+> Sa bàn 3D low-poly tương tác chạy ngay trên trình duyệt (Three.js), dựng từ dữ liệu bản đồ thật quanh Tháp Nghinh Phong, Tuy Hòa, Đắk Lắk (Phú Yên cũ), Việt Nam. Không cần cài đặt, không có tài khoản.
 
 ## Trang chính
 - [PYN World – Tháp Nghinh Phong](${url}): sa bàn 2 × 2 km quanh tháp, có phố, nhà, biển, bãi biển, xe cộ, du khách, ngày đêm.
 
 ## Thông tin nhanh
-- Tháp Nghinh Phong: công trình ven biển Quy Nhơn, thiết kế bởi HUNI architectes (2021); hai tháp, mỗi tháp 50 cột đá lục giác; cột nhọn cao 35 m (Lạc Long Quân) và 30 m (Âu Cơ); quảng trường 1/4 bán nguyệt 7 190 m².
+- Tháp Nghinh Phong: công trình ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), thiết kế bởi HUNI architectes (2021); hai tháp, mỗi tháp 50 cột đá lục giác; cột nhọn cao 35 m (Lạc Long Quân) và 30 m (Âu Cơ); quảng trường 1/4 bán nguyệt 7 190 m².
 - Tọa độ: khoảng 13.1163 N, 109.3076 E.
 - Dữ liệu: độ cao SRTM 1″; phố, nhà từ OpenStreetMap / Overture Maps (ODbL).
 - Mã nguồn: https://github.com/nguyenhoangtin1404/pyn-world
