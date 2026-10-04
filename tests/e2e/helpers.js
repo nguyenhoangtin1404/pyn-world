@@ -17,9 +17,10 @@ export { expect };
 export const waitForWorld = (page, id) =>
   page.waitForFunction((id) => window.__pyn?.W?.cfg.id === id && document.getElementById('loading').classList.contains('done'), id, { timeout: 180_000 });
 
-// Open the app on a world and wait until it is on screen.
+// Open the app on a world and wait until it is on screen. The clock starts at 9:00 and runs fast (?clock=fast),
+// as it did before the app followed the real time: what a test sees must not depend on when it runs.
 export async function openWorld(page, id) {
-  await page.goto(`/?world=${id}`);
+  await page.goto(`/?world=${id}&clock=fast`);
   await waitForWorld(page, id);
 }
 

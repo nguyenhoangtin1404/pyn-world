@@ -85,10 +85,15 @@ test('quick views: the tower, the tourists, the balloons', async ({ page }) => {
   await page.keyboard.press('Digit0');
   expect((await state()).mode).toBe('balloon');
   await expect(toast).toHaveText(/^Đang theo: Khinh khí cầu /);
-  // The chips: the tower's, and the new cameras', all shown in this world (in the panel: open it).
+  // The chips (in the panel: open it): the tower's; none for 9 and 0 — 6 follows tourists too, 7 the balloons.
   await page.locator('#panel-toggle').click();
   await expect(page.locator('#camera-modes button', { hasText: 'Tháp' })).toBeVisible();
-  await expect(page.locator('#camera-modes button', { hasText: 'Du khách' })).toBeVisible();
-  await expect(page.locator('#camera-modes button', { hasText: 'Khinh khí cầu' })).toBeVisible();
+  await expect(page.locator('#camera-modes button', { hasText: 'Du khách' })).toHaveCount(0);
+  await expect(page.locator('#camera-modes button', { hasText: 'Khinh khí cầu' })).toHaveCount(0);
+  // The shortcuts list only names keys that do something here: no train, bridge, sheep, river or other world.
+  await page.locator('#help-btn').click();
+  const help = page.locator('#help');
+  for (const key of ['V', 'I', '6', '9']) await expect(help.locator('div:not([hidden]) > dt', { hasText: new RegExp(`^${key}$`) })).toHaveCount(1);
+  for (const key of ['B', 'F', 'G', 'K', 'J', 'L', 'N']) await expect(help.locator('div:not([hidden]) > dt', { hasText: new RegExp(`^${key}$`) })).toHaveCount(0);
   expect(page.errors).toEqual([]);
 });

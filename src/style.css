@@ -191,6 +191,14 @@ button:focus-visible {
   margin: 0;
 }
 
+.shortcut-list > div {
+  display: contents; /* (a row: its dt and dd sit in the grid as before) */
+}
+
+.shortcut-list > div[hidden] {
+  display: none;
+}
+
 .shortcut-list dt {
   white-space: nowrap;
 }
@@ -255,6 +263,24 @@ button:focus-visible {
 #time-of-day,
 .row.tight {
   gap: 6px;
+}
+
+/* Rarely needed settings (src/hud.js): folded away under "Nâng cao". */
+.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.advanced summary {
+  align-self: center;
+  color: var(--ink-soft);
+  font: 500 0.75rem 'Fredoka', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.advanced[open] summary {
+  margin-bottom: 6px;
 }
 
 .field {

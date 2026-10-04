@@ -329,6 +329,16 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
 - **Chỉ hiện NGHINH PHONG**: `SHOWN` (`worlds/index.js`) là các world app đưa ra (nút chọn, phím N, world mặc định);
   world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>`. Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
   bản dev) thay phím N.
+- **Đồng hồ theo giờ thật** (`state.clock` trong `main.js`): mặc định `'real'` = **giờ Việt Nam lúc này** (`vietnamHour`, UTC+7,
+  `sky.js`, có test), trôi như thật; bấm một buổi (Sáng/Trưa/Chiều/Đêm, phím T) hay `⟳ Tua nhanh`/phím C thì `'fast'` (1 giờ
+  = 10 s, 1 ngày = 4 phút, như trước); `🕒 Giờ thật`/C quay lại. `'still'` = đứng (test ảnh). **Test luôn mở bằng
+  `?clock=fast`** (`openWorld` trong `tests/e2e/helpers.js`): 9:00 chạy nhanh như cũ — golden, tua 300 s, nhịp ngày không phụ
+  thuộc lúc chạy test. E2E `clock.spec.js`.
+- **Bảng điều khiển gọn** (`hud.js`): chỉ một world thì ẩn nút chọn world; không có chip 9 (du khách — 6 đã theo cả du khách)
+  và 0 (khinh khí cầu — 7 đã gồm), phím vẫn chạy; nút ♪ là biểu tượng của thanh âm lượng; tốc độ tàu, tốc độ thời gian, viền
+  mực, bóng đổ, pixel art gom vào `<details id="advanced">` "Nâng cao" (đóng sẵn). **Bảng phím tắt lọc theo world**: mỗi dòng
+  một `<div data-needs="…">` trong `<dl>` (`display: contents`) — `train`, `bridge`, `person`, `bird`, `vehicle`, `tourist`,
+  `balloon`, `landmark`, `tour`, `worlds` (> 1 world), `spot:<id>` (`world.spots`); `hud.setWorld` ẩn dòng không dùng được.
 - **Màn hình tải theo world** (`app/loader.js`): `🚂`/`🏛` (có/không tàu, hoặc `cfg.icon`) + tên + `cfg.tagline` (mặc định
   "SA BÀN LOW-POLY"); gợi ý chỉ nói thứ world có (`hintsFor`: mỗi gợi ý `needs` một feature id). **Bảng điều khiển đóng sẵn**
   (`#panel.collapsed` trong `index.html`) — nút "Mở bảng điều khiển"; test nào bấm chip/ô trong bảng thì mở nó trước.

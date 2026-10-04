@@ -32,8 +32,10 @@ export function initHud(state, actions, worlds) {
     $('world-picker').append(b);
     return [w.id, b];
   });
+  $('world-picker').hidden = worlds.length < 2; // (one world: nothing to pick)
 
-  const camBtns = CAMERA_MODES.map((m) => {
+  // Not 9 (tourists) and 0 (balloons) as chips: 6 follows tourists too, 7 the balloons (their keys still work).
+  const camBtns = CAMERA_MODES.filter((m) => m.id !== 'tourist' && m.id !== 'balloon').map((m) => {
     const b = chip(`<kbd>${m.key}</kbd>${m.label}`, () => actions.setMode(m.id));
     $('camera-modes').append(b);
     return [m.id, b];
@@ -53,9 +55,11 @@ export function initHud(state, actions, worlds) {
     $('time-of-day').append(b);
     return [p.id, b];
   });
-  const autoBtn = chip('<kbd>C</kbd>⟳ Tự động', () => actions.toggleAutoDay());
-  autoBtn.title = 'Ngày đêm tự trôi (1 ngày = 4 phút)';
-  $('time-of-day').append(autoBtn);
+  const realBtn = chip('🕒 Giờ thật', () => actions.setClock('real'));
+  realBtn.title = 'Giờ Việt Nam lúc này, trôi như thật (phím C)';
+  const fastBtn = chip('<kbd>C</kbd>⟳ Tua nhanh', () => actions.setClock('fast'));
+  fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút';
+  $('time-of-day').append(realBtn, fastBtn);
 
   const weather = $('weather');
   weather.innerHTML = WEATHER_OPTIONS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
@@ -116,7 +120,10 @@ export function initHud(state, actions, worlds) {
     }
     camBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.mode));
     timeBtns.forEach(([id, b]) => b.classList.toggle('active', id === state.timeOfDay));
-    autoBtn.classList.toggle('active', state.autoDay);
+    realBtn.classList.toggle('active', state.clock === 'real');
+    fastBtn.classList.toggle('active', state.clock === 'fast');
+    // (Real time: the buttons of the times of day are not "on" — the time is what it is.)
+    if (state.clock === 'real') timeBtns.forEach(([, b]) => b.classList.remove('active'));
     weather.value = state.weather;
     volume.value = state.volume;
     $('volume-value').textContent = `${Math.round(state.volume * 100)}%`;
@@ -168,6 +175,12 @@ export function initHud(state, actions, worlds) {
     landmarkBtn.hidden = world.landmarks.length === 0;
     tourBtn.hidden = !world.landmarks.some((l) => l.tour?.length);
     speed.closest('label').hidden = !world.train;
+    // The shortcuts list too: only the keys that do something here.
+    const can = { ...has, landmark: world.landmarks.length > 0, tour: !tourBtn.hidden, worlds: worlds.length > 1 };
+    for (const row of document.querySelectorAll('#help [data-needs]')) {
+      const need = /** @type {HTMLElement} */ (row).dataset.needs ?? '';
+      /** @type {HTMLElement} */ (row).hidden = need.startsWith('spot:') ? !world.spots[need.slice(5)] : can[need] === false;
+    }
   }
 
   return { sync, toast, toggleHud, setClock, setWorld };

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { TIME_PRESETS, presetAtHour } from './world/sky.js';
+import { TIME_PRESETS, presetAtHour, vietnamHour } from './world/sky.js';
 import { PostFX } from './render/post.js';
 import { CameraRig } from './cameras.js';
 import { AudioEngine } from './audio.js';
@@ -24,7 +24,10 @@ const state = {
   mode: 'overview',
   timeOfDay: 'day',
   hour: 9, // 0..24, drives the sky
-  autoDay: true, // clock advances by itself
+  // 'real': the time in Vietnam now, at its own pace (the default); 'fast': a day every 4 minutes, from wherever
+  // it was (a time preset, T or C starts it); 'still': stopped. ?clock=fast opens at 9:00 running fast — the
+  // tests use it, so that what they see doesn't depend on when they run.
+  clock: new URLSearchParams(location.search).get('clock') === 'fast' ? 'fast' : 'real',
   weather: 'clear',
   speed: 1,
   timeScale: 1,
@@ -35,6 +38,9 @@ const state = {
   volume: 0.65,
   muted: false,
 };
+
+if (state.clock === 'real') state.hour = vietnamHour(new Date());
+state.timeOfDay = presetAtHour(state.hour);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 // Reading shader logs after every compile makes the browser wait for each compile to finish; only
@@ -122,15 +128,20 @@ const actions = {
     tour.stop();
     if (!quiet) hud.toast('Đã dừng thuyết minh');
   },
-  // Jump the clock to a preset's hour (the automatic cycle keeps running from there).
+  // Jump the clock to a preset's hour; the day then runs fast from there.
   setTime(id) {
     state.hour = TIME_PRESETS.find((p) => p.id === id).hour;
     state.timeOfDay = id;
+    state.clock = 'fast';
     world?.sky.setHour(state.hour);
     hud.sync();
   },
-  toggleAutoDay() {
-    state.autoDay = !state.autoDay;
+  // 'real' (Vietnam's time now) or 'fast' (a day in 4 minutes, from the hour shown).
+  setClock(mode) {
+    state.clock = mode;
+    if (mode === 'real') state.hour = vietnamHour(new Date());
+    state.timeOfDay = presetAtHour(state.hour);
+    world?.sky.setHour(state.hour);
     hud.sync();
   },
   setWeather(id) {
@@ -204,9 +215,9 @@ function frame() {
   adaptResolution(delta);
   const raw = Math.min(delta, 0.1);
   const dt = state.paused ? 0 : raw * state.timeScale;
-  if (state.autoDay && dt > 0) {
-    // One in-game hour every 10 s at 1× → a full day in 4 minutes.
-    state.hour = (state.hour + dt / 10) % 24;
+  if (state.clock === 'real' || (state.clock === 'fast' && dt > 0)) {
+    // Real: the time in Vietnam. Fast: one in-game hour every 10 s at 1× → a full day in 4 minutes.
+    state.hour = state.clock === 'real' ? vietnamHour(new Date()) : (state.hour + dt / 10) % 24;
     world.sky.setHour(state.hour);
     const preset = presetAtHour(state.hour);
     if (preset !== state.timeOfDay) {
@@ -214,7 +225,7 @@ function frame() {
       hud.sync();
     }
   }
-  hud.setClock(state.hour, state.autoDay);
+  hud.setClock(state.hour);
 
   world.update({ dt, raw, speed: state.speed, camera });
   tour.update(Math.min(delta, 1)); // (real time: the narrator speaks in it)

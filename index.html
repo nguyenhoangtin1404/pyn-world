@@ -71,34 +71,37 @@
             <button id="hide-help" type="button" class="link">ẩn</button>
           </div>
           <dl class="shortcut-list">
-            <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Toàn cảnh · Theo tàu · Cầu · Hành khách · Lái tàu</dd>
-            <dt><kbd>6</kbd></dt><dd>Đi theo một người (bấm lại để đổi người)</dd>
-            <dt><kbd>7</kbd></dt><dd>Đi theo một con chim / khinh khí cầu / máy bay (bấm lại để đổi)</dd>
-            <dt><kbd>8</kbd></dt><dd>Đi theo một chiếc xe (nếu thế giới có đường và xe)</dd>
-            <dt><kbd>9</kbd></dt><dd>Đi theo một du khách ở tháp (bấm lại để đổi người)</dd>
-            <dt><kbd>0</kbd></dt><dd>Đi theo một quả khinh khí cầu (bấm lại để đổi)</dd>
-            <dt><kbd>B</kbd></dt><dd>Chuyển sang cây cầu kế tiếp</dd>
-            <dt><kbd>Kéo</kbd></dt><dd>Xoay camera / nhìn quanh (Hành khách, Lái tàu)</dd>
-            <dt><kbd>Chuột phải</kbd></dt><dd>Di chuyển ngang (Toàn cảnh)</dd>
-            <dt><kbd>Lăn</kbd></dt><dd>Zoom về phía con trỏ</dd>
-            <dt><kbd>WASD</kbd> <kbd>Q</kbd> <kbd>E</kbd></dt><dd>Bay trong Toàn cảnh / xuống, lên</dd>
-            <dt><kbd>Shift</kbd></dt><dd>Bay nhanh hơn</dd>
-            <dt><kbd>F</kbd></dt><dd>Bay tới đôi cừu đang yêu</dd>
-            <dt><kbd>G</kbd></dt><dd>Bay tới chú cừu bên cầu</dd>
-            <dt><kbd>K</kbd></dt><dd>Bay lên đỉnh núi có người leo</dd>
-            <dt><kbd>J</kbd></dt><dd>Bay tới thuyền câu cá</dd>
-            <dt><kbd>L</kbd></dt><dd>Bay tới tàu hơi nước trên sông</dd>
-            <dt><kbd>V</kbd></dt><dd>Bay tới tháp / công trình nổi tiếng kế tiếp (thế giới từ bản đồ thật)</dd>
-            <dt><kbd>I</kbd></dt><dd>Thuyết minh giới thiệu tháp (bấm lại hoặc <kbd>Esc</kbd> để dừng)</dd>
-            <dt><kbd>P</kbd></dt><dd>Đổi mức pixel art</dd>
-            <dt><kbd>O</kbd></dt><dd>Bật/tắt viền mực</dd>
-            <dt><kbd>T</kbd> / <kbd>Shift</kbd>+<kbd>T</kbd></dt><dd>Nhảy tới buổi kế tiếp / trước đó</dd>
-            <dt><kbd>C</kbd></dt><dd>Bật / tắt ngày đêm tự động (1 ngày = 4 phút)</dd>
-            <dt><kbd>Space</kbd></dt><dd>Tạm dừng</dd>
-            <dt><kbd>X</kbd></dt><dd>Tốc độ thời gian 0× / 1×</dd>
-            <dt><kbd>M</kbd></dt><dd>Tắt / bật tiếng</dd>
-            <dt><kbd>H</kbd></dt><dd>Ẩn / hiện giao diện</dd>
-            <dt><kbd>N</kbd></dt><dd>Sang thế giới kế tiếp (hoặc bấm tên thế giới ở góc trên)</dd>
+            <!-- data-needs: shown only where the world has it (hud.js setWorld); a <div> per row so it hides whole -->
+            <div><dt><kbd>1</kbd></dt><dd>Toàn cảnh</dd></div>
+            <div data-needs="train"><dt><kbd>2</kbd>–<kbd>5</kbd></dt><dd>Theo tàu · Cầu · Hành khách · Lái tàu</dd></div>
+            <div data-needs="person"><dt><kbd>6</kbd></dt><dd>Đi theo một người (bấm lại để đổi người)</dd></div>
+            <div data-needs="bird"><dt><kbd>7</kbd></dt><dd>Đi theo một con chim / khinh khí cầu / máy bay (bấm lại để đổi)</dd></div>
+            <div data-needs="vehicle"><dt><kbd>8</kbd></dt><dd>Đi theo một chiếc xe (bấm lại để đổi)</dd></div>
+            <div data-needs="tourist"><dt><kbd>9</kbd></dt><dd>Đi theo một du khách ở tháp (bấm lại để đổi người)</dd></div>
+            <div data-needs="balloon"><dt><kbd>0</kbd></dt><dd>Đi theo một quả khinh khí cầu (bấm lại để đổi)</dd></div>
+            <div data-needs="bridge"><dt><kbd>B</kbd></dt><dd>Chuyển sang cây cầu kế tiếp</dd></div>
+            <div data-needs="train"><dt><kbd>Kéo</kbd></dt><dd>Nhìn quanh (Hành khách, Lái tàu)</dd></div>
+            <div><dt><kbd>Kéo</kbd></dt><dd>Xoay camera (Toàn cảnh)</dd></div>
+            <div><dt><kbd>Chuột phải</kbd></dt><dd>Di chuyển ngang (Toàn cảnh)</dd></div>
+            <div><dt><kbd>Lăn</kbd></dt><dd>Zoom về phía con trỏ</dd></div>
+            <div><dt><kbd>WASD</kbd> <kbd>Q</kbd> <kbd>E</kbd></dt><dd>Bay trong Toàn cảnh / xuống, lên</dd></div>
+            <div><dt><kbd>Shift</kbd></dt><dd>Bay nhanh hơn</dd></div>
+            <div data-needs="spot:courting"><dt><kbd>F</kbd></dt><dd>Bay tới đôi cừu đang yêu</dd></div>
+            <div data-needs="spot:bridgeSheep"><dt><kbd>G</kbd></dt><dd>Bay tới chú cừu bên cầu</dd></div>
+            <div data-needs="spot:summit"><dt><kbd>K</kbd></dt><dd>Bay lên đỉnh núi có người leo</dd></div>
+            <div data-needs="spot:fisherman"><dt><kbd>J</kbd></dt><dd>Bay tới thuyền câu cá</dd></div>
+            <div data-needs="spot:steamer"><dt><kbd>L</kbd></dt><dd>Bay tới tàu hơi nước trên sông</dd></div>
+            <div data-needs="landmark"><dt><kbd>V</kbd></dt><dd>Bay tới tháp / công trình nổi tiếng kế tiếp</dd></div>
+            <div data-needs="tour"><dt><kbd>I</kbd></dt><dd>Thuyết minh giới thiệu tháp (bấm lại hoặc <kbd>Esc</kbd> để dừng)</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd>Đổi mức pixel art</dd></div>
+            <div><dt><kbd>O</kbd></dt><dd>Bật/tắt viền mực</dd></div>
+            <div><dt><kbd>T</kbd> / <kbd>Shift</kbd>+<kbd>T</kbd></dt><dd>Nhảy tới buổi kế tiếp / trước đó (rồi ngày trôi nhanh)</dd></div>
+            <div><dt><kbd>C</kbd></dt><dd>Giờ thật ⇄ ngày trôi nhanh (1 ngày = 4 phút)</dd></div>
+            <div><dt><kbd>Space</kbd></dt><dd>Tạm dừng</dd></div>
+            <div><dt><kbd>X</kbd></dt><dd>Tốc độ thời gian 0× / 1×</dd></div>
+            <div><dt><kbd>M</kbd></dt><dd>Tắt / bật tiếng</dd></div>
+            <div><dt><kbd>H</kbd></dt><dd>Ẩn / hiện giao diện</dd></div>
+            <div data-needs="worlds"><dt><kbd>N</kbd></dt><dd>Sang thế giới kế tiếp (hoặc bấm tên thế giới ở góc trên)</dd></div>
           </dl>
         </div>
       </div>
@@ -115,29 +118,31 @@
           <div id="time-of-day" class="row" role="group" aria-label="Giờ trong ngày"></div>
           <div class="row">
             <label class="field">Thời tiết <select id="weather" aria-label="Thời tiết"></select></label>
-            <button id="sound-toggle" class="chip round" type="button" aria-label="Tắt tiếng" aria-pressed="false">♪</button>
-            <label class="field slider">
-              <span>Âm lượng</span>
-              <input id="volume" type="range" min="0" max="1" step="0.01" value="0.65" />
+            <span class="field slider">
+              <button id="sound-toggle" class="chip round" type="button" aria-label="Tắt tiếng" aria-pressed="false">♪</button>
+              <input id="volume" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Âm lượng" />
               <output id="volume-value" for="volume">65%</output>
-            </label>
+            </span>
           </div>
-          <div class="row">
-            <label class="field slider" title="Chuột phải để đặt lại">
-              <span>🚂 Tốc độ tàu</span>
-              <input id="speed" type="range" min="0" max="2.5" step="0.05" value="1" />
-              <output id="speed-value">1×</output>
-            </label>
-            <label class="field slider" title="X · 0× / 1× · Chuột phải để đặt lại">
-              <span>⏱ Thời gian</span>
-              <input id="time-scale" type="range" min="0" max="2" step="0.05" value="1" />
-              <output id="time-scale-value">1×</output>
-            </label>
-          </div>
-          <div class="row">
-            <div id="toggles" class="row tight"></div>
-            <label class="field" title="Phím P">Pixel art <select id="pixel" aria-label="Độ phân giải pixel art"></select></label>
-          </div>
+          <details id="advanced" class="advanced">
+            <summary>Nâng cao</summary>
+            <div class="row">
+              <label class="field slider" title="Chuột phải để đặt lại">
+                <span>🚂 Tốc độ tàu</span>
+                <input id="speed" type="range" min="0" max="2.5" step="0.05" value="1" />
+                <output id="speed-value">1×</output>
+              </label>
+              <label class="field slider" title="X · 0× / 1× · Chuột phải để đặt lại">
+                <span>⏱ Thời gian</span>
+                <input id="time-scale" type="range" min="0" max="2" step="0.05" value="1" />
+                <output id="time-scale-value">1×</output>
+              </label>
+            </div>
+            <div class="row">
+              <div id="toggles" class="row tight"></div>
+              <label class="field" title="Phím P">Pixel art <select id="pixel" aria-label="Độ phân giải pixel art"></select></label>
+            </div>
+          </details>
         </div>
       </div>
 

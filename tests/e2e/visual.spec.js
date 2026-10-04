@@ -15,7 +15,7 @@ const MATCH = { maxDiffPixelRatio: 0.002, threshold: 0.2 };
 const QUIET = (keepKind) => {
   const { W, state } = window.__pyn;
   state.paused = true;
-  state.autoDay = false;
+  state.clock = 'still';
   state.hour = 12;
   W.sky.setHour(12);
   for (const w of [...W.people, ...W.pedestrians]) w.group.visible = false;
