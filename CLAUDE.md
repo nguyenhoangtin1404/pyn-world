@@ -58,6 +58,10 @@ từng commit và tiêu đề PR (PR được squash-merge theo tiêu đề).
 bắt được: gõ sai tên hook trả về từ `build()` (`lateUpadte` sẽ lặng lẽ không chạy) — soát bằng mắt.
 File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dòng đầu.
 
+## SEO (trang chủ = NGHINH PHONG)
+
+`index.html` có title/description/canonical/Open Graph/Twitter + JSON-LD (WebSite, WebApplication, TouristAttraction, FAQPage) và khối `.seo-copy` (chữ ẩn khỏi mắt, có trong HTML) vì cảnh 3D là canvas, bot không đọc được. `public/og.png` (1200×630) là ảnh chụp tháp. `tools/seo/plugin.js` (dùng trong `vite.config.js`) thay `%SITE_URL%` và sinh `robots.txt` (cho phép cả bot AI), `sitemap.xml`, `llms.txt` lúc build; đổi tên miền: `SITE_URL=https://… npm run build` (mặc định GitHub Pages). Sửa số liệu về tháp thì sửa cả JSON-LD, `.seo-copy` và `llms.txt`. Test: `tests/unit/seo.test.js`.
+
 ## Nhiều world
 
 `main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
