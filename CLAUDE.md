@@ -335,7 +335,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   `?clock=fast`** (`openWorld` trong `tests/e2e/helpers.js`): 9:00 chạy nhanh như cũ — golden, tua 300 s, nhịp ngày không phụ
   thuộc lúc chạy test. E2E `clock.spec.js`.
 - **Bảng điều khiển gọn** (`hud.js`) cho người xem thường: bảng chính chỉ có 🗺 Toàn cảnh, 🏛 Tháp, 🎙 Thuyết minh, giờ + các
-  buổi + 🕒 Giờ thật, Thời tiết, âm lượng; **phím tắt không in trên nút** (nằm trong `title`). Máy quay đi theo (`#follow-modes`,
+  buổi + 🕒 Giờ thật, thời tiết (ba nút ☀ Nắng / ☂ Mưa / ❄ Tuyết trong `#weather`, nút đang chọn `aria-pressed`), âm lượng; **phím tắt không in trên nút** (nằm trong `title`). Máy quay đi theo (`#follow-modes`,
   cả máy quay tàu), ⟳ Tua nhanh, ⌨ Phím tắt (`#help-btn`, ẩn trên màn hình cảm ứng — `pointer: coarse`) nằm trong "Nâng cao".
   Chỉ một world thì ẩn nút chọn world; không có chip 9 (du khách — 6 đã theo cả du khách)
   và 0 (khinh khí cầu — 7 đã gồm), phím vẫn chạy; nút ♪ là biểu tượng của thanh âm lượng; tốc độ tàu, tốc độ thời gian, viền

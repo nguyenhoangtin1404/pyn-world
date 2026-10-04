@@ -64,9 +64,12 @@ export function initHud(state, actions, worlds) {
   fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút (phím C)';
   $('time-of-day').append(realBtn);
 
-  const weather = $('weather');
-  weather.innerHTML = WEATHER_OPTIONS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('');
-  weather.addEventListener('change', () => actions.setWeather(weather.value));
+  // The weather as buttons, one tap each (the one on is pressed).
+  const weatherBtns = WEATHER_OPTIONS.map((o) => {
+    const b = chip(o.label, () => actions.setWeather(o.id));
+    $('weather').append(b);
+    return [o.id, b];
+  });
 
   $('sound-toggle').addEventListener('click', (e) => {
     actions.toggleMute();
@@ -127,7 +130,10 @@ export function initHud(state, actions, worlds) {
     fastBtn.classList.toggle('active', state.clock === 'fast');
     // (Real time: the buttons of the times of day are not "on" — the time is what it is.)
     if (state.clock === 'real') timeBtns.forEach(([, b]) => b.classList.remove('active'));
-    weather.value = state.weather;
+    for (const [id, b] of weatherBtns) {
+      b.classList.toggle('active', id === state.weather);
+      b.setAttribute('aria-pressed', String(id === state.weather));
+    }
     volume.value = state.volume;
     $('volume-value').textContent = `${Math.round(state.volume * 100)}%`;
     const snd = $('sound-toggle');

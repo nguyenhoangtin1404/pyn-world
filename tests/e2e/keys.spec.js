@@ -51,8 +51,14 @@ test('keyboard shortcuts', async ({ page }) => {
   await expect(page.locator('#panel-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('#weather')).toBeVisible();
 
+  // The weather is a row of buttons: one tap, and that one is pressed.
+  await page.locator('#weather button', { hasText: 'Mưa' }).click();
+  expect((await state()).weather).toBe('rain');
+  await expect(page.locator('#weather button', { hasText: 'Mưa' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#weather button', { hasText: 'Nắng' })).toHaveAttribute('aria-pressed', 'false');
+
   // Typing in a field is not a shortcut.
-  await page.locator('#weather').focus();
+  await page.locator('#volume').focus();
   await page.keyboard.press('Digit3');
   expect((await state()).mode).toBe('overview');
   expect(page.errors).toEqual([]);
