@@ -30,7 +30,7 @@ import { FEATURE_IDS, featureById, loadFeatures } from './features/index.js';
 // - group: added to the scene
 // - update(f): every frame, before the camera moves — f = { dt, raw, t, speed, camera, rain, lights }
 // - lateUpdate(f): after the camera and the sky — f also has { focus, lights, overcast, snow }
-// - finish(): once, when every feature has been built (lamps.js builds its glow then)
+// - finish(): once, when every feature has been built (services/lamps.js builds its glow then)
 // - dispose(): anything World.dispose() can't find in the scene
 // `dt` is simulated time (0 while paused), `raw` real time, `t` the world's simulated clock.
 const TMP = { p: new THREE.Vector3(), q: new THREE.Quaternion(), sc: new THREE.Vector3() };

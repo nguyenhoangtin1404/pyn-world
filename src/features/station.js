@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { TRACK_Y } from '../config.js';
 import { box, cyl, prism, shape } from '../world/lowpoly.js';
 import { shadowed, labelTexture } from './common.js';
-import { lamps } from './lamps.js';
+import { lamps } from '../services/lamps.js';
 import { buildPlatform, frameIndex, PLAT_TOP } from './platform.js';
 
 // A main station at a stop (option `stop`: an id from cfg.stops, by default the first one not built

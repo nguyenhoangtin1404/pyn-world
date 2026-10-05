@@ -1,6 +1,6 @@
 // @ts-check
 import { ball, box, cone, cyl } from '../world/lowpoly.js';
-import { lamps } from './lamps.js';
+import { lamps } from '../services/lamps.js';
 
 // The median of a boulevard (a road with `median` in cfg.roads, world/streetnet.js): a kerbed strip of
 // grass between the two carriageways, planted with bushes (a few in flower), a small tree every so

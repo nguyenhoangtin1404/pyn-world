@@ -1,7 +1,7 @@
 // @ts-check
 import * as THREE from 'three';
 import { ball, box, cyl, segment } from '../world/lowpoly.js';
-import { lamps } from '../features/lamps.js';
+import { lamps } from '../services/lamps.js';
 import { Paint } from '../world/roads/paint.js';
 import { CLAIM } from '../world/site.js';
 import { WATER_Y } from '../config.js';
