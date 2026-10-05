@@ -1,7 +1,31 @@
 {
   "meshes": 396,
-  "geometry": "2f20e530",
-  "instances": "4aa19498",
+  "geometry": {
+    "total": "2f20e530",
+    "by": {
+      "terrain": "43:77ff655a",
+      "bridges": "29:ba675b70",
+      "station": "6:b1e7c0e8",
+      "landmarks": "4:43745957",
+      "buildings": "4:35cd4f45",
+      "trees": "5:94809041",
+      "clouds": "16:1662b044",
+      "train": "189:d8957990",
+      "strollers": "28:8e04f0dc",
+      "citytraffic": "30:ebf66f6d",
+      "birds": "9:68020",
+      "sky": "1:f37756a1",
+      "finish": "32:b901cff9"
+    }
+  },
+  "instances": {
+    "total": "4aa19498",
+    "by": {
+      "bridges": "2:5fbcad5",
+      "buildings": "4:4677666a",
+      "trees": "5:c4f539ad"
+    }
+  },
   "colliders": 1307,
   "stations": [
     "tuyhoa"

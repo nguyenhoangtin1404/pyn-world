@@ -193,8 +193,21 @@ export class World {
     const { cfg, scene } = this;
     const features = cfg.features.map((entry) => (typeof entry === 'string' ? { id: entry } : entry));
     checkFeatures(features, !!cfg.track);
-    /** @type {(label: string, run: () => void) => [string, () => void]} */
-    const step = (label, run) => [label, run];
+    // Every object a step adds to the scene remembers which step put it there (userData.builtBy: a core
+    // part, a feature id, or 'finish' — the static batch, merged from every feature): the e2e golden
+    // (tests/e2e/helpers.js) hashes each one's part apart, so a red run names what changed.
+    const seen = new Map();
+    /** @type {(label: string, run: () => void, key: string) => [string, () => void]} */
+    const step = (label, run, key) => {
+      const n = (seen.get(key) ?? 0) + 1;
+      seen.set(key, n);
+      const by = n > 1 ? `${key}#${n}` : key;
+      return [label, () => {
+        const before = scene.children.length;
+        run();
+        for (const o of scene.children.slice(before)) o.userData.builtBy ??= by;
+      }];
+    };
     return [
       step('Đang trải đường ray', () => {
         // (No railway — cfg.track null: a stand-in nothing is near, and no stops.)
@@ -202,7 +215,7 @@ export class World {
         const M = this.track.frames.length;
         // Every stop in the config with its place on the track (frame); features build on them.
         this.stops = cfg.stops.map((st) => ({ ...st, frame: this.track.frame(Math.round(M * st.at)) }));
-      }),
+      }, 'track'),
       step('Đang nặn địa hình', () => {
         const terrain = (this.terrain = createTerrain(cfg, this.track, this.stops, this.rivers));
         this.heightAt = terrain.heightAt;
@@ -211,12 +224,12 @@ export class World {
           update: (f) => terrain.update(f.t),
           lateUpdate: (f) => terrain.setSnow(f.snow),
         });
-      }),
+      }, 'terrain'),
       ...(cfg.tunnel
         ? [step('Đang đào đường hầm', () => {
           const tunnel = (this.tunnel = createTunnel(this.track, this.heightAt, cfg.tunnel));
           this.add({ group: tunnel.group, lateUpdate: (f) => tunnel.setSnow(f.snow) });
-        })]
+        }, 'tunnel')]
         : []),
       step('Đang dựng cầu và tà vẹt', () => {
         if (cfg.track) {
@@ -233,21 +246,21 @@ export class World {
         }
         const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
         this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards, rivers: this.rivers });
-      }),
+      }, 'bridges'),
       ...features.map((entry) => {
         const { id, stream, ...options } = entry;
         const feature = FEATURES[id];
         return step(feature.label, () => {
           const system = feature.build(this, { ...options, rng: this.rngFor(entry) });
           if (system) this.add(system);
-        });
+        }, id);
       }),
       step('Đang pha màu bầu trời', () => {
         this.sky = new Sky(scene, { latitude: cfg.latitude ?? null, day: cfg.sunDay ?? 80 });
         const weather = (this.weather = new Weather(scene));
         // Last: everything else reads last frame's rain, as it was when the frame started.
         this.add({ update: (f) => weather.update(f.dt, f.raw, f.camera) });
-      }),
+      }, 'sky'),
       step('Đang hoàn thiện', () => {
         for (const s of this.systems) s.finish?.();
         for (const p of this.people) {
@@ -266,7 +279,7 @@ export class World {
         // on a big map it takes long enough to make a frame stutter and the simulation jump.
         if (cfg.landcover) coastOf(this);
         this.checkSeal();
-      }),
+      }, 'finish'),
     ];
   }
 

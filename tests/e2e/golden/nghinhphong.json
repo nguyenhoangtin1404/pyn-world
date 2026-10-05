@@ -1,7 +1,33 @@
 {
   "meshes": 178,
-  "geometry": "d414ae34",
-  "instances": "659eb293",
+  "geometry": {
+    "total": "d414ae34",
+    "by": {
+      "terrain": "23:6d4a92fc",
+      "landmarks": "5:34432283",
+      "buildings": "4:35cd4f45",
+      "trees": "5:94809041",
+      "clouds": "16:8180abcd",
+      "balloons": "24:49828e12",
+      "strollers": "12:aa244f8e",
+      "tourists": "11:747f402d",
+      "citytraffic": "21:b69ed822",
+      "birds": "5:db371b0e",
+      "seacraft": "12:dd9c2817",
+      "beach": "9:8cc99bb2",
+      "streetlife": "7:22e25857",
+      "host": "1:4d6397d2",
+      "sky": "1:f37756a1",
+      "finish": "22:fb109c80"
+    }
+  },
+  "instances": {
+    "total": "659eb293",
+    "by": {
+      "buildings": "4:9b9d4d1f",
+      "trees": "5:c4f20ebe"
+    }
+  },
   "colliders": 1560,
   "stations": [],
   "people": 0,

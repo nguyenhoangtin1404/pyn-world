@@ -1,7 +1,37 @@
 {
   "meshes": 363,
-  "geometry": "6103911",
-  "instances": "288b418",
+  "geometry": {
+    "total": "6103911",
+    "by": {
+      "terrain": "8:f2f857d",
+      "tunnel": "22:b77f0be4",
+      "bridges": "16:e794ccc2",
+      "station": "6:c8e025a3",
+      "village": "2:95aa9610",
+      "halt": "6:33fb4c5a",
+      "windmill": "1:60504765",
+      "sheep": "3:ce8db07c",
+      "trees": "5:94809041",
+      "clouds": "16:633be090",
+      "train": "189:d8957990",
+      "fish": "5:8cccf0",
+      "boats": "14:5ac1d14f",
+      "balloons": "16:adf0eb60",
+      "villagers": "29:d878bb64",
+      "birds": "9:68020",
+      "hikers": "12:21252ebd",
+      "sky": "1:f37756a1",
+      "finish": "3:10d87402"
+    }
+  },
+  "instances": {
+    "total": "288b418",
+    "by": {
+      "tunnel": "2:49b4e2dc",
+      "bridges": "2:b6950231",
+      "trees": "5:6ccdce1"
+    }
+  },
   "colliders": 1684,
   "stations": [
     "station",
