@@ -331,6 +331,8 @@ export default {
 
     const curfew = curfewOf(world);
     for (const h of shopkeepers) [h.rank, h.state] = [curfew.rank(), 'here'];
+    /** One step of a shopkeeper towards `to`; true once there. @param {any} h @param {THREE.Vector3} to @param {number} dt @param {number} t */
+    const walkTo = (h, to, dt, t) => (h.walker ? h.walker.step(to, dt, t) : stepTo(h.person, to, 0.9 * k * HURRY, dt, h.heightAt));
     return {
       group,
       update({ dt, t }) {
@@ -339,12 +341,11 @@ export default {
         // Late at night: up, in by the door and gone; out again in the morning, back to the stool or the cart.
         for (const h of shopkeepers) {
           const out = curfew.out(/** @type {number} */ (h.rank), 'town', 0.5), g = h.person.group; // (shops close half an hour early)
-          const walk = (/** @type {THREE.Vector3} */ to) => (h.walker ? h.walker.step(to, dt, t) : stepTo(h.person, to, 0.9 * k * HURRY, dt, h.heightAt));
           if (h.state === 'here' && !out) {
             h.from = new THREE.Vector3(g.position.x, 0, g.position.z);
             h.state = 'going';
           }
-          if (h.state === 'going' && walk(h.door)) {
+          if (h.state === 'going' && walkTo(h, h.door, dt, t)) {
             g.visible = false;
             h.state = 'home';
           }
@@ -352,7 +353,7 @@ export default {
             g.visible = true;
             h.state = 'back';
           }
-          if (h.state === 'back' && walk(/** @type {THREE.Vector3} */ (h.from))) {
+          if (h.state === 'back' && walkTo(h, /** @type {THREE.Vector3} */ (h.from), dt, t)) {
             if (h.seat) {
               h.person.sit();
               g.position.copy(h.seat.p);

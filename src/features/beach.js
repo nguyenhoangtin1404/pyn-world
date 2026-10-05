@@ -234,7 +234,8 @@ export default {
             if (deep(x, z)) s.to.set(x, 0, z);
           }
           // Arms over and over, in turn (a slow crawl).
-          s.w.person.shoulders.forEach((sh, i) => sh.rotation.set(-Math.PI / 2 + Math.sin(t * 1.8 + s.phase + i * Math.PI) * 1.4, 0, i ? 0.25 : -0.25));
+          const arms = s.w.person.shoulders;
+          for (let i = 0; i < arms.length; i++) arms[i].rotation.set(-Math.PI / 2 + Math.sin(t * 1.8 + s.phase + i * Math.PI) * 1.4, 0, i ? 0.25 : -0.25);
         }
         for (const a of along) {
           if (away(a.w.person, dt, t)) continue;

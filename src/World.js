@@ -343,8 +343,22 @@ export class World {
   /** @param {THREE.Vector3} ear */
   listen(ear) {
     const shore = this.cfg.landcover ? coastOf(this).shore : []; // (worked out while building)
-    const vehicles = this.vehicles.filter((v) => !v.spec.flies && !v.away).map((v) => ({ x: v.group.position.x, y: v.group.position.y, z: v.group.position.z, moving: v.v > 0.5 }));
-    const people = [...this.people, ...this.pedestrians.filter((p) => p.group.visible), ...(this.beach?.people ?? []).filter((p) => p.person.group.visible)].map((/** @type {any} */ p) => p.pos ?? p.person.group.position);
+    // (The same arrays and records every time: asked five times a second.)
+    const self = /** @type {any} */ (this), ears = (self.ears ??= { vehicles: [], cars: [], people: [] });
+    const { vehicles, cars, people } = ears;
+    vehicles.length = people.length = 0;
+    for (const v of this.vehicles) {
+      if (v.spec.flies || v.away) continue;
+      const c = (cars[vehicles.length] ??= { x: 0, y: 0, z: 0, moving: false }), at = v.group.position;
+      c.x = at.x;
+      c.y = at.y;
+      c.z = at.z;
+      c.moving = v.v > 0.5;
+      vehicles.push(c);
+    }
+    for (const p of this.people) people.push(p.pos ?? p.person.group.position);
+    for (const p of /** @type {any[]} */ (this.pedestrians)) if (p.group.visible) people.push(p.pos ?? p.person.group.position);
+    for (const p of /** @type {any[]} */ (this.beach?.people ?? [])) if (p.person.group.visible) people.push(p.pos ?? p.person.group.position);
     return soundLevels(ear, { shore, waterY: WATER_Y, vehicles, people, map: this.scale.map, props: this.scale.props });
   }
 
