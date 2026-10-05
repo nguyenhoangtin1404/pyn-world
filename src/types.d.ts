@@ -31,6 +31,8 @@ export interface WorldRecipe {
   /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
   tagline?: string;
   icon?: string;
+  /** false: no snow here (the tropics) — the snow button is hidden and the weather never turns to snow. */
+  snow?: boolean;
   seed: number;
   /** Side of the square diorama. */
   size: number;
@@ -63,6 +65,8 @@ export interface GeoRecipe {
   /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
   tagline?: string;
   icon?: string;
+  /** false: no snow here (the tropics) — the snow button is hidden and the weather never turns to snow. */
+  snow?: boolean;
   seed: number;
   /** Side of the square diorama, in world units (the data's frame says how many metres one is). */
   size: number;
@@ -105,6 +109,8 @@ export interface WorldConfig {
   /** On the loading screen, under the name (default: SA BÀN LOW-POLY), and its icon (default: 🚂, or 🏛 with no railway). */
   tagline?: string;
   icon?: string;
+  /** false: no snow here (the tropics) — the snow button is hidden and the weather never turns to snow. */
+  snow?: boolean;
   seed: number;
   size: number;
   /** The railway's points — null for a world without one (defineGeoWorld with `rail: null`). */

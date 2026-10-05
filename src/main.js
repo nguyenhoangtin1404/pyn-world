@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { TIME_PRESETS, presetAtHour, vietnamHour } from './world/sky.js';
+import { TIME_PRESETS, presetAtHour, setShadowMapSize, vietnamHour } from './world/sky.js';
 import { PostFX } from './render/post.js';
 import { CameraRig } from './cameras.js';
 import { AudioEngine } from './audio.js';
@@ -9,14 +9,17 @@ import { createLoader } from './app/loader.js';
 import { createKeyHandler } from './app/keys.js';
 import { createTour } from './app/tour.js';
 import { createHostCard } from './app/host.js';
-import { createResolutionAdapter, createStats } from './app/perf.js';
+import { QUALITY, createResolutionAdapter, createStats, qualityTier } from './app/perf.js';
+import { showFallback } from './app/fallback.js';
+import { reducedMotion } from './app/motion.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
 import { SHOWN, worldById } from './worlds/index.js';
 
 // The app: renderer, camera, sound, UI and the frame loop. What is on screen is `world` — one
 // World (src/World.js) built from a WorldConfig (src/worlds/); the world picker or N switches.
-// Around it, in src/app/: the loading screen, the keyboard shortcuts, frame-rate upkeep.
+// Around it, in src/app/: the loading screen, the keyboard shortcuts, frame-rate upkeep. The page loads this
+// through boot.js, which first makes sure the browser can draw WebGL (else app/fallback.js).
 
 const state = {
   world: worldById(new URLSearchParams(location.search).get('world')).id,
@@ -42,7 +45,19 @@ const state = {
 if (state.clock === 'real') state.hour = vietnamHour(new Date());
 state.timeOfDay = presetAtHour(state.hour);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Phones and low-memory devices draw less (app/perf.js) — decided here, before any shader is compiled.
+const quality = QUALITY[qualityTier()];
+setShadowMapSize(quality.shadowMap);
+
+/** @type {THREE.WebGLRenderer} */
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, powerPreference: 'high-performance' });
+} catch (err) {
+  // (boot.js found WebGL, but this context could not be made after all: a busy or blocklisted GPU)
+  showFallback('nogl');
+  throw err;
+}
 // Reading shader logs after every compile makes the browser wait for each compile to finish; only
 // worth it while developing.
 renderer.debug.checkShaderErrors = import.meta.env.DEV;
@@ -55,6 +70,8 @@ renderer.shadowMap.enabled = true;
 // three.js r186 dropped PCFSoftShadowMap and falls back to PCFShadowMap at the first shadow render,
 // which made every shader compiled before that (the whole precompile) compile a second time.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute('aria-label', 'Sa bàn 3D low-poly'); // (named after the world in show())
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
@@ -65,7 +82,7 @@ const rig = new CameraRig(camera, renderer.domElement);
 let world = null; // the World on screen (null while the next one is being built)
 if (import.meta.env.DEV) window.__pyn = { get W() { return world; }, renderer, post, rig, camera, state, switchWorld: (id) => switchWorld(id) };
 
-const adaptResolution = createResolutionAdapter(renderer, MAX_DPR, resize);
+const adaptResolution = createResolutionAdapter(renderer, MAX_DPR, resize, Math.min(quality.minDpr, MAX_DPR));
 const stats = createStats(renderer);
 const loader = createLoader();
 
@@ -80,6 +97,14 @@ function resize() {
 let hud;
 let landmarkIndex = -1;
 const tour = createTour({ rig, camera, muted: () => state.muted, volume: () => state.volume, base: import.meta.env.BASE_URL, duck: (on) => audio.duck(on), onEnd: () => document.getElementById('app').classList.remove('touring') });
+// The GPU took the context away (out of memory, a driver reset): the world can't be drawn again from here —
+// stop the loop and offer a reload instead of a frozen picture.
+let contextLost = false;
+renderer.domElement.addEventListener('webglcontextlost', () => {
+  contextLost = true;
+  tour.stop();
+  showFallback('lost');
+});
 const actions = {
   setWorld(id) {
     switchWorld(id);
@@ -145,6 +170,7 @@ const actions = {
     hud.sync();
   },
   setWeather(id) {
+    if (id === 'snow' && world?.cfg.snow === false) return;
     state.weather = id;
     world?.weather.set(id);
     hud.sync();
@@ -209,7 +235,7 @@ const clock = new THREE.Clock();
 function frame() {
   requestAnimationFrame(frame);
   const delta = clock.getDelta();
-  if (!world) return; // the next world is being built behind the loading screen
+  if (!world || contextLost) return; // the next world is being built behind the loading screen
   const frameStart = performance.now();
   stats?.begin();
   adaptResolution(delta);
@@ -273,9 +299,14 @@ async function buildWorld(cfg) {
 // Hand the sound and the current settings (clock, weather, shadows) to a newly built world.
 function show(next) {
   world = next;
+  // What the canvas shows, for a screen reader (the scene itself is pixels).
+  const sights = world.landmarks.map((l) => l.name).join(', ');
+  renderer.domElement.setAttribute('aria-label', `Sa bàn 3D low-poly ${world.cfg.name}${sights ? ` quanh ${sights}` : ''}: phố, nhà, cây, người và xe chuyển động, ngày đêm. Kéo để xoay, lăn chuột để phóng to; nút Giới thiệu kể về nơi này.`);
   state.mode = 'overview';
   hud?.setWorld(world);
   world.sky.setHour(state.hour, true);
+  // (No snow in the tropics: a world with `snow: false` has no snow button, and falls back to clear skies.)
+  if (state.weather === 'snow' && world.cfg.snow === false) state.weather = 'clear';
   world.weather.set(state.weather);
   world.sky.sun.castShadow = state.shadows;
   // Station departure whistle, chuffs and rail joints drive the synthesised sound.
@@ -333,9 +364,10 @@ async function boot() {
 
   requestAnimationFrame(frame);
   loader.hide();
-  // A visitor who just arrives (no ?world=, no ?notour) is given the narrated tour of the landmark.
+  // A visitor who just arrives (no ?world=, no ?notour) is given the narrated tour of the landmark — unless
+  // they asked their system for less motion: then the camera stays put until they start it.
   const params = new URLSearchParams(location.search);
-  if (!params.has('world') && !params.has('notour')) actions.toggleTour(true);
+  if (!params.has('world') && !params.has('notour') && !reducedMotion()) actions.toggleTour(true);
 }
 
 boot();

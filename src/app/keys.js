@@ -18,6 +18,7 @@ export function createKeyHandler(app) {
   return function onKey(e) {
     const hud = app.hud(), world = app.world();
     if (e.target.closest?.('input, select, textarea')) return;
+    if (document.querySelector('dialog[open]')) return; // (the About dialog: its keys are its own — Esc closes it)
     if (e.repeat) return;
     if (e.code === 'KeyN') {
       const i = worlds.findIndex((w) => w.id === state.world);

@@ -1,5 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
+import { reducedMotion } from './motion.js';
 
 // The narrated tour of a famous building (key I, the "Thuyết minh" chip): the camera flies from stop
 // to stop of the landmark's `tour` (src/landmarks/), each one said aloud in Vietnamese and shown as a
@@ -8,7 +9,9 @@ import * as THREE from 'three';
 // Mac has none); with neither, or the sound off, the panel says so and shows the subtitles alone.
 // Between flights the camera circles slowly round what it looks at. The next stop comes when the
 // words are said (or, with no voice, when there has been time to read them); ‹ › step by hand, ✕ or
-// Esc ends it, and so does choosing a camera or another world.
+// Esc ends it, and so does choosing a camera or another world. With prefers-reduced-motion the camera cuts
+// from stop to stop (CameraRig.flyTo) and stands still at each. The panel takes the focus when it opens
+// (a screen reader reads it) and gives it back when it closes.
 
 /* global __TOUR_VERSIONS__ */
 // Hash of each recording, set by vite.config.js (absent under Vitest): the URL changes when the file does.
@@ -39,6 +42,8 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
   let stops = [];
   let i = -1, t = 0, wait = 0, speaking = false, spoken = false, said = 0; // t: seconds since the camera got there
   const v = new THREE.Vector3();
+  /** @type {HTMLElement | null} */
+  let returnFocus = null; // where the focus was before the panel opened
 
   // A Vietnamese voice, the most natural-sounding the device has (Edge's "Online (Natural)" neural
   // voices, Google's, Apple's) before the plainer ones.
@@ -138,7 +143,12 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
       if (!landmark.tour?.length) return false;
       stops = landmark.tour;
       title.textContent = landmark.name;
+      if (box.hidden) {
+        const at = document.activeElement;
+        returnFocus = at instanceof HTMLElement && at !== document.body ? at : null;
+      }
       box.hidden = false;
+      box.focus({ preventScroll: true });
       voice(); // (Chrome loads its voices on first asking)
       go(0);
       return true;
@@ -150,7 +160,10 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
       hush();
       speaking = false;
       duck(false);
+      const inside = box.contains(document.activeElement);
       box.hidden = true;
+      if (inside && returnFocus?.isConnected) returnFocus.focus({ preventScroll: true }); // (else it falls back to the page)
+      returnFocus = null;
       onEnd?.();
     },
     /** Say the current stop again (the sound was switched on or off). */
@@ -164,8 +177,10 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
       // longer than FLY seconds); then circle slowly round what it looks at.
       if (rig.fly) return;
       const target = rig.controls.target;
-      v.copy(camera.position).sub(target).applyAxisAngle(THREE.Object3D.DEFAULT_UP, DRIFT * dt);
-      camera.position.copy(target).add(v);
+      if (!reducedMotion()) {
+        v.copy(camera.position).sub(target).applyAxisAngle(THREE.Object3D.DEFAULT_UP, DRIFT * dt);
+        camera.position.copy(target).add(v);
+      }
       // On when the words are said (or, unspoken, there has been time to read them), never long after.
       const read = readingTime(stops[i].say);
       t += dt;

@@ -49,6 +49,20 @@ export function initHud(state, actions, worlds) {
   // Its narrated tour (I; again, or Esc, to stop).
   const tourBtn = keyed(chip('🎙 Thuyết minh', () => actions.toggleTour()), 'I', 'Thuyết minh');
   $('camera-modes').append(tourBtn);
+  // About the tower (index.html #about — the same words search engines read), with the credits.
+  const about = /** @type {HTMLDialogElement} */ ($('about'));
+  const aboutBtn = document.createElement('button');
+  aboutBtn.type = 'button';
+  aboutBtn.className = 'chip';
+  aboutBtn.id = 'about-btn';
+  aboutBtn.textContent = 'ℹ Giới thiệu';
+  aboutBtn.setAttribute('aria-haspopup', 'dialog');
+  aboutBtn.addEventListener('click', () => about.showModal()); // (modal: focus inside, Esc closes, focus back here)
+  $('about-close').addEventListener('click', () => about.close());
+  about.addEventListener('click', (e) => {
+    if (e.target === about) about.close(); // a tap on the backdrop, outside the card
+  });
+  $('camera-modes').append(aboutBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
   clockEl.setAttribute('aria-label', 'Giờ trong ngày');
@@ -182,6 +196,7 @@ export function initHud(state, actions, worlds) {
     };
     for (const [id, b] of camBtns) b.hidden = has[id] === false;
     landmarkBtn.hidden = world.landmarks.length === 0;
+    for (const [id, b] of weatherBtns) if (id === 'snow') b.hidden = world.cfg.snow === false; // (no snow in the tropics)
     tourBtn.hidden = !world.landmarks.some((l) => l.tour?.length);
     speed.closest('label').hidden = !world.train;
     // The shortcuts list too: only the keys that do something here.

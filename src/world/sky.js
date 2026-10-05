@@ -92,6 +92,12 @@ export function sunDirection(hour, lat, day = 80) {
   return new THREE.Vector3(east, up, -north).normalize();
 }
 
+// The sun's shadow map, width = height in texels: 2048, or 1024 on a phone (the app's quality tier,
+// app/perf.js — set once, before any world is built).
+let shadowMapSize = 2048;
+/** @param {number} n */
+export const setShadowMapSize = (n) => (shadowMapSize = n);
+
 export class Sky {
   // `latitude` (degrees, worlds from map data): the sun crosses the sky as it does there (on day
   // `day` of the year); without it, the sun follows the time-of-day presets.
@@ -119,7 +125,7 @@ export class Sky {
     sc.bottom = -170;
     sc.near = 10;
     sc.far = 900;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.08;
     scene.add(sun, sun.target);

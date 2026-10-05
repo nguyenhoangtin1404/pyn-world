@@ -31,6 +31,8 @@
         { "@type": "TouristAttraction", "@id": "%SITE_URL%#tower", "name": "Tháp Nghinh Phong",
           "alternateName": "Nghinh Phong Tower",
           "address": { "@type": "PostalAddress", "addressLocality": "Phường Tuy Hòa", "addressRegion": "Đắk Lắk", "addressCountry": "VN" },
+          "description": "Công trình ven biển Tuy Hòa do HUNI architectes thiết kế, hoàn thành năm 2021: hai tháp, mỗi tháp 50 cột đá lục giác, cột nhọn cao 35 m (Lạc Long Quân) và 30 m (Âu Cơ), quảng trường rộng hơn 7 000 m².",
+          "url": "%SITE_URL%", "image": "%SITE_URL%og.png",
           "geo": { "@type": "GeoCoordinates", "latitude": 13.1163, "longitude": 109.3076 } },
         { "@type": "FAQPage", "mainEntity": [
           { "@type": "Question", "name": "Tháp Nghinh Phong ở đâu?", "acceptedAnswer": { "@type": "Answer", "text": "Tháp Nghinh Phong nằm ven biển phường Tuy Hòa, tỉnh Đắk Lắk (trước đây là thành phố Tuy Hòa, tỉnh Phú Yên), Việt Nam (khoảng 13.1163 N, 109.3076 E)." } },
@@ -41,9 +43,10 @@
     }
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Fredoka, served from this site (public/fonts, SIL OFL): the Latin subset is on every label -->
+    <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <noscript>
@@ -52,11 +55,6 @@
         <p>Sa bàn 3D low-poly tương tác quanh Tháp Nghinh Phong, Tuy Hòa, Đắk Lắk (Phú Yên cũ), dựng từ dữ liệu bản đồ thật. Cần bật JavaScript và WebGL để xem.</p>
       </main>
     </noscript>
-    <main class="seo-copy" aria-label="Giới thiệu">
-      <h1>Tháp Nghinh Phong Tuy Hòa 3D</h1>
-      <p>Tháp Nghinh Phong ở ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), do HUNI architectes thiết kế (hoàn thành 2021): hai tháp, mỗi tháp 50 cột đá lục giác, cột nhọn cao 35 m và 30 m, quảng trường rộng hơn 7 000 m². PYN World dựng lại khu vực này thành sa bàn low-poly tương tác 2 × 2 km, với phố, nhà, bãi biển, du khách và chu kỳ ngày đêm.</p>
-      <p>Dữ liệu: độ cao SRTM, phố và nhà từ OpenStreetMap / Overture Maps (ODbL).</p>
-    </main>
     <div id="app">
       <div id="scene"></div>
 
@@ -151,9 +149,27 @@
         </div>
       </div>
 
+      <!-- About (ℹ Giới thiệu in the panel, src/hud.js): what the tower is, for people and for search engines
+           alike — the 3D scene is a canvas no bot can read. Facts only from CLAUDE.md "Nội dung thuyết minh";
+           change them here, in the JSON-LD above and in llms.txt (tools/seo/plugin.js) together. -->
+      <dialog id="about" class="card about" aria-labelledby="about-title">
+        <article class="seo-copy">
+          <div class="about-head">
+            <h1 id="about-title">Tháp Nghinh Phong Tuy Hòa 3D</h1>
+            <button id="about-close" type="button" class="host-close" aria-label="Đóng giới thiệu">✕</button>
+          </div>
+          <p class="about-intro">Tháp Nghinh Phong ở ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), do HUNI architectes thiết kế (hoàn thành 2021): hai tháp, mỗi tháp 50 cột đá lục giác, cột nhọn cao 35 m và 30 m, quảng trường rộng hơn 7 000 m². PYN World dựng lại khu vực này thành sa bàn low-poly tương tác 2 × 2 km, với phố, nhà, bãi biển, du khách và chu kỳ ngày đêm.</p>
+          <p>Kéo để xoay, lăn chuột hoặc chụm hai ngón để phóng to; bấm 🎙 Thuyết minh để camera đưa đi một vòng quanh tháp.</p>
+          <p class="about-credits">
+            <a href="https://github.com/nguyenhoangtin1404/pyn-world" target="_blank" rel="noopener">Mã nguồn (AGPL-3.0)</a> ·
+            Bản đồ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL), dữ liệu qua <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps</a> · Độ cao SRTM
+          </p>
+        </article>
+      </dialog>
+
       <div id="toast" role="status" aria-live="polite"></div>
 
-      <section id="host-card" class="host-card" hidden aria-label="Lời chào của tác giả">
+      <section id="host-card" class="host-card" hidden tabindex="-1" aria-label="Lời chào của tác giả">
         <button id="host-close" type="button" class="host-close" aria-label="Đóng">✕</button>
         <div class="host-head"><span class="host-avatar" aria-hidden="true">👋</span><span id="host-title"></span></div>
         <p id="host-text"></p>
@@ -161,7 +177,7 @@
         <a id="host-link" class="host-link" href="#" target="_blank" rel="noopener">Mở portfolio ↗</a>
       </section>
 
-      <section id="narration" class="card" hidden aria-label="Thuyết minh">
+      <section id="narration" class="card" hidden tabindex="-1" aria-label="Thuyết minh">
         <div class="narration-head">
           <span aria-hidden="true">🎙</span> <span id="narration-title"></span>
           <span id="narration-step" class="narration-step"></span>
@@ -187,6 +203,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/boot.js"></script>
   </body>
 </html>

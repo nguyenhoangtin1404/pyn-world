@@ -13,8 +13,9 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 
 | File | Vai trò |
 |---|---|
+| `src/boot.js` | Entry của trang: có WebGL thì tải `main.js`, không thì thẻ ảnh + giới thiệu (`app/fallback.js`) |
 | `src/main.js` | App: renderer, camera, vòng lặp frame, dựng và đổi world |
-| `src/app/` | Quanh App: `loader.js` (màn hình loading), `keys.js` (phím tắt), `perf.js` (tự hạ độ phân giải, bảng `?stats`) |
+| `src/app/` | Quanh App: `loader.js` (màn hình loading), `keys.js` (phím tắt), `perf.js` (mức chất lượng, tự hạ độ phân giải, bảng `?stats`), `fallback.js` (không có WebGL / mất context), `motion.js` (`prefers-reduced-motion`) |
 | `src/World.js` | Một thế giới hoàn chỉnh dựng từ 1 WorldConfig: scene riêng (cả trời, đèn, sương mù), lõi (ray, địa hình, hầm, cầu, trời, thời tiết) + các feature trong config; vòng lặp chung cho mọi system (`update` / `lateUpdate`), `dispose` |
 | `src/features/` | Những gì đặt vào một world, bật/tắt bằng `cfg.features`: `station` (ga chính), `village` (làng), `halt` (trạm dừng + khu phố), `windmill`, `sheep`, `trees` (cây/hoa/đá), `clouds`, `train`, `fish`, `boats`, `balloons`, `villagers` (dân làng/dân phố đi lại, đi tàu), `birds`, `hikers` (đường mòn + người leo núi). Dịch vụ dùng chung: `lamps.js` (đèn ban đêm), `houses.js` (nhà rỗng, cửa tự mở, khói ống khói), `platform.js` (sân ga), `waterlife.js` (gợn nước) |
 | `src/features/villagers/` | Phần của dân làng: `areas.js` (lưới dẫn đường + chỗ đến ở mỗi trạm), `riding.js` (lên/xuống tàu), `kids.js` (trẻ em đi theo bố mẹ) |
