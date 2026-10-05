@@ -19,7 +19,22 @@ export const waitForWorld = (page, id) =>
 
 // Open the app on a world and wait until it is on screen. The clock starts at 9:00 and runs fast (?clock=fast),
 // as it did before the app followed the real time: what a test sees must not depend on when it runs.
-export async function openWorld(page, id) {
+// `paused`: the page's own loop never advances the world (state.paused from the moment window.__pyn exists,
+// before the first frame) — what simulate() starts from doesn't depend on how many frames the page had time for.
+export async function openWorld(page, id, { paused = false } = {}) {
+  if (paused) {
+    await page.addInitScript(() => {
+      let pyn;
+      Object.defineProperty(window, '__pyn', {
+        configurable: true,
+        get: () => pyn,
+        set(v) {
+          pyn = v;
+          v.state.paused = true;
+        },
+      });
+    });
+  }
   await page.goto(`/?world=${id}&clock=fast`);
   await waitForWorld(page, id);
 }
@@ -81,10 +96,12 @@ export function fingerprint() {
   };
 }
 
-// Runs in the page: 300 s of simulated time in 0.1 s steps (rain from half-way), without drawing.
+// Runs in the page: 300 s of simulated time in 0.1 s steps (rain from half-way), without drawing. Open the
+// world with openWorld(page, id, { paused: true }): every run then starts from the world as built (startedAt 0).
 export function simulate() {
   const { W, camera, rig, state } = window.__pyn;
   state.paused = true; // the page's own loop stops advancing the world
+  const startedAt = W.time; // simulated seconds the page ran before (0 when opened paused)
   const houses = W.services.get('houses');
   const hikers = W.followables.people.filter((p) => p.label.startsWith('Người leo')).map((p) => p.anchor());
   const start = hikers.map((h) => h.position.clone());
@@ -146,7 +163,7 @@ export function simulate() {
   });
   const tour = { count: tourists.length, outside: 0, intoTower: 0, xs: new Set(), photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
   const lastPos = tourists.map((w) => w.pos.clone());
-  const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
+  const s = { startedAt, people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   let pulled = 0; // the furthest a bus has moved over to the kerb
   // On the sea and the beach (features/seacraft.js, beach.js): boats never aground, swimmers never on dry land, nobody else in the water or on a street.
   const g = W.terrain.meshHeightAt;
