@@ -3,6 +3,7 @@ import { WATER_Y } from '../../config.js';
 import { Person } from '../people.js';
 import { box, ball, cyl, slab, segment } from '../lowpoly.js';
 import { WHITE, RED, DARK, smallFish } from './parts.js';
+import { mulberry32 } from '../../utils.js';
 
 // A rowboat on the calmest open water, away from the steamer's channel, with a fisherman going
 // round and round: wait (the bobber nods, now and then a nibble) → bite (yanked under) → reel →
@@ -109,6 +110,9 @@ export function createRowboat({ heightAt, riverX, ripples, waterSpots, rng }) {
   const rowboat = rb.group;
   group.add(rowboat);
   const baseHeading = rng() * Math.PI * 2;
+  // Nibbles, ripples and waits while he fishes: a stream of their own, seeded from where the boat is,
+  // so a run is the same every time and the feature's rng (shared with the scenery) is left alone.
+  const chance = mulberry32((Math.round(spot.x * 100) * 73856093) ^ (Math.round(spot.z * 100) * 19349663) ^ 0x0b0a7);
 
   // Fishing line: rod tip → bobber (or hooked fish), with a little sag.
   const LINE_PTS = 16;
@@ -150,7 +154,7 @@ export function createRowboat({ heightAt, riverX, ripples, waterSpots, rng }) {
         bobPos.copy(castW).setY(castW.y + Math.sin(t * 2.2) * 0.04);
         nibble -= dt;
         if (nibble < 0) {
-          nibble = 2 + Math.random() * 2;
+          nibble = 2 + chance() * 2;
           ripples.spawn(bobPos.x, bobPos.z, 0.3, 0.45);
         }
         if (timer <= 0) {
@@ -164,7 +168,7 @@ export function createRowboat({ heightAt, riverX, ripples, waterSpots, rng }) {
         bobPos.copy(castW).setY(castW.y - jerk);
         target = REST + 0.12;
         sag = 0.05;
-        if (dt > 0 && Math.random() < dt * 4) ripples.spawn(bobPos.x, bobPos.z, 0.5, 0.9);
+        if (dt > 0 && chance() < dt * 4) ripples.spawn(bobPos.x, bobPos.z, 0.5, 0.9);
         if (timer <= 0) {
           state = 'reel';
           timer = 1.2;
@@ -204,7 +208,7 @@ export function createRowboat({ heightAt, riverX, ripples, waterSpots, rng }) {
         sag = 0.05;
         if (timer <= 0) {
           state = 'wait';
-          timer = 7 + Math.random() * 9;
+          timer = 7 + chance() * 9;
           ripples.spawn(castW.x, castW.z, 0.9, 1);
         }
         break;
