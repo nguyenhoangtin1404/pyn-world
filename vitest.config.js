@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.js'],
     environment: 'node',
+    // Keep transformed modules on disk (node_modules/.vitest-cache, keyed on file contents) so the
+    // next run skips transforming them: ~4.3 → ~3.3 s locally. npm ci wipes it with node_modules.
+    fsModuleCache: true,
   },
 });
