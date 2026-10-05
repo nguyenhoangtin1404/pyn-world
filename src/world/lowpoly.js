@@ -149,6 +149,7 @@ export class Instancer {
   constructor(geo, mat, capacity, { castShadow = true, receiveShadow = true } = {}) {
     this.anchors = [];
     this.frame = -1;
+    this.last = new Float64Array(capacity * 16); // the matrices last written, as they were (not rounded)
     const m = (this.mesh = new THREE.InstancedMesh(geo, variant(mat, 'instanced'), capacity));
     m.count = 0;
     m.frustumCulled = false; // copies are spread over the whole valley
@@ -168,15 +169,26 @@ export class Instancer {
     return i;
   }
 
+  // Writes the matrices into the instance buffer as setMatrixAt would, noting (by the numbers last
+  // written, kept unrounded) whether any changed: the buffer only goes to the GPU again when one did —
+  // by day every lamp of a fleet stays hidden, a parked bike or a resting sheep stays put.
   sync(frame) {
     if (frame === this.frame) return;
     this.frame = frame;
-    this.anchors.forEach((a, i) => {
+    const anchors = this.anchors, arr = this.mesh.instanceMatrix.array, last = this.last;
+    let changed = false;
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
       let shown = true;
       for (let o = a; o && shown; o = o.parent) shown = o.visible;
-      this.mesh.setMatrixAt(i, shown ? a.matrixWorld : ZERO);
-    });
-    this.mesh.instanceMatrix.needsUpdate = true;
+      const e = (shown ? a.matrixWorld : ZERO).elements, at = i * 16;
+      let k = 15; // (from the end: position first, the likeliest to change)
+      while (k >= 0 && last[at + k] === e[k]) k--;
+      if (k < 0) continue;
+      for (; k >= 0; k--) last[at + k] = arr[at + k] = e[k];
+      changed = true;
+    }
+    if (changed) this.mesh.instanceMatrix.needsUpdate = true;
   }
 }
 
