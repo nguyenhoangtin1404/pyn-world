@@ -15,7 +15,7 @@ const cases = {
   'traffic without a road': { features: ['station', 'traffic', 'train'], error: /"traffic".*"road"/ },
   'ring road with traffic lights, no roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 }, lights: ['a1', { side: 'b0', at: 0.3 }] }, 'traffic', 'train'] },
   'crossroads on a plain ring': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 }, junctions: [{ side: 'a0', at: 0.4 }] }, 'traffic', 'train'] },
-  'street life before the bus stop': { world: 'nghinhphong', streetlifeFirst: true, error: /"streetlife" cần bến xe buýt dựng trước/ },
+  'street life before the bus stop': { world: 'nghinhphong', streetlifeFirst: true, error: /"streetlife" phải đứng sau "busstop"/ },
   'branch without a roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, branch: 40 }, 'train'], error: /"road" cần một vòng xoay/ },
 };
 

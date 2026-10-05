@@ -432,17 +432,20 @@ export class World {
  * @param {boolean} railway whether the world has one (cfg.track)
  */
 // Before anything is built: every feature exists, comes after the features it needs (feature.needs:
-// ids, or a list of ids any one of which will do), and a world with a railway has a train on it
-// (the cameras ride it); one without has nothing that runs on it.
+// ids, or a list of ids any one of which will do) and after those of feature.after the world has, and a
+// world with a railway has a train on it (the cameras ride it); one without has nothing that runs on it.
 function checkFeatures(features, railway = true) {
   const before = new Set();
-  for (const { id } of features) {
+  for (const [i, { id }] of features.entries()) {
     const feature = featureById(id);
     if (!FEATURE_IDS.includes(id)) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
     if (!feature) throw new Error(`Feature "${id}" chưa được nạp (await world.load() trước world.steps())`);
     for (const need of feature.needs ?? []) {
       const options = [need].flat();
       if (!options.some((n) => before.has(n))) throw new Error(`Feature "${id}" cần ${options.map((n) => `"${n}"`).join(' hoặc ')} đứng trước nó trong cfg.features`);
+    }
+    for (const a of feature.after ?? []) {
+      if (features.some((f, j) => j > i && f.id === a)) throw new Error(`Feature "${id}" phải đứng sau "${a}" trong cfg.features (world này có "${a}")`);
     }
     before.add(id);
   }

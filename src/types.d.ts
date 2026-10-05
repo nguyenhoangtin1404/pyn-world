@@ -205,6 +205,9 @@ export interface Feature {
   label: string;
   /** Features that must come before it in cfg.features (an inner list: any one of them). */
   needs?: (string | string[])[];
+  /** Features that must come before it in cfg.features if the world has them at all (unlike `needs`, none of
+   *  them is required). */
+  after?: string[];
   build(world: World, options: FeatureOptions): System | void;
 }
 

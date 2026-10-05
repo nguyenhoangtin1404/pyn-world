@@ -87,6 +87,14 @@ describe('feature list checks (before building)', () => {
     expect(steps(['station', 'train', 'villagers'])).not.toThrow();
   });
 
+  it('checks `after`: those of its features the world has come first, the others are not needed', () => {
+    const town = (features) => () => new World({ ...pyn, track: null, stops: [], tunnel: undefined, features }).steps();
+    const base = ['landmarks', 'streets', 'buildings', 'citytraffic', 'tourists'];
+    expect(town([...base, 'streetlife', 'busstop'])).toThrow(/"streetlife" phải đứng sau "busstop"/);
+    expect(town([...base, 'busstop', 'streetlife'])).not.toThrow();
+    expect(town([...base, 'streetlife'])).not.toThrow();
+  });
+
   it('accepts any one of alternative needs', () => {
     expect(steps(['village', 'station', 'train'])).toThrow(/"station" hoặc "halt"/);
     expect(steps(['halt', 'village', 'train'])).not.toThrow();
