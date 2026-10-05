@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // End-to-end tests (npm run e2e): every world built in a real browser, see tests/e2e/.
 // Software GL (SwiftShader): the same pixels and draw calls on every machine, GPU or not.
-const PORT = 5199;
+const PORT = Number(process.env.E2E_PORT) || 5199; // E2E_PORT: a second checkout running e2e at the same time
 
 export default defineConfig({
   testDir: 'tests/e2e',
