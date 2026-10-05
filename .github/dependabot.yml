@@ -1,0 +1,37 @@
+# Weekly update PRs. Titles follow Conventional Commits (pr.yml checks them): "ci(deps): …" for
+# actions (pinned to commit SHAs — Dependabot bumps the SHA and the "# vX.Y.Z" comment together),
+# "chore(deps): …" for npm.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The goldens (tests/e2e/golden/*.json, *.png) are checksums of vertices, draw calls and pixels:
+      # a new three.js or a new Chromium changes them. three is 0.x (0.186 → 0.187 is its "major"
+      # release but Dependabot calls it minor) and every @playwright/test minor ships a new Chromium,
+      # so only their patch releases come here. Upgrade them by hand, regenerate the goldens and look
+      # at the diff (CLAUDE.md).
+      - dependency-name: three
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: '@playwright/test'
+        update-types: [version-update:semver-major, version-update:semver-minor]
