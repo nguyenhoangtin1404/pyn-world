@@ -14,7 +14,7 @@ import { showFallback } from './app/fallback.js';
 import { reducedMotion } from './app/motion.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
-import { SHOWN, worldById } from './worlds/index.js';
+import { SHOWN, loadWorld, worldId } from './worlds/index.js';
 
 // The app: renderer, camera, sound, UI and the frame loop. What is on screen is `world` — one
 // World (src/World.js) built from a WorldConfig (src/worlds/); the world picker or N switches.
@@ -22,7 +22,7 @@ import { SHOWN, worldById } from './worlds/index.js';
 // through boot.js, which first makes sure the browser can draw WebGL (else app/fallback.js).
 
 const state = {
-  world: worldById(new URLSearchParams(location.search).get('world')).id,
+  world: worldId(new URLSearchParams(location.search).get('world')),
   switchingTo: null, // id of the world being built, while switching
   mode: 'overview',
   timeOfDay: 'day',
@@ -281,6 +281,7 @@ async function buildWorld(cfg) {
     await cfg.load();
   }
   const next = new World(cfg);
+  await next.load(); // (the code of features only hidden worlds use)
   const steps = next.steps();
   for (let i = 0; i < steps.length; i++) {
     loader.phase(steps[i][0]);
@@ -319,11 +320,15 @@ function show(next) {
 
 async function switchWorld(id) {
   if (state.switchingTo || id === state.world) return;
-  const cfg = worldById(id);
-  state.switchingTo = cfg.id; // the world picker shows it pending and waits
+  state.switchingTo = worldId(id); // the world picker shows it pending and waits
   tour.stop();
   hostCard.hide();
   hud.sync();
+  const cfg = await loadWorld(id).catch((err) => console.error(err)); // (a hidden world's config: loaded only now)
+  if (!cfg) {
+    state.switchingTo = null;
+    return hud.sync();
+  }
   loader.show(cfg);
   // Free the old world first: two worlds in memory at once is a lot for a phone.
   world?.dispose();
@@ -343,11 +348,11 @@ async function switchWorld(id) {
 }
 
 async function boot() {
-  const cfg = worldById(state.world);
-  loader.show(cfg);
-  resize();
   let first;
+  resize();
   try {
+    const cfg = await loadWorld(state.world);
+    loader.show(cfg);
     first = await buildWorld(cfg);
     await renderer.compileAsync(post.quadScene, post.quadCam); // pixel-art / outline pass
   } catch (err) {

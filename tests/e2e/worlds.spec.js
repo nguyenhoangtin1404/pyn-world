@@ -1,4 +1,4 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld, fingerprint, simulate } from './helpers.js';
 
 // Every world, built in the browser, is exactly as recorded in tests/e2e/golden/<id>.json — every

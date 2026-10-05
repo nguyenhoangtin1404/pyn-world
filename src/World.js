@@ -15,7 +15,7 @@ import { mulberry32 } from './utils.js';
 import { coastOf } from './world/coast.js';
 import { soundLevels } from './world/soundscape.js';
 import { WATER_Y } from './config.js';
-import { FEATURES } from './features/index.js';
+import { FEATURE_IDS, featureById, loadFeatures } from './features/index.js';
 
 // One complete world built from a WorldConfig (src/worlds/): its own scene — sky, lights and fog
 // included — and everything that lives in it. The app (main.js) owns the renderer, the camera, the
@@ -184,6 +184,11 @@ export class World {
     return this.streams.get(stream);
   }
 
+  /** Loads the code of the features the config lists (some are loaded only by the worlds that use them): before steps(). */
+  async load() {
+    await loadFeatures(this.cfg.features);
+  }
+
   /**
    * The build, as [label, step] pairs run one after the other so the loading screen can paint
    * between them.
@@ -249,7 +254,7 @@ export class World {
       }, 'bridges'),
       ...features.map((entry) => {
         const { id, stream, ...options } = entry;
-        const feature = FEATURES[id];
+        const feature = featureById(id);
         return step(feature.label, () => {
           const system = feature.build(this, { ...options, rng: this.rngFor(entry) });
           if (system) this.add(system);
@@ -434,8 +439,9 @@ export class World {
 function checkFeatures(features, railway = true) {
   const before = new Set();
   for (const { id } of features) {
-    const feature = FEATURES[id];
-    if (!feature) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+    const feature = featureById(id);
+    if (!FEATURE_IDS.includes(id)) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+    if (!feature) throw new Error(`Feature "${id}" chưa được nạp (await world.load() trước world.steps())`);
     for (const need of feature.needs ?? []) {
       const options = [need].flat();
       if (!options.some((n) => before.has(n))) throw new Error(`Feature "${id}" cần ${options.map((n) => `"${n}"`).join(' hoặc ')} đứng trước nó trong cfg.features`);

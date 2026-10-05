@@ -1,4 +1,5 @@
-import { SHOWN, WORLDS } from '../../src/worlds/index.js';
+import { SHOWN } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld, waitForWorld } from './helpers.js';
 
 // Switching worlds frees the old one: coming back to a world, the GPU holds the same number of

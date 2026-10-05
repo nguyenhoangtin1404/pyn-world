@@ -1,9 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { defineWorld } from '../../src/worlds/define.js';
-import { SHOWN, WORLDS, worldById } from '../../src/worlds/index.js';
+import { SHOWN, WORLD_IDS, loadWorld, worldId } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import pyn from '../../src/worlds/pyn.js';
 import { World } from '../../src/World.js';
-import { FEATURES } from '../../src/features/index.js';
+import { FEATURE_IDS, loadFeatures } from '../../src/features/index.js';
+
+// (Some features are loaded only by the worlds that use them: all of them here, as World.load() does.)
+beforeAll(() => loadFeatures(FEATURE_IDS));
 
 describe('defineWorld', () => {
   it('builds riverX from the waves', () => {
@@ -33,7 +37,7 @@ describe('world configs', () => {
       });
 
       it('lists known features in an order that satisfies their needs', () => {
-        for (const f of cfg.features) expect(FEATURES[typeof f === 'string' ? f : f.id]).toBeDefined();
+        for (const f of cfg.features) expect(FEATURE_IDS).toContain(typeof f === 'string' ? f : f.id);
         expect(() => new World(cfg).steps()).not.toThrow();
       });
 
@@ -49,11 +53,14 @@ describe('world configs', () => {
     });
   }
 
-  it('shows only NGHINH PHONG; worldById finds any world, hidden ones too, else the first shown', () => {
+  it('shows only NGHINH PHONG; loadWorld finds any world, hidden ones too, else the first shown', async () => {
     expect(SHOWN.map((w) => w.id)).toEqual(['nghinhphong']);
-    expect(worldById('maple').id).toBe('maple');
-    expect(worldById('nope')).toBe(SHOWN[0]);
-    expect(worldById(null)).toBe(SHOWN[0]);
+    expect(WORLD_IDS).toEqual(WORLDS.map((w) => w.id));
+    expect(worldId('maple')).toBe('maple');
+    expect(worldId('toString')).toBe('nghinhphong');
+    expect(await loadWorld('maple')).toBe(WORLDS.find((w) => w.id === 'maple'));
+    expect(await loadWorld('nope')).toBe(SHOWN[0]);
+    expect(await loadWorld(null)).toBe(SHOWN[0]);
   });
 });
 
