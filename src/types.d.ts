@@ -2,7 +2,7 @@
 // (`@type {import('../types').Feature}`…) and `npm run check` type-checks the files marked
 // `// @ts-check` (tsconfig.json). Nothing here exists at run time.
 
-import type { Object3D, Vector3, Camera } from 'three';
+import type { Object3D, Vector3, Camera, Group, Mesh } from 'three';
 import type { World } from './World.js';
 
 // ---------------------------------------------------------------- WorldConfig (src/worlds/)
@@ -240,4 +240,159 @@ export interface TrackFrame {
 export interface Followable {
   label: string;
   anchor(): Object3D;
+}
+
+// ---------------------------------------------------------------- what features leave on the world
+
+type SignalCycle = import('./world/roads/signals.js').SignalCycle;
+type LoopPath = import('./world/vehicles/path.js').LoopPath;
+type StopPoint = import('./world/vehicles/traffic.js').StopPoint;
+
+/** A famous building (features/landmarks.js), key V. */
+export interface Landmark {
+  id: string;
+  name: string;
+  spot: Vector3;
+  view: number;
+  /** A loop round it for people on foot. */
+  walk?: Vector3[];
+  /** The ground they may wander on. */
+  plaza?: Vector3[];
+  walkHeight?: (x: number, z: number) => number;
+  /** A narrated tour (key I). */
+  tour?: import('./landmarks/common.js').TourStop[];
+}
+
+/** A road of a railway valley's town (features/road.js). */
+export interface Road {
+  id: string;
+  width: number;
+  heightAt: (x: number, z: number) => number;
+  shared: number;
+  signals: SignalCycle[];
+  gates: import('./world/roads/signals.js').CrossingGate[];
+  junctions: { p: [number, number]; signals: SignalCycle[] }[];
+  routes: { id: string; path: LoopPath; stops: StopPoint[]; group: string; start: number }[];
+}
+
+/** A town's street as drawn (features/streets.js): carriageway and pavement surfaces. */
+export interface Street {
+  kind: string;
+  name: string;
+  width: number;
+  lanes: number;
+  median: number;
+  points: [number, number][];
+  length: number;
+  heightAt: (x: number, z: number) => number;
+  pavementAt: (x: number, z: number) => number;
+}
+
+/** A town's building as drawn (features/buildings.js): footprint (length along `angle`, a rotation.y), the
+ *  ground under its lowest corner, its height from there. */
+export interface BuildingDrawn {
+  x: number;
+  z: number;
+  length: number;
+  width: number;
+  angle: number;
+  foot: number;
+  height: number;
+}
+
+/** A crosswalk at a town's lit crossroads (features/citytraffic.js): centre, heading of the street it crosses,
+ *  its half width, its depth along it; people start across when signal.walk(time to get over). */
+export interface Crosswalk {
+  x: number;
+  z: number;
+  h: number;
+  half: number;
+  depth: number;
+  signal: SignalCycle;
+}
+
+/** A route of the city traffic (features/citytraffic.js); side: from a lane to the middle of the pavement
+ *  beside it, kerb: to the edge of the carriageway, in world units. */
+export interface CityRoute {
+  path: LoopPath;
+  stops: StopPoint[];
+  side: number;
+  kerb: number;
+  pavementAt: (x: number, z: number) => number;
+}
+
+/** The bus stop (features/busstop.js): tourists who got on / off a bus, buses that stopped; walks: where they
+ *  walk between the grounds and the stop (ax, az, bx, bz). */
+export interface BusStop {
+  boarded: number;
+  alighted: number;
+  stops: number;
+  walks: [number, number, number, number][];
+}
+
+/** Boats on the sea, parasails over it (at: where each flies) and foam on the shore (features/seacraft.js). */
+export interface SeaCraft {
+  group: Group;
+  boats: any[];
+  parasails: { ski: any; at: Vector3 }[];
+  foam?: { mesh: Mesh; uTime: { value: number } };
+}
+
+/** People on the beach (features/beach.js). */
+export interface Beach {
+  group: Group;
+  people: { role: string; walker?: any; person: any }[];
+  shades: number;
+}
+
+/** What stands along a town's streets (features/streetlife.js): props are the circles they take on the ground. */
+export interface StreetLife {
+  group: Group;
+  props: { x: number; z: number; r: number; kind: string }[];
+  shops: number;
+  bikes: number;
+  cars: number;
+  cafes: number;
+  carts: number;
+}
+
+/** The author standing by the landmark, who shows a QR code to their portfolio when tapped (facingCamera:
+ *  turned round to a camera that came close, grinning) (features/host.js, src/app/host.js). */
+export interface Host {
+  url: string;
+  title: string;
+  greeting: string;
+  person: any;
+  head: Vector3;
+  facing: Vector3;
+  group: Group;
+  facingCamera: boolean;
+}
+
+/** What the features leave on the world for the ones built after them, the app and the tests (World.js
+ *  declares each one, empty until a feature fills it). */
+export interface WorldOutputs {
+  /** Famous buildings (features/landmarks.js), key V. */
+  landmarks: Landmark[];
+  /** Roads of a railway valley's town (features/road.js). */
+  roads: Road[];
+  /** A town's streets as drawn (features/streets.js). */
+  streets: Street[];
+  /** A town's buildings as drawn (features/buildings.js). */
+  buildings: BuildingDrawn[];
+  /** A town's roundabouts (features/streets.js): centre, outer radius R, island radius ri. */
+  roundabouts: import('./world/streetnet.js').Ring[];
+  /** Crosswalks at a town's lit crossroads (features/citytraffic.js). */
+  crosswalks: Crosswalk[];
+  /** People on foot about the town who don't take the train (features/strollers.js). */
+  pedestrians: { pos: Vector3; group: Object3D }[];
+  /** The tourists' parties (features/tourists.js). */
+  parties: import('./world/tourist.js').Party[];
+  /** The city traffic's routes (features/citytraffic.js). */
+  cityRoutes: CityRoute[];
+  busStop: BusStop | null;
+  seacraft: SeaCraft | null;
+  beach: Beach | null;
+  streetLife: StreetLife | null;
+  host: Host | null;
 }

@@ -75,41 +75,38 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
-    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], plaza?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number, tour?: import('./landmarks/common.js').TourStop[] }[]} famous buildings (features/landmarks.js), key V; walk: a loop round it for people on foot, plaza: the ground they may wander on, tour: a narrated tour (key I) */
+    // What the features leave here for the ones after them, the app and the tests (types.d.ts WorldOutputs):
+    /** @type {Outputs['landmarks']} famous buildings, key V */
     this.landmarks = [];
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[], tourists: Followable[], balloons: Followable[] }} keys 6, 7, 8, 9 and 0 */
     this.followables = { people: [], birds: [], vehicles: [], tourists: [], balloons: [] };
-    /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
-     *   signals: import('./world/roads/signals.js').SignalCycle[], gates: import('./world/roads/signals.js').CrossingGate[],
-     *   junctions: { p: [number, number], signals: import('./world/roads/signals.js').SignalCycle[] }[],
-     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[],
-     *     group: string, start: number }[] }[]} roads (features/road.js) */
+    /** @type {Outputs['roads']} */
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
-    /** @type {{ kind: string, name: string, width: number, lanes: number, median: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
+    /** @type {Outputs['streets']} */
     this.streets = [];
-    /** @type {{ x: number, z: number, length: number, width: number, angle: number, foot: number, height: number }[]} a town's buildings as drawn (features/buildings.js): footprint (length along `angle`, a rotation.y), the ground under its lowest corner, its height from there */
+    /** @type {Outputs['buildings']} */
     this.buildings = [];
-    /** @type {import('./world/streetnet.js').Ring[]} a town's roundabouts (features/streets.js): centre, outer radius R, island radius ri */
+    /** @type {Outputs['roundabouts']} */
     this.roundabouts = [];
-    /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
+    /** @type {Outputs['crosswalks']} */
     this.crosswalks = [];
-    /** @type {{ pos: THREE.Vector3, group: THREE.Object3D }[]} people on foot about the town who don't take the train (features/strollers.js) */
+    /** @type {Outputs['pedestrians']} */
     this.pedestrians = [];
-    /** @type {import('./world/tourist.js').Party[]} the tourists' parties (features/tourists.js) */
+    /** @type {Outputs['parties']} */
     this.parties = [];
-    /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, kerb: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, kerb: to the edge of the carriageway, in world units */
+    /** @type {Outputs['cityRoutes']} */
     this.cityRoutes = [];
-    /** @type {{ boarded: number, alighted: number, stops: number, walks: [number, number, number, number][] } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js); walks: where they walk between the grounds and the stop (ax, az, bx, bz) */
+    /** @type {Outputs['busStop']} */
     this.busStop = null;
-    /** @type {{ group: THREE.Group, boats: any[], parasails: { ski: any, at: THREE.Vector3 }[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea, parasails over it (at: where each flies) and foam on the shore (features/seacraft.js) */
+    /** @type {Outputs['seacraft']} */
     this.seacraft = null;
-    /** @type {{ group: THREE.Group, people: { role: string, walker?: any, person: any }[], shades: number } | null} people on the beach (features/beach.js) */
+    /** @type {Outputs['beach']} */
     this.beach = null;
-    /** @type {{ group: THREE.Group, props: { x: number, z: number, r: number, kind: string }[], shops: number, bikes: number, cars: number, cafes: number, carts: number } | null} what stands along a town's streets (features/streetlife.js): props are the circles they take on the ground */
+    /** @type {Outputs['streetLife']} */
     this.streetLife = null;
-    /** @type {{ url: string, title: string, greeting: string, person: any, head: THREE.Vector3, facing: THREE.Vector3, group: THREE.Group, facingCamera: boolean } | null} the author standing by the landmark, who shows a QR code to their portfolio when tapped (facingCamera: turned round to a camera that came close, grinning) (features/host.js, src/app/host.js) */
+    /** @type {Outputs['host']} */
     this.host = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
@@ -428,6 +425,7 @@ export class World {
 /** @typedef {import('./types').System} System */
 /** @typedef {import('./types').Frame} Frame */
 /** @typedef {import('./types').Followable} Followable */
+/** @typedef {import('./types').WorldOutputs} Outputs */
 
 /**
  * @param {{ id: string }[]} features
