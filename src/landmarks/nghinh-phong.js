@@ -308,7 +308,8 @@ export default {
     const P = (/** @type {number} */ lx, /** @type {number} */ ly, /** @type {number} */ lz) => new THREE.Vector3(...toWorld(site, lx, base0 - site.y + ly, lz));
     const spireX = 2.5 * cell, tall = peak, mid = -B + 0.4 * R;
     const say = Object.fromEntries(tourWords().map((w) => [w.id, w.say]));
-    const stop = (/** @type {string} */ id, /** @type {THREE.Vector3} */ from, /** @type {THREE.Vector3} */ look) => ({ say: say[id], audio: tourAudio(id), from, look });
+    const en = Object.fromEntries(tourWords('en').map((w) => [w.id, w.say])); // (for visitors from abroad: app/i18n.js)
+    const stop = (/** @type {string} */ id, /** @type {THREE.Vector3} */ from, /** @type {THREE.Vector3} */ look) => ({ say: say[id], en: en[id], audio: tourAudio(id), from, look });
     /** @type {import('./common.js').TourStop[]} */
     const tour = [
       stop('welcome', P(-B - R * 0.9, tall * 1.6, -R * 0.6), P(0, tall * 0.45, 0)),

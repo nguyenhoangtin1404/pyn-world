@@ -1,6 +1,7 @@
 import { CAMERA_MODES } from './cameras.js';
 import { TIME_PRESETS } from './world/sky.js';
 import { WEATHER_OPTIONS } from './world/weather.js';
+import { lang, onLangChange, setLang, t } from './app/i18n.js';
 
 export const PIXEL_LEVELS = [
   { v: 1, label: 'Tắt' },
@@ -26,9 +27,9 @@ function chip(html, onClick) {
 
 // `worlds`: the WorldConfigs the app can show (one chip each, top left).
 export function initHud(state, actions, worlds) {
+  // (Every label in the language on screen — app/i18n.js; labels() sets them again when it changes.)
   const worldBtns = worlds.map((w) => {
     const b = chip(w.name, () => actions.setWorld(w.id));
-    b.title = `${w.name} (phím N: thế giới kế tiếp)`;
     $('world-picker').append(b);
     return [w.id, b];
   });
@@ -37,17 +38,18 @@ export function initHud(state, actions, worlds) {
   // What most people want up front: the whole view, the tower and its tour. The cameras that follow something
   // (and the train's) wait under "Nâng cao"; not 9 (tourists) and 0 (balloons) — 6 follows tourists too, 7 the
   // balloons (their keys still work). Keys are in the tooltips, not on the chips.
-  const keyed = (/** @type {HTMLElement} */ b, /** @type {string} */ key, /** @type {string} */ what) => ((b.title = `${what} (phím ${key})`), b);
-  const camBtns = CAMERA_MODES.filter((m) => m.id !== 'tourist' && m.id !== 'balloon').map((m) => {
-    const b = keyed(chip(m.id === 'overview' ? '🗺 Toàn cảnh' : m.label, () => actions.setMode(m.id)), m.key, m.label);
+  const keyed = (/** @type {HTMLElement} */ b, /** @type {string} */ key, /** @type {string} */ what) => (b.title = t('hud.keyed', { what, key }));
+  const camModes = CAMERA_MODES.filter((m) => m.id !== 'tourist' && m.id !== 'balloon');
+  const camBtns = camModes.map((m) => {
+    const b = chip('', () => actions.setMode(m.id));
     $(m.id === 'overview' ? 'camera-modes' : 'follow-modes').append(b);
     return [m.id, b];
   });
   // The famous building: fly to it (V; again for the next one).
-  const landmarkBtn = keyed(chip('🏛 Tháp', () => actions.flyToLandmark()), 'V', 'Bay tới tháp');
+  const landmarkBtn = chip('', () => actions.flyToLandmark());
   $('camera-modes').append(landmarkBtn);
   // Its narrated tour (I; again, or Esc, to stop).
-  const tourBtn = keyed(chip('🎙 Thuyết minh', () => actions.toggleTour()), 'I', 'Thuyết minh');
+  const tourBtn = chip('', () => actions.toggleTour());
   $('camera-modes').append(tourBtn);
   // About the tower (index.html #about — the same words search engines read), with the credits.
   const about = /** @type {HTMLDialogElement} */ ($('about'));
@@ -55,7 +57,6 @@ export function initHud(state, actions, worlds) {
   aboutBtn.type = 'button';
   aboutBtn.className = 'chip';
   aboutBtn.id = 'about-btn';
-  aboutBtn.textContent = 'ℹ Giới thiệu';
   aboutBtn.setAttribute('aria-haspopup', 'dialog');
   aboutBtn.addEventListener('click', () => about.showModal()); // (modal: focus inside, Esc closes, focus back here)
   $('about-close').addEventListener('click', () => about.close());
@@ -63,24 +64,28 @@ export function initHud(state, actions, worlds) {
     if (e.target === about) about.close(); // a tap on the backdrop, outside the card
   });
   $('camera-modes').append(aboutBtn);
+  // English ⇄ Vietnamese (remembered; app/i18n.js).
+  const langBtn = chip('', () => {
+    setLang(lang() === 'vi' ? 'en' : 'vi', import.meta.env?.BASE_URL ?? '/');
+    toast(t('toast.lang'));
+  });
+  langBtn.id = 'lang-btn';
+  $('camera-modes').append(langBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
-  clockEl.setAttribute('aria-label', 'Giờ trong ngày');
   $('time-of-day').append(clockEl);
   const timeBtns = TIME_PRESETS.map((p) => {
-    const b = chip(`<span aria-hidden="true">${p.icon}</span>${p.label}`, () => actions.setTime(p.id));
+    const b = chip('', () => actions.setTime(p.id));
     $('time-of-day').append(b);
     return [p.id, b];
   });
-  const realBtn = chip('🕒 Giờ thật', () => actions.setClock('real'));
-  realBtn.title = 'Giờ Việt Nam lúc này, trôi như thật (phím C)';
-  const fastBtn = chip('⟳ Tua nhanh', () => actions.setClock('fast'));
-  fastBtn.title = 'Ngày trôi nhanh: 1 ngày = 4 phút (phím C)';
+  const realBtn = chip('', () => actions.setClock('real'));
+  const fastBtn = chip('', () => actions.setClock('fast'));
   $('time-of-day').append(realBtn);
 
   // The weather as buttons, one tap each (the one on is pressed).
   const weatherBtns = WEATHER_OPTIONS.map((o) => {
-    const b = chip(o.label, () => actions.setWeather(o.id));
+    const b = chip('', () => actions.setWeather(o.id));
     $('weather').append(b);
     return [o.id, b];
   });
@@ -106,11 +111,11 @@ export function initHud(state, actions, worlds) {
   });
 
   const pixel = $('pixel');
-  pixel.innerHTML = PIXEL_LEVELS.map((l) => `<option value="${l.v}">${l.label}</option>`).join('');
+  pixel.innerHTML = PIXEL_LEVELS.map((l) => `<option value="${l.v}"></option>`).join('');
   pixel.addEventListener('change', () => actions.setPixel(+pixel.value));
 
-  const outlineBtn = chip('✎ Viền mực', () => actions.setOutline(!state.outline));
-  const shadowBtn = chip('◐ Bóng đổ', () => actions.setShadows(!state.shadows));
+  const outlineBtn = chip('', () => actions.setOutline(!state.outline));
+  const shadowBtn = chip('', () => actions.setShadows(!state.shadows));
   $('toggles').append(fastBtn, outlineBtn, shadowBtn); // (under "Nâng cao")
 
   const helpBtn = $('help-btn');
@@ -126,8 +131,41 @@ export function initHud(state, actions, worlds) {
   panelToggle.addEventListener('click', () => {
     const collapsed = $('panel').classList.toggle('collapsed');
     panelToggle.setAttribute('aria-expanded', String(!collapsed));
-    $('panel-toggle-label').textContent = collapsed ? 'Mở bảng điều khiển' : 'Thu gọn';
+    $('panel-toggle-label').textContent = t(collapsed ? 'panel.open' : 'panel.close');
     panelToggle.blur();
+  });
+
+  // Every label made here, in the language on screen (index.html's own text is app/i18n.js applyStatic's).
+  function labels() {
+    for (const [i, [, b]] of worldBtns.entries()) b.title = t('hud.worldTitle', { name: worlds[i].name });
+    for (const [i, [id, b]] of camBtns.entries()) {
+      b.textContent = id === 'overview' ? t('hud.overview') : t(`cam.${id}`);
+      keyed(b, camModes[i].key, t(`cam.${id}`));
+    }
+    landmarkBtn.textContent = t('hud.tower');
+    keyed(landmarkBtn, 'V', t('hud.towerTitle'));
+    tourBtn.textContent = t('hud.tour');
+    keyed(tourBtn, 'I', t('hud.tourTitle'));
+    aboutBtn.textContent = t('hud.about');
+    langBtn.textContent = t('hud.lang');
+    langBtn.title = t('hud.langTitle');
+    langBtn.lang = lang() === 'vi' ? 'en' : 'vi'; // (what it offers is in the other language)
+    clockEl.setAttribute('aria-label', t('aria.time'));
+    for (const [i, [id, b]] of timeBtns.entries()) b.innerHTML = `<span aria-hidden="true">${TIME_PRESETS[i].icon}</span>${t(`time.${id}`)}`;
+    realBtn.textContent = t('hud.realTime');
+    realBtn.title = t('hud.realTimeTitle');
+    fastBtn.textContent = t('hud.fast');
+    fastBtn.title = t('hud.fastTitle');
+    for (const [id, b] of weatherBtns) b.textContent = t(`weather.${id}`);
+    for (const o of pixel.querySelectorAll('option')) o.textContent = t(`pixel.${o.value}`);
+    outlineBtn.textContent = t('hud.outline');
+    shadowBtn.textContent = t('hud.shadows');
+    $('panel-toggle-label').textContent = t($('panel').classList.contains('collapsed') ? 'panel.open' : 'panel.close');
+  }
+  labels();
+  onLangChange(() => {
+    labels();
+    sync();
   });
 
   function sync() {
@@ -156,7 +194,7 @@ export function initHud(state, actions, worlds) {
     speed.value = state.speed;
     $('speed-value').textContent = `${state.speed.toFixed(2)}×`;
     timeScale.value = state.timeScale;
-    $('time-scale-value').textContent = state.paused ? 'Dừng' : `${state.timeScale.toFixed(2)}×`;
+    $('time-scale-value').textContent = state.paused ? t('hud.paused') : `${state.timeScale.toFixed(2)}×`;
     pixel.value = state.pixel;
     outlineBtn.classList.toggle('active', state.outline);
     shadowBtn.classList.toggle('active', state.shadows);

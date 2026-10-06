@@ -3,13 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- seo:start — the English page (en/index.html, made at build by tools/seo/plugin.js) has its own head from here to seo:end -->
     <title>Tháp Nghinh Phong Tuy Hòa 3D – Sa bàn low-poly tương tác | PYN World</title>
     <meta name="description" content="Khám phá Tháp Nghinh Phong (Tuy Hòa, Phú Yên – nay là tỉnh Đắk Lắk) dạng sa bàn 3D low-poly tương tác ngay trên trình duyệt: biển, bãi biển, phố, du khách, ngày đêm. Dựng từ dữ liệu bản đồ thật." />
     <meta name="theme-color" content="#1b2a3a" />
     <link rel="canonical" href="%SITE_URL%" />
+    <link rel="alternate" hreflang="vi" href="%SITE_URL%" />
+    <link rel="alternate" hreflang="en" href="%SITE_URL%en/" />
+    <link rel="alternate" hreflang="x-default" href="%SITE_URL%" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="PYN World" />
     <meta property="og:locale" content="vi_VN" />
+    <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:title" content="Tháp Nghinh Phong Tuy Hòa 3D – PYN World" />
     <meta property="og:description" content="Sa bàn 3D low-poly tương tác quanh Tháp Nghinh Phong, Tuy Hòa, dựng từ dữ liệu bản đồ thật." />
     <meta property="og:url" content="%SITE_URL%" />
@@ -22,7 +27,7 @@
     {
       "@context": "https://schema.org",
       "@graph": [
-        { "@type": "WebSite", "@id": "%SITE_URL%#site", "url": "%SITE_URL%", "name": "PYN World", "inLanguage": "vi" },
+        { "@type": "WebSite", "@id": "%SITE_URL%#site", "url": "%SITE_URL%", "name": "PYN World", "inLanguage": ["vi", "en"] },
         { "@type": "WebApplication", "@id": "%SITE_URL%#app", "name": "PYN World – Tháp Nghinh Phong 3D", "url": "%SITE_URL%",
           "applicationCategory": "EntertainmentApplication", "operatingSystem": "Trình duyệt web (WebGL)", "inLanguage": "vi",
           "description": "Sa bàn 3D low-poly tương tác quanh Tháp Nghinh Phong, Tuy Hòa, dựng từ dữ liệu bản đồ thật.",
@@ -42,6 +47,7 @@
       ]
     }
     </script>
+    <!-- seo:end -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -51,8 +57,8 @@
   <body>
     <noscript>
       <main style="font-family:sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem">
-        <h1>PYN World – Tháp Nghinh Phong 3D</h1>
-        <p>Sa bàn 3D low-poly tương tác quanh Tháp Nghinh Phong, Tuy Hòa, Đắk Lắk (Phú Yên cũ), dựng từ dữ liệu bản đồ thật. Cần bật JavaScript và WebGL để xem.</p>
+        <h1 data-i18n="noscript.title">PYN World – Tháp Nghinh Phong 3D</h1>
+        <p data-i18n="noscript.text">Sa bàn 3D low-poly tương tác quanh Tháp Nghinh Phong, Tuy Hòa, Đắk Lắk (Phú Yên cũ), dựng từ dữ liệu bản đồ thật. Cần bật JavaScript và WebGL để xem.</p>
       </main>
     </noscript>
     <div id="app">
@@ -60,88 +66,88 @@
 
       <div id="hud-top">
         <div class="top-row">
-          <div id="world-picker" class="row tight" role="group" aria-label="Chọn thế giới (phím N)"></div>
+          <div id="world-picker" class="row tight" role="group" aria-label="Chọn thế giới (phím N)" data-i18n-attr="aria-label:aria.worlds"></div>
         </div>
         <div id="help" class="card" hidden>
           <div class="help-head">
-            Phím tắt
-            <button id="hide-help" type="button" class="link">ẩn</button>
+            <span data-i18n="help.title">Phím tắt</span>
+            <button id="hide-help" type="button" class="link" data-i18n="help.hide">ẩn</button>
           </div>
           <dl class="shortcut-list">
             <!-- data-needs: shown only where the world has it (hud.js setWorld); a <div> per row so it hides whole -->
-            <div><dt><kbd>1</kbd></dt><dd>Toàn cảnh</dd></div>
-            <div data-needs="train"><dt><kbd>2</kbd>–<kbd>5</kbd></dt><dd>Theo tàu · Cầu · Hành khách · Lái tàu</dd></div>
-            <div data-needs="person"><dt><kbd>6</kbd></dt><dd>Đi theo một người (bấm lại để đổi người)</dd></div>
-            <div data-needs="bird"><dt><kbd>7</kbd></dt><dd>Đi theo một con chim / khinh khí cầu / máy bay (bấm lại để đổi)</dd></div>
-            <div data-needs="vehicle"><dt><kbd>8</kbd></dt><dd>Đi theo một chiếc xe (bấm lại để đổi)</dd></div>
-            <div data-needs="tourist"><dt><kbd>9</kbd></dt><dd>Đi theo một du khách ở tháp (bấm lại để đổi người)</dd></div>
-            <div data-needs="balloon"><dt><kbd>0</kbd></dt><dd>Đi theo một quả khinh khí cầu (bấm lại để đổi)</dd></div>
-            <div data-needs="bridge"><dt><kbd>B</kbd></dt><dd>Chuyển sang cây cầu kế tiếp</dd></div>
-            <div data-needs="train"><dt><kbd>Kéo</kbd></dt><dd>Nhìn quanh (Hành khách, Lái tàu)</dd></div>
-            <div><dt><kbd>Kéo</kbd></dt><dd>Xoay camera (Toàn cảnh)</dd></div>
-            <div><dt><kbd>Chuột phải</kbd></dt><dd>Di chuyển ngang (Toàn cảnh)</dd></div>
-            <div><dt><kbd>Lăn</kbd></dt><dd>Zoom về phía con trỏ</dd></div>
-            <div><dt><kbd>WASD</kbd> <kbd>Q</kbd> <kbd>E</kbd></dt><dd>Bay trong Toàn cảnh / xuống, lên</dd></div>
-            <div><dt><kbd>Shift</kbd></dt><dd>Bay nhanh hơn</dd></div>
-            <div data-needs="spot:courting"><dt><kbd>F</kbd></dt><dd>Bay tới đôi cừu đang yêu</dd></div>
-            <div data-needs="spot:bridgeSheep"><dt><kbd>G</kbd></dt><dd>Bay tới chú cừu bên cầu</dd></div>
-            <div data-needs="spot:summit"><dt><kbd>K</kbd></dt><dd>Bay lên đỉnh núi có người leo</dd></div>
-            <div data-needs="spot:fisherman"><dt><kbd>J</kbd></dt><dd>Bay tới thuyền câu cá</dd></div>
-            <div data-needs="spot:steamer"><dt><kbd>L</kbd></dt><dd>Bay tới tàu hơi nước trên sông</dd></div>
-            <div data-needs="landmark"><dt><kbd>V</kbd></dt><dd>Bay tới tháp / công trình nổi tiếng kế tiếp</dd></div>
-            <div data-needs="tour"><dt><kbd>I</kbd></dt><dd>Thuyết minh giới thiệu tháp (bấm lại hoặc <kbd>Esc</kbd> để dừng)</dd></div>
-            <div><dt><kbd>P</kbd></dt><dd>Đổi mức pixel art</dd></div>
-            <div><dt><kbd>O</kbd></dt><dd>Bật/tắt viền mực</dd></div>
-            <div><dt><kbd>T</kbd> / <kbd>Shift</kbd>+<kbd>T</kbd></dt><dd>Nhảy tới buổi kế tiếp / trước đó (rồi ngày trôi nhanh)</dd></div>
-            <div><dt><kbd>C</kbd></dt><dd>Giờ thật ⇄ ngày trôi nhanh (1 ngày = 4 phút)</dd></div>
-            <div><dt><kbd>Space</kbd></dt><dd>Tạm dừng</dd></div>
-            <div><dt><kbd>X</kbd></dt><dd>Tốc độ thời gian 0× / 1×</dd></div>
-            <div><dt><kbd>M</kbd></dt><dd>Tắt / bật tiếng</dd></div>
-            <div><dt><kbd>H</kbd></dt><dd>Ẩn / hiện giao diện</dd></div>
-            <div data-needs="worlds"><dt><kbd>N</kbd></dt><dd>Sang thế giới kế tiếp (hoặc bấm tên thế giới ở góc trên)</dd></div>
+            <div><dt><kbd>1</kbd></dt><dd data-i18n="keys.overview">Toàn cảnh</dd></div>
+            <div data-needs="train"><dt><kbd>2</kbd>–<kbd>5</kbd></dt><dd data-i18n="keys.train">Theo tàu · Cầu · Hành khách · Lái tàu</dd></div>
+            <div data-needs="person"><dt><kbd>6</kbd></dt><dd data-i18n="keys.person">Đi theo một người (bấm lại để đổi người)</dd></div>
+            <div data-needs="bird"><dt><kbd>7</kbd></dt><dd data-i18n="keys.bird">Đi theo một con chim / khinh khí cầu / máy bay (bấm lại để đổi)</dd></div>
+            <div data-needs="vehicle"><dt><kbd>8</kbd></dt><dd data-i18n="keys.vehicle">Đi theo một chiếc xe (bấm lại để đổi)</dd></div>
+            <div data-needs="tourist"><dt><kbd>9</kbd></dt><dd data-i18n="keys.tourist">Đi theo một du khách ở tháp (bấm lại để đổi người)</dd></div>
+            <div data-needs="balloon"><dt><kbd>0</kbd></dt><dd data-i18n="keys.balloon">Đi theo một quả khinh khí cầu (bấm lại để đổi)</dd></div>
+            <div data-needs="bridge"><dt><kbd>B</kbd></dt><dd data-i18n="keys.bridge">Chuyển sang cây cầu kế tiếp</dd></div>
+            <div data-needs="train"><dt><kbd data-i18n="kbd.drag">Kéo</kbd></dt><dd data-i18n="keys.look">Nhìn quanh (Hành khách, Lái tàu)</dd></div>
+            <div><dt><kbd data-i18n="kbd.drag">Kéo</kbd></dt><dd data-i18n="keys.orbit">Xoay camera (Toàn cảnh)</dd></div>
+            <div><dt><kbd data-i18n="kbd.right">Chuột phải</kbd></dt><dd data-i18n="keys.pan">Di chuyển ngang (Toàn cảnh)</dd></div>
+            <div><dt><kbd data-i18n="kbd.wheel">Lăn</kbd></dt><dd data-i18n="keys.zoom">Zoom về phía con trỏ</dd></div>
+            <div><dt><kbd>WASD</kbd> <kbd>Q</kbd> <kbd>E</kbd></dt><dd data-i18n="keys.fly">Bay trong Toàn cảnh / xuống, lên</dd></div>
+            <div><dt><kbd>Shift</kbd></dt><dd data-i18n="keys.fast">Bay nhanh hơn</dd></div>
+            <div data-needs="spot:courting"><dt><kbd>F</kbd></dt><dd data-i18n="keys.courting">Bay tới đôi cừu đang yêu</dd></div>
+            <div data-needs="spot:bridgeSheep"><dt><kbd>G</kbd></dt><dd data-i18n="keys.bridgeSheep">Bay tới chú cừu bên cầu</dd></div>
+            <div data-needs="spot:summit"><dt><kbd>K</kbd></dt><dd data-i18n="keys.summit">Bay lên đỉnh núi có người leo</dd></div>
+            <div data-needs="spot:fisherman"><dt><kbd>J</kbd></dt><dd data-i18n="keys.fisherman">Bay tới thuyền câu cá</dd></div>
+            <div data-needs="spot:steamer"><dt><kbd>L</kbd></dt><dd data-i18n="keys.steamer">Bay tới tàu hơi nước trên sông</dd></div>
+            <div data-needs="landmark"><dt><kbd>V</kbd></dt><dd data-i18n="keys.landmark">Bay tới tháp / công trình nổi tiếng kế tiếp</dd></div>
+            <div data-needs="tour"><dt><kbd>I</kbd></dt><dd data-i18n-html="keys.tour">Thuyết minh giới thiệu tháp (bấm lại hoặc <kbd>Esc</kbd> để dừng)</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd data-i18n="keys.pixel">Đổi mức pixel art</dd></div>
+            <div><dt><kbd>O</kbd></dt><dd data-i18n="keys.outline">Bật/tắt viền mực</dd></div>
+            <div><dt><kbd>T</kbd> / <kbd>Shift</kbd>+<kbd>T</kbd></dt><dd data-i18n="keys.time">Nhảy tới buổi kế tiếp / trước đó (rồi ngày trôi nhanh)</dd></div>
+            <div><dt><kbd>C</kbd></dt><dd data-i18n="keys.clock">Giờ thật ⇄ ngày trôi nhanh (1 ngày = 4 phút)</dd></div>
+            <div><dt><kbd>Space</kbd></dt><dd data-i18n="keys.pause">Tạm dừng</dd></div>
+            <div><dt><kbd>X</kbd></dt><dd data-i18n="keys.timeScale">Tốc độ thời gian 0× / 1×</dd></div>
+            <div><dt><kbd>M</kbd></dt><dd data-i18n="keys.mute">Tắt / bật tiếng</dd></div>
+            <div><dt><kbd>H</kbd></dt><dd data-i18n="keys.hud">Ẩn / hiện giao diện</dd></div>
+            <div data-needs="worlds"><dt><kbd>N</kbd></dt><dd data-i18n="keys.worlds">Sang thế giới kế tiếp (hoặc bấm tên thế giới ở góc trên)</dd></div>
           </dl>
         </div>
       </div>
 
       <div id="panel" class="card collapsed">
         <button id="panel-toggle" type="button" aria-controls="panel-content" aria-expanded="false">
-          <span id="panel-toggle-label">Mở bảng điều khiển</span>
+          <span id="panel-toggle-label" data-i18n="panel.open">Mở bảng điều khiển</span>
           <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
             <path d="m5 7 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </button>
         <div id="panel-content">
-          <div id="camera-modes" class="row" role="group" aria-label="Góc máy quay"></div>
-          <div id="time-of-day" class="row" role="group" aria-label="Giờ trong ngày"></div>
+          <div id="camera-modes" class="row" role="group" aria-label="Góc máy quay" data-i18n-attr="aria-label:aria.cameras"></div>
+          <div id="time-of-day" class="row" role="group" aria-label="Giờ trong ngày" data-i18n-attr="aria-label:aria.time"></div>
           <div class="row">
-            <div id="weather" class="row tight" role="group" aria-label="Thời tiết"></div>
+            <div id="weather" class="row tight" role="group" aria-label="Thời tiết" data-i18n-attr="aria-label:aria.weather"></div>
             <span class="field slider">
-              <button id="sound-toggle" class="chip round" type="button" aria-label="Tắt tiếng" aria-pressed="false">♪</button>
-              <input id="volume" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Âm lượng" />
+              <button id="sound-toggle" class="chip round" type="button" aria-label="Tắt tiếng" data-i18n-attr="aria-label:aria.mute" aria-pressed="false">♪</button>
+              <input id="volume" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Âm lượng" data-i18n-attr="aria-label:aria.volume" />
               <output id="volume-value" for="volume">65%</output>
             </span>
           </div>
           <details id="advanced" class="advanced">
-            <summary>Nâng cao</summary>
-            <div id="follow-modes" class="row tight" role="group" aria-label="Máy quay đi theo"></div>
+            <summary data-i18n="panel.advanced">Nâng cao</summary>
+            <div id="follow-modes" class="row tight" role="group" aria-label="Máy quay đi theo" data-i18n-attr="aria-label:aria.follow"></div>
             <div class="row">
-              <label class="field slider" title="Chuột phải để đặt lại">
-                <span>🚂 Tốc độ tàu</span>
+              <label class="field slider" title="Chuột phải để đặt lại" data-i18n-attr="title:panel.speedTitle">
+                <span data-i18n="panel.speed">🚂 Tốc độ tàu</span>
                 <input id="speed" type="range" min="0" max="2.5" step="0.05" value="1" />
                 <output id="speed-value">1×</output>
               </label>
-              <label class="field slider" title="X · 0× / 1× · Chuột phải để đặt lại">
-                <span>⏱ Thời gian</span>
+              <label class="field slider" title="X · 0× / 1× · Chuột phải để đặt lại" data-i18n-attr="title:panel.timeScaleTitle">
+                <span data-i18n="panel.timeScale">⏱ Thời gian</span>
                 <input id="time-scale" type="range" min="0" max="2" step="0.05" value="1" />
                 <output id="time-scale-value">1×</output>
               </label>
             </div>
             <div class="row">
               <div id="toggles" class="row tight"></div>
-              <label class="field" title="Phím P">Pixel art <select id="pixel" aria-label="Độ phân giải pixel art"></select></label>
-              <button id="help-btn" class="chip" type="button" aria-controls="help" aria-expanded="false">⌨ Phím tắt</button>
+              <label class="field" title="Phím P" data-i18n-attr="title:panel.pixelTitle">Pixel art <select id="pixel" aria-label="Độ phân giải pixel art" data-i18n-attr="aria-label:aria.pixel"></select></label>
+              <button id="help-btn" class="chip" type="button" aria-controls="help" aria-expanded="false" data-i18n="panel.help">⌨ Phím tắt</button>
             </div>
-            <p id="credits">
+            <p id="credits" data-i18n-html="credits">
               <a href="https://github.com/nguyenhoangtin1404/pyn-world" target="_blank" rel="noopener">Mã nguồn (AGPL-3.0)</a> ·
               Bản đồ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL) · Độ cao SRTM
             </p>
@@ -155,12 +161,12 @@
       <dialog id="about" class="card about" aria-labelledby="about-title">
         <article class="seo-copy">
           <div class="about-head">
-            <h1 id="about-title">Tháp Nghinh Phong Tuy Hòa 3D</h1>
-            <button id="about-close" type="button" class="host-close" aria-label="Đóng giới thiệu">✕</button>
+            <h1 id="about-title" data-i18n="about.title">Tháp Nghinh Phong Tuy Hòa 3D</h1>
+            <button id="about-close" type="button" class="host-close" aria-label="Đóng giới thiệu" data-i18n-attr="aria-label:about.close">✕</button>
           </div>
-          <p class="about-intro">Tháp Nghinh Phong ở ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), do HUNI architectes thiết kế (hoàn thành 2021): hai tháp, mỗi tháp 50 cột đá lục giác, cột nhọn cao 35 m và 30 m, quảng trường rộng hơn 7 000 m². PYN World dựng lại khu vực này thành sa bàn low-poly tương tác 2 × 2 km, với phố, nhà, bãi biển, du khách và chu kỳ ngày đêm.</p>
-          <p>Kéo để xoay, lăn chuột hoặc chụm hai ngón để phóng to; bấm 🎙 Thuyết minh để camera đưa đi một vòng quanh tháp.</p>
-          <p class="about-credits">
+          <p class="about-intro" data-i18n="about.intro">Tháp Nghinh Phong ở ven biển Tuy Hòa (Phú Yên cũ, nay thuộc tỉnh Đắk Lắk), do HUNI architectes thiết kế (hoàn thành 2021): hai tháp, mỗi tháp 50 cột đá lục giác, cột nhọn cao 35 m và 30 m, quảng trường rộng hơn 7 000 m². PYN World dựng lại khu vực này thành sa bàn low-poly tương tác 2 × 2 km, với phố, nhà, bãi biển, du khách và chu kỳ ngày đêm.</p>
+          <p data-i18n="about.how">Kéo để xoay, lăn chuột hoặc chụm hai ngón để phóng to; bấm 🎙 Thuyết minh để camera đưa đi một vòng quanh tháp.</p>
+          <p class="about-credits" data-i18n-html="about.credits">
             <a href="https://github.com/nguyenhoangtin1404/pyn-world" target="_blank" rel="noopener">Mã nguồn (AGPL-3.0)</a> ·
             Bản đồ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL), dữ liệu qua <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps</a> · Độ cao SRTM
           </p>
@@ -169,15 +175,15 @@
 
       <div id="toast" role="status" aria-live="polite"></div>
 
-      <section id="host-card" class="host-card" hidden tabindex="-1" aria-label="Lời chào của tác giả">
-        <button id="host-close" type="button" class="host-close" aria-label="Đóng">✕</button>
+      <section id="host-card" class="host-card" hidden tabindex="-1" aria-label="Lời chào của tác giả" data-i18n-attr="aria-label:host.label">
+        <button id="host-close" type="button" class="host-close" aria-label="Đóng" data-i18n-attr="aria-label:host.close">✕</button>
         <div class="host-head"><span class="host-avatar" aria-hidden="true">👋</span><span id="host-title"></span></div>
         <p id="host-text"></p>
         <div id="host-qr" class="host-qr"></div>
-        <a id="host-link" class="host-link" href="#" target="_blank" rel="noopener">Mở portfolio ↗</a>
+        <a id="host-link" class="host-link" href="#" target="_blank" rel="noopener" data-i18n="host.link">Mở portfolio ↗</a>
       </section>
 
-      <section id="narration" class="card" hidden tabindex="-1" aria-label="Thuyết minh">
+      <section id="narration" class="card" hidden tabindex="-1" aria-label="Thuyết minh" data-i18n-attr="aria-label:tour.label">
         <div class="narration-head">
           <span aria-hidden="true">🎙</span> <span id="narration-title"></span>
           <span id="narration-step" class="narration-step"></span>
@@ -185,20 +191,20 @@
         <p id="narration-text" aria-live="polite"></p>
         <p id="narration-note" class="narration-note" hidden></p>
         <div class="narration-buttons">
-          <button id="narration-prev" type="button" class="chip" aria-label="Đoạn trước">‹</button>
-          <button id="narration-next" type="button" class="chip" aria-label="Đoạn sau">›</button>
-          <button id="narration-stop" type="button" class="chip" aria-label="Dừng thuyết minh (Esc)">✕ Dừng</button>
+          <button id="narration-prev" type="button" class="chip" aria-label="Đoạn trước" data-i18n-attr="aria-label:tour.prev">‹</button>
+          <button id="narration-next" type="button" class="chip" aria-label="Đoạn sau" data-i18n-attr="aria-label:tour.next">›</button>
+          <button id="narration-stop" type="button" class="chip" aria-label="Dừng thuyết minh (Esc)" data-i18n-attr="aria-label:tour.stopLabel" data-i18n="tour.stop">✕ Dừng</button>
         </div>
       </section>
 
       <div id="loading" aria-busy="true">
         <div class="load-card">
           <div class="load-logo">PYN WORLD</div>
-          <div class="load-sub">SA BÀN LOW-POLY</div>
-          <div class="load-bar" role="progressbar" aria-label="Tiến độ tải" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="load-sub" data-i18n="load.tagline">SA BÀN LOW-POLY</div>
+          <div class="load-bar" role="progressbar" aria-label="Tiến độ tải" data-i18n-attr="aria-label:load.progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div class="load-fill"></div>
           </div>
-          <div class="load-row"><span id="load-phase">Đang khởi động</span><span id="load-percent">0%</span></div>
+          <div class="load-row"><span id="load-phase" data-i18n="load.start">Đang khởi động</span><span id="load-percent">0%</span></div>
           <div id="load-hint" class="load-hint"></div>
         </div>
       </div>

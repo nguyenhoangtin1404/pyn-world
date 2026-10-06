@@ -1,6 +1,7 @@
 // @ts-check
 import * as THREE from 'three';
 import { qrSvg } from './qr.js';
+import { lang, t, tr } from './i18n.js';
 
 // The author's chat bubble (features/host.js puts them in the world as world.host): a tap on them flies the
 // camera up to them and opens a bubble with their greeting, a QR code of their portfolio and a link to it
@@ -51,12 +52,12 @@ export function createHostCard({ camera, rig, canvas, world, onOpen }) {
       const host = world()?.host;
       if (!host) return false;
       onOpen?.();
-      if (shownFor !== host.url) {
+      if (shownFor !== host.url + lang()) {
         title.textContent = host.title;
-        text.textContent = host.greeting;
-        qr.innerHTML = qrSvg(host.url, { label: `Mã QR tới ${host.title}` });
+        text.textContent = tr(host.greeting); // (the default greeting has an English one: app/i18n.js)
+        qr.innerHTML = qrSvg(host.url, { label: t('host.qr', { title: host.title }) });
         link.href = host.url;
-        shownFor = host.url;
+        shownFor = host.url + lang();
       }
       // In front of them and a little above, looking at a point below their feet so that they stand in the top
       // half of the screen, over the bubble (sizes as tall as they are drawn, × a few).

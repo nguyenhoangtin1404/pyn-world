@@ -12,6 +12,7 @@ import { createTour } from './app/tour.js';
 import { createHostCard } from './app/host.js';
 import { QUALITY, createResolutionAdapter, createStats, qualityTier } from './app/perf.js';
 import { showFallback } from './app/fallback.js';
+import { onLangChange, t, tr } from './app/i18n.js';
 import { reducedMotion } from './app/motion.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
@@ -72,7 +73,7 @@ renderer.shadowMap.enabled = true;
 // which made every shader compiled before that (the whole precompile) compile a second time.
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.setAttribute('role', 'img');
-renderer.domElement.setAttribute('aria-label', 'Sa bàn 3D low-poly'); // (named after the world in show())
+renderer.domElement.setAttribute('aria-label', t('canvas.label')); // (named after the world in show())
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
@@ -114,7 +115,7 @@ const actions = {
   setMode(id) {
     tour.stop();
     if (!rig.setMode(id)) {
-      hud.toast('Thế giới này không có gì để theo');
+      hud.toast(t('toast.nothingToFollow'));
       return false;
     }
     state.mode = id;
@@ -126,7 +127,7 @@ const actions = {
     tour.stop();
     const list = world?.landmarks ?? [];
     if (!list.length) {
-      hud.toast('Thế giới này không có công trình nổi tiếng');
+      hud.toast(t('toast.noLandmark'));
       return;
     }
     landmarkIndex = (landmarkIndex + 1) % list.length;
@@ -134,13 +135,13 @@ const actions = {
     rig.flyToSpot(lm.spot, lm.view);
     state.mode = 'overview';
     hud.sync();
-    hud.toast(`Bay tới ${lm.name} 🏛`);
+    hud.toast(t('toast.flyTo', { name: tr(lm.name) }));
   },
   // The narrated tour of the (first) landmark that has one: I to start, again (or Esc) to stop.
   toggleTour(auto = false) {
     if (tour.active) return actions.stopTour();
     const lm = world?.landmarks.find((l) => l.tour?.length);
-    if (!lm) return hud.toast('Thế giới này không có thuyết minh');
+    if (!lm) return hud.toast(t('toast.noTour'));
     if (!auto) audio.init(); // (a page that starts it by itself can't make sound yet)
     if (rig.mode !== 'overview') rig.setMode('overview', { fly: false });
     state.mode = 'overview';
@@ -152,7 +153,7 @@ const actions = {
   stopTour(quiet = false) {
     if (!tour.active) return;
     tour.stop();
-    if (!quiet) hud.toast('Đã dừng thuyết minh');
+    if (!quiet) hud.toast(t('toast.tourStopped'));
   },
   // Jump the clock to a preset's hour; the day then runs fast from there.
   setTime(id) {
@@ -278,7 +279,7 @@ function frame() {
 async function buildWorld(cfg) {
   if (cfg.load) {
     // A world from map data: fetch and check its data first (world/geodata.js).
-    loader.phase('Đang tải bản đồ');
+    loader.phase(t('load.map'));
     await cfg.load();
   }
   const next = new World(cfg);
@@ -293,7 +294,7 @@ async function buildWorld(cfg) {
     loader.progress(Math.round(((i + 1) / steps.length) * 100));
   }
   rig.attach(next.view); // compile from where the camera will start
-  loader.phase('Đang chuẩn bị shader');
+  loader.phase(t('load.shaders'));
   await next.precompile(renderer, camera);
   return next;
 }
@@ -301,9 +302,7 @@ async function buildWorld(cfg) {
 // Hand the sound and the current settings (clock, weather, shadows) to a newly built world.
 function show(next) {
   world = next;
-  // What the canvas shows, for a screen reader (the scene itself is pixels).
-  const sights = world.landmarks.map((l) => l.name).join(', ');
-  renderer.domElement.setAttribute('aria-label', `Sa bàn 3D low-poly ${world.cfg.name}${sights ? ` quanh ${sights}` : ''}: phố, nhà, cây, người và xe chuyển động, ngày đêm. Kéo để xoay, lăn chuột để phóng to; nút Giới thiệu kể về nơi này.`);
+  nameCanvas();
   state.mode = 'overview';
   hud?.setWorld(world);
   world.sky.setHour(state.hour, true);
@@ -318,6 +317,14 @@ function show(next) {
     world.train.events.whistle = () => audio.whistle();
   }
 }
+
+// What the canvas shows, for a screen reader (the scene itself is pixels), in the language on screen.
+function nameCanvas() {
+  if (!world) return;
+  const sights = world.landmarks.map((l) => tr(l.name)).join(', ');
+  renderer.domElement.setAttribute('aria-label', t('canvas.world', { name: world.cfg.name, around: sights ? t('canvas.around', { sights }) : '' }));
+}
+onLangChange(nameCanvas);
 
 async function switchWorld(id) {
   if (state.switchingTo || id === state.world) return;
@@ -339,7 +346,7 @@ async function switchWorld(id) {
     show(await buildWorld(cfg));
     state.world = cfg.id;
     loader.hide();
-    hud.toast(`Thế giới: ${cfg.name}`);
+    hud.toast(t('toast.world', { name: cfg.name }));
   } catch (err) {
     loader.error(err);
   } finally {

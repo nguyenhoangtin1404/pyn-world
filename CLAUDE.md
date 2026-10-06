@@ -65,6 +65,15 @@ File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dò
 
 `index.html` có title/description/canonical/Open Graph/Twitter + JSON-LD (WebSite, WebApplication, TouristAttraction, FAQPage) và hộp thoại **ℹ Giới thiệu** (`<dialog id="about">`, khối `.seo-copy` bên trong: lời giới thiệu `.about-intro` + ghi nguồn AGPL/ODbL/Overture/SRTM; nút `#about-btn` trong bảng chính, `hud.js`) — người xem mở được, bot đọc được trong HTML vì cảnh 3D là canvas. Màn hình không có WebGL dùng lại `.about-intro`. `public/manifest.webmanifest` (icon `icon-192/512.png` vẽ từ `favicon.svg`); font Fredoka tự phục vụ (`public/fonts/`, `@font-face` trong `style.css`, `font-display: swap`) — không gọi Google Fonts. `public/og.png` (1200×630) là ảnh chụp tháp. `tools/seo/plugin.js` (dùng trong `vite.config.js`) thay `%SITE_URL%` và sinh `robots.txt` (cho phép cả bot AI), `sitemap.xml`, `llms.txt` lúc build; đổi tên miền: `SITE_URL=https://… npm run build` (mặc định `https://thapnghinhphong.vn/`; `public/CNAME` + deploy Pages ở gốc `/`). Sửa số liệu về tháp thì sửa cả JSON-LD, `.seo-copy` và `llms.txt`. Test: `tests/unit/seo.test.js`.
 
+## Tiếng Anh (`src/app/i18n.js`)
+
+Mặc định tiếng Việt; `?lang=en`, trang `/en/` hoặc nút 🌐 EN/VI (nhớ trong `localStorage`) chuyển sang tiếng Anh, không theo ngôn
+ngữ trình duyệt. **Thêm chữ nào người xem thấy thì thêm khoá vào cả `STRINGS.vi` và `STRINGS.en`** (`t('khoá')`; trong
+`index.html`: `data-i18n*`, chữ Việt y như `STRINGS.vi`); chữ đến từ dữ liệu world (nhãn feature, tên thứ camera theo, tên công
+trình, tagline) thì thêm vào `PHRASES` (`tr()`). Thuyết minh tiếng Anh: `tourWords('en')` — dịch sát, không thêm số liệu, không
+phát mp3 tiếng Việt. Trang `en/index.html` sinh lúc build (`tools/seo/en.js`: head tiếng Anh cùng số liệu đã kiểm chứng). Test:
+`tests/unit/i18n.test.js`, `tests/e2e/i18n.spec.js`. Chi tiết: **`docs/i18n.md`**.
+
 ## Nhiều world
 
 `main.js` là App (renderer, camera, HUD, âm thanh, vòng lặp) và hiện **một** `World` (`src/World.js`)
@@ -261,3 +270,4 @@ và việc còn lại: **`docs/performance.md`**.
 - `docs/real-worlds.md` — thế giới từ bản đồ thật, NGHINH PHONG, vỏ app, các feature phố/biển/đêm.
 - `docs/vehicles.md` — đường, giao thông, đèn, chắn tàu, máy bay.
 - `docs/performance.md` — số đo hiệu năng theo thời gian, việc còn lại.
+- `docs/i18n.md` — bản tiếng Anh: chọn ngôn ngữ, thêm chữ, thuyết minh, trang SEO `/en/`.

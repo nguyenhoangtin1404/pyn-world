@@ -1,4 +1,5 @@
 // @ts-check
+import { t } from './i18n.js';
 
 // When there is no 3D: the browser has no WebGL (switched off, blocklisted driver, an old phone), or the
 // GPU dropped the page's context while it ran. Instead of a loading screen that never ends, a card with a
@@ -19,9 +20,10 @@ export function webglAvailable() {
   }
 }
 
+// (in the language on screen: app/i18n.js)
 const REASONS = {
-  nogl: { title: 'Trình duyệt này chưa hiển thị được 3D', text: 'Sa bàn cần WebGL. Hãy bật tăng tốc phần cứng (hardware acceleration) trong cài đặt trình duyệt, cập nhật trình duyệt hoặc thử trên máy khác.' },
-  lost: { title: 'Đồ họa 3D vừa bị tạm dừng', text: 'Trình duyệt đã thu hồi bộ nhớ đồ họa của trang (máy thiếu bộ nhớ hoặc trình điều khiển GPU khởi động lại). Tải lại trang để xem tiếp.' },
+  nogl: { title: 'fallback.noglTitle', text: 'fallback.noglText' },
+  lost: { title: 'fallback.lostTitle', text: 'fallback.lostText' },
 };
 
 /**
@@ -30,7 +32,7 @@ const REASONS = {
  */
 export function showFallback(reason) {
   if (document.getElementById('fallback')) return;
-  const { title, text } = REASONS[reason];
+  const title = t(REASONS[reason].title), text = t(REASONS[reason].text);
   const intro = document.querySelector('#about .about-intro')?.textContent?.trim() ?? '';
   const base = /** @type {any} */ (import.meta).env?.BASE_URL ?? '/';
   const box = document.createElement('section');
@@ -40,12 +42,14 @@ export function showFallback(reason) {
   box.dataset.reason = reason;
   box.innerHTML = `
     <div class="fallback-card card">
-      <img class="fallback-photo" src="${base}og.png" width="1200" height="630" alt="Tháp Nghinh Phong bên bờ biển Tuy Hòa" />
+      <img class="fallback-photo" src="${base}og.png" width="1200" height="630" alt="" />
       <h1 class="fallback-title"></h1>
       <p class="fallback-why"></p>
       <p class="fallback-intro"></p>
-      <button type="button" class="chip fallback-retry">↻ Thử lại</button>
+      <button type="button" class="chip fallback-retry"></button>
     </div>`;
+  /** @type {HTMLImageElement} */ (box.querySelector('.fallback-photo')).alt = t('fallback.photo');
+  /** @type {HTMLElement} */ (box.querySelector('.fallback-retry')).textContent = t('fallback.retry');
   /** @type {HTMLElement} */ (box.querySelector('.fallback-title')).textContent = title;
   /** @type {HTMLElement} */ (box.querySelector('.fallback-why')).textContent = text;
   const introEl = /** @type {HTMLElement} */ (box.querySelector('.fallback-intro'));

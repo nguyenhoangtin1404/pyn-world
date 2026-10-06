@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import seo from '../../tools/seo/plugin.js'
+import seo, { englishPage } from '../../tools/seo/plugin.js'
+
+// What the plugin writes at build: robots.txt, sitemap.xml, llms.txt and the English page (from a built index.html).
+const build = (index = '<html lang="vi"><head><!-- seo:start --><title>x</title><!-- seo:end --></head></html>') => {
+  const out = {}
+  seo().generateBundle.handler.call({ emitFile: (f) => (out[f.fileName] = f.source) }, {}, { 'index.html': { source: index } })
+  return out
+}
 
 describe('seo', () => {
   const html = readFileSync('index.html', 'utf8')
@@ -35,17 +42,46 @@ describe('seo', () => {
   })
 
   it('tháp ở Tuy Hòa, không phải Quy Nhơn', () => {
-    const llms = []
-    seo().generateBundle.call({ emitFile: (f) => llms.push(f.source) })
-    for (const text of [html, ...llms]) expect(text).not.toMatch(/Quy Nhơn|Bình Định/)
+    for (const text of [html, ...Object.values(build(html))]) expect(text).not.toMatch(/Quy Nhơn|Bình Định/)
     expect(html).toContain('Tuy Hòa')
   })
 
   it('plugin thay SITE_URL và sinh robots/sitemap/llms', () => {
     const p = seo()
     expect(p.transformIndexHtml('<a href="%SITE_URL%">')).not.toContain('%SITE_URL%')
-    const emitted = []
-    p.generateBundle.call({ emitFile: (f) => emitted.push(f.fileName) })
-    expect(emitted.sort()).toEqual(['llms.txt', 'robots.txt', 'sitemap.xml'])
+    expect(Object.keys(build()).sort()).toEqual(['en/index.html', 'llms.txt', 'robots.txt', 'sitemap.xml'])
+  })
+
+  it('trang tiếng Anh: head riêng (canonical /en/, hreflang, JSON-LD cùng số liệu), chữ tiếng Anh', () => {
+    const url = 'https://x.test/'
+    const vi = html.replaceAll('%SITE_URL%', url)
+    const en = englishPage(vi, url)
+    expect(en).toContain('<html lang="en"')
+    expect(en).toContain(`<link rel="canonical" href="${url}en/" />`)
+    for (const page of [vi, en]) {
+      for (const [lang, href] of [['vi', url], ['en', `${url}en/`], ['x-default', url]])
+        expect(page).toContain(`<link rel="alternate" hreflang="${lang}" href="${href}" />`)
+    }
+    expect(en).not.toContain('Tháp Nghinh Phong Tuy Hòa 3D – Sa bàn') // (the Vietnamese title is gone)
+    const ld = JSON.parse(en.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])
+    const tower = ld['@graph'].find((n) => n['@type'] === 'TouristAttraction')
+    const viTower = JSON.parse(vi.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'].find((n) => n['@type'] === 'TouristAttraction')
+    expect(tower['@id']).toBe(viTower['@id'])
+    expect(tower.geo).toEqual(viTower.geo)
+    for (const fact of ['HUNI architectes', '2021', '50 hexagonal stone columns', '35 m', '30 m', '7,000 m²']) expect(tower.description).toContain(fact)
+    expect(ld['@graph'].map((n) => n['@type'])).toContain('FAQPage')
+    // The About copy, for bots, in English.
+    const about = en.match(/<dialog id="about"[\s\S]*?<\/dialog>/)[0]
+    for (const s of ['Nghinh Phong Tower', 'HUNI architectes', 'OpenStreetMap', 'ODbL', 'Overture Maps', 'SRTM', 'AGPL-3.0', 'more than 7,000 m²']) expect(about).toContain(s)
+    expect(about).not.toMatch(/Mã nguồn|Bản đồ ©/)
+  })
+
+  it('sitemap và llms.txt có trang tiếng Anh', () => {
+    const out = build()
+    expect(out['sitemap.xml']).toMatch(/<loc>https:\/\/[^<]+\/en\/<\/loc>/)
+    expect(out['sitemap.xml']).toContain('hreflang="en"')
+    expect(out['llms.txt']).toMatch(/\/en\/\)/)
+    expect(out['llms.txt']).toContain('## In English')
+    expect(out['llms.txt']).toContain('more than 7,000 m²')
   })
 })

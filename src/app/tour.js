@@ -1,12 +1,15 @@
 // @ts-check
 import * as THREE from 'three';
 import { reducedMotion } from './motion.js';
+import { lang, onLangChange, t as msg, tr } from './i18n.js';
 
 // The narrated tour of a famous building (key I, the "Thuyết minh" chip): the camera flies from stop
 // to stop of the landmark's `tour` (src/landmarks/), each one said aloud in Vietnamese and shown as a
 // subtitle. Said by the stop's recording (public/tour/*.mp3, made by tools/tour/voice.mjs) where it
 // exists, else by the browser's speech synthesis where it has a Vietnamese voice (Chrome on Windows and
 // Mac has none); with neither, or the sound off, the panel says so and shows the subtitles alone.
+// In English (app/i18n.js) the subtitles are the stop's `en` and the recordings (Vietnamese) are not played: the
+// browser's English voice says them where there is one (most browsers have one), else the subtitles alone.
 // Between flights the camera circles slowly round what it looks at. The next stop comes when the
 // words are said (or, with no voice, when there has been time to read them); ‹ › step by hand, ✕ or
 // Esc ends it, and so does choosing a camera or another world. With prefers-reduced-motion the camera cuts
@@ -44,13 +47,18 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
   const v = new THREE.Vector3();
   /** @type {HTMLElement | null} */
   let returnFocus = null; // where the focus was before the panel opened
+  let name = ''; // the landmark's (Vietnamese) name
 
   // A Vietnamese voice, the most natural-sounding the device has (Edge's "Online (Natural)" neural
   // voices, Google's, Apple's) before the plainer ones.
+  // (English: an English voice, the same way.)
   const voice = () => {
-    const vi = synth?.getVoices().filter((x) => /^vi/i.test(x.lang)) ?? [];
+    const want = lang() === 'en' ? /^en/i : /^vi/i;
+    const vi = synth?.getVoices().filter((x) => want.test(x.lang)) ?? [];
     return vi.find((x) => /natural|neural|online/i.test(x.name)) ?? vi.find((x) => /google/i.test(x.name)) ?? vi[0] ?? null;
   };
+  /** What a stop says, in the language on screen. @param {import('../landmarks/common.js').TourStop} s */
+  const words = (s) => (lang() === 'en' && s.en ? s.en : s.say);
 
   const tell = (/** @type {string} */ msg) => { note.textContent = msg; note.hidden = !msg; };
   const finished = (/** @type {number} */ id) => () => { if (id === said) { speaking = false; duck(false); } };
@@ -65,14 +73,14 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
   function say(/** @type {import('../landmarks/common.js').TourStop} */ s) {
     hush();
     speaking = spoken = false;
-    if (muted()) return tell('🔇 Đang tắt tiếng — bấm M để nghe thuyết minh.');
+    if (muted()) return tell(msg('tour.muted'));
     tell('');
-    if (!s.audio || noFiles) return speak(s.say);
+    if (!s.audio || noFiles || lang() !== 'vi') return speak(words(s)); // (the recordings are Vietnamese)
     const id = ++said;
     player.src = recording(base, s.audio);
     player.volume = Math.min(1, Math.max(0.2, volume() * 1.4));
     player.onended = finished(id);
-    player.onerror = () => { if (id !== said) return; noFiles = true; speaking = false; duck(false); speak(s.say); };
+    player.onerror = () => { if (id !== said) return; noFiles = true; speaking = false; duck(false); speak(words(s)); };
     speaking = spoken = true;
     duck(true);
     player.play().catch((err) => {
@@ -88,7 +96,7 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
   function awaitGesture() {
     speaking = spoken = false;
     duck(false);
-    tell('🔈 Chạm vào màn hình hoặc bấm một phím để nghe thuyết minh.');
+    tell(msg('tour.tap'));
     if (waiting) return;
     waiting = true;
     const resume = () => {
@@ -110,13 +118,13 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
       const stop = i;
       synth.addEventListener('voiceschanged', () => { if (i === stop && t === 0) { tell(''); speak(words); } }, { once: true });
     }
-    if (!synth || !vi) return tell('🔇 Máy này chưa có giọng đọc tiếng Việt nên chỉ hiện phụ đề.');
+    if (!synth || !vi) return tell(msg('tour.noVoice'));
     const parts = sentences(words), id = ++said;
     speaking = spoken = true;
     duck(true);
     parts.forEach((part, n) => {
       const u = new SpeechSynthesisUtterance(part);
-      u.lang = 'vi-VN';
+      u.lang = lang() === 'en' ? vi.lang || 'en-US' : 'vi-VN';
       u.voice = vi;
       if (n === parts.length - 1) u.onend = u.onerror = finished(id);
       synth.speak(u);
@@ -129,7 +137,7 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
     // A tall screen (a phone) sees less across: stand further back.
     const back = Math.max(1, 1 / camera.aspect) ** 0.6;
     rig.flyTo(v.copy(s.from).sub(s.look).multiplyScalar(back).add(s.look), s.look, FLY);
-    text.textContent = s.say;
+    text.textContent = words(s);
     step.textContent = `${i + 1}/${stops.length}`;
     t = 0;
     wait = 0;
@@ -142,7 +150,8 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
     start(landmark) {
       if (!landmark.tour?.length) return false;
       stops = landmark.tour;
-      title.textContent = landmark.name;
+      name = landmark.name;
+      title.textContent = tr(name);
       if (box.hidden) {
         const at = document.activeElement;
         returnFocus = at instanceof HTMLElement && at !== document.body ? at : null;
@@ -182,13 +191,19 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
         camera.position.copy(target).add(v);
       }
       // On when the words are said (or, unspoken, there has been time to read them), never long after.
-      const read = readingTime(stops[i].say);
+      const read = readingTime(words(stops[i]));
       t += dt;
       const done = speaking ? t > read * 2.5 : t > (spoken ? 1.5 : read);
       if (done && (wait += dt) > PAUSE) tour.next();
     },
   };
 
+  // Another language: the current stop again, in it.
+  onLangChange(() => {
+    if (i < 0) return;
+    title.textContent = tr(name);
+    go(i);
+  });
   $('narration-next').addEventListener('click', () => tour.next());
   $('narration-prev').addEventListener('click', () => tour.prev());
   $('narration-stop').addEventListener('click', () => tour.stop());

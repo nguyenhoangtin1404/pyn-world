@@ -8,9 +8,9 @@ import * as THREE from 'three';
  * `radius`: the flat ground it needs (and keeps clear of trees), units — or from the world's scale.
  * `back`: metres from its centre to its straight side, `along`: half the length of that side, for a
  * landmark set along a street (rotation 'street').
- * @typedef {{ say: string, audio?: string, from: THREE.Vector3, look: THREE.Vector3 }} TourStop
- * One stop of a narrated tour: what is said (and a recording of it, under the site's base, played where
- * it exists), where the camera stands and what it looks at.
+ * @typedef {{ say: string, en?: string, audio?: string, from: THREE.Vector3, look: THREE.Vector3 }} TourStop
+ * One stop of a narrated tour: what is said (in English too: `en`; and a recording of the Vietnamese, under the
+ * site's base, played where it exists), where the camera stands and what it looks at.
  * @typedef {{ spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], plaza?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number, tour?: TourStop[], system?: import('../types').System }} LandmarkBuilt
  * `spot`: where the camera looks when flying to it; `view`: how far back it stands (× the usual);
  * `walk`: a loop people walk round it on (default: a circle over most of its pad, on the ground);
