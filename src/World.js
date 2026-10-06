@@ -110,6 +110,10 @@ export class World {
     this.host = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
+    /** @type {{ tick(world: World, f: Frame): void }[]} the services that keep up with the clock: tick() each frame, before the systems */
+    this.ticking = [];
+    /** @type {((out: THREE.Vector3[]) => void)[]} more people the camera can hear (listen): each adds where those of its people who are out stand */
+    this.voices = [];
     /** @type {Map<number, () => number>} random streams, see rngFor() */
     this.streams = new Map();
   }
@@ -126,14 +130,19 @@ export class World {
   }
 
   /**
-   * One shared helper per world (lamps, houses…), created on first use.
+   * One shared helper per world (lamps, houses…), created on first use. One with a tick(world, f) is
+   * called each frame before the systems (world/night.js Curfew: the hour, what the camera sees).
    * @template T
    * @param {string} name
    * @param {() => T} create
    * @returns {T}
    */
   service(name, create) {
-    if (!this.services.has(name)) this.services.set(name, create());
+    if (!this.services.has(name)) {
+      const s = create();
+      this.services.set(name, s);
+      if (typeof (/** @type {any} */ (s)?.tick) === 'function') this.ticking.push(/** @type {any} */ (s));
+    }
     return this.services.get(name);
   }
 
@@ -304,12 +313,8 @@ export class World {
   update({ dt, raw, speed, camera }) {
     this.time += dt;
     const f = Object.assign(this.frame, { dt, raw, speed, camera, t: this.time, rain: this.weather.rain });
-    // Who's out at this hour, and what the camera sees (world/night.js) — for the features that use it.
-    const curfew = this.services.get('curfew');
-    if (curfew) {
-      curfew.hour = this.sky.hour;
-      if (camera) curfew.look(camera);
-    }
+    // (Services that keep up with the clock: who's out at this hour, and what the camera sees — world/night.js.)
+    for (const s of this.ticking) s.tick(this, f);
     for (const s of this.systems) s.update?.(f);
   }
 
@@ -360,7 +365,7 @@ export class World {
     }
     for (const p of this.people) people.push(p.pos ?? p.person.group.position);
     for (const p of /** @type {any[]} */ (this.pedestrians)) if (p.group.visible) people.push(p.pos ?? p.person.group.position);
-    for (const p of /** @type {any[]} */ (this.beach?.people ?? [])) if (p.person.group.visible) people.push(p.pos ?? p.person.group.position);
+    for (const add of this.voices) add(people); // (the beach…)
     return soundLevels(ear, { shore, waterY: WATER_Y, vehicles, people, map: this.scale.map, props: this.scale.props });
   }
 

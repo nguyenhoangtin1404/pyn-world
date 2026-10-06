@@ -142,6 +142,10 @@ export default {
       }
     }
     world.beach = { group, people, shades: shades.length };
+    // (Heard by the camera, those who are out: World.listen.)
+    world.voices.push((out) => {
+      for (const p of /** @type {any[]} */ (people)) if (p.person.group.visible) out.push(p.pos ?? p.person.group.position);
+    });
 
     // ---- Home at night. Each one: their rank, where they go (up the beach from where they are, past the sand's
     // edge), and for someone sitting where to sit again.
