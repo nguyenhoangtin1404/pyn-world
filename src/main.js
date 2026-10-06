@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import './style.css';
 import { TIME_PRESETS, presetAtHour, setShadowMapSize, vietnamHour } from './world/sky.js';
