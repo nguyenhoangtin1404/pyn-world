@@ -53,7 +53,7 @@ từng commit và tiêu đề PR (PR được squash-merge theo tiêu đề).
   gắn được nhãn cho PR từ fork; **không** checkout hay chạy code của PR trong workflow đó (đừng thêm).
 
 **Kiểu dữ liệu**: hợp đồng giữa App, World và feature nằm trong `src/types.d.ts` (`WorldConfig`,
-`StopConfig`, `System`, `Frame`, `Feature`, `Station`…); các file có `// @ts-check` được `tsc` kiểm tra
+`StopConfig`, `System`, `Frame`, `Feature`, `Station`, `WorldOutputs`…); các file có `// @ts-check` được `tsc` kiểm tra
 (lõi, config, feature). Bắt được: gõ sai trường của `f`/config, thiếu trường bắt buộc, sai kiểu. **Không**
 bắt được: gõ sai tên hook trả về từ `build()` (`lateUpadte` sẽ lặng lẽ không chạy) — soát bằng mắt.
 File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dòng đầu.
@@ -73,11 +73,22 @@ sách feature**).
 - **World = lõi + feature.** Lõi (ray, địa hình, hầm, cầu, trời, thời tiết) luôn có. Còn lại là feature
   trong `src/features/` (ga, làng, trạm + phố, cối xay, cừu, cây, mây, tàu, cá, thuyền, khinh khí cầu,
   dân làng, chim, người leo núi, đường, xe cộ, máy bay), bật/tắt và chỉnh bằng `cfg.features`: `'sheep'` hoặc
-  `{ id: 'sheep', flocks: 5 }`. Feature mới: viết `{ label, needs?, build(world, { rng, ...options }) }`
-  (kiểu `Feature`), thêm vào `features/index.js`. Feature dựng theo thứ tự trong config; feature sau dùng
-  được thứ feature trước để lại (`world.stations`, `world.train`, `world.people`…). Khai báo phụ thuộc
-  bằng `needs: ['train']` (hoặc `[['station', 'halt']]` = một trong hai) — `World` kiểm tra cả danh
+  `{ id: 'sheep', flocks: 5 }`. Feature mới: viết `{ label, needs?, after?, build(world, { rng, ...options }) }`
+  (kiểu `Feature`), thêm vào `features/index.js` — import tĩnh nếu world được hiện (`SHOWN`) dùng nó, không thì
+  một dòng `LAZY` (`() => import(...)`: nạp cùng world dùng nó). Feature dựng theo thứ tự trong config; feature sau dùng
+  được thứ feature trước để lại (`world.stations`, `world.train`, `world.people`…; kiểu của chúng: `WorldOutputs`
+  trong `types.d.ts`). Khai báo phụ thuộc
+  bằng `needs: ['train']` (hoặc `[['station', 'halt']]` = một trong hai); `after: ['busstop']` = nếu world có
+  feature đó thì nó phải đứng trước (không bắt buộc có) — `World` kiểm tra cả danh
   sách **trước khi dựng**. Thứ cần từ config (một điểm dừng, một zone) thì `world.need(...)` lúc dựng.
+- **Nạp từng phần (code splitting)**: `worlds/index.js` chỉ import tĩnh world trong `SHOWN`; world ẩn nạp bằng
+  `loadWorld(id)` (`import()`, chunk riêng), cả bốn một lúc cho test/tools: `worlds/all.js` (`WORLDS`). Feature chỉ
+  world ẩn dùng (ray, ga, làng, cừu, đường + xe làng, máy bay…) nạp bằng `loadFeatures()` — **`await world.load()`
+  trước `world.steps()`** (main.js, `features.spec.js`; unit test nạp hết bằng `loadFeatures(FEATURE_IDS)`).
+  `vite.config.js` (`preloadApp`) thêm `<link rel="modulepreload">` cho chunk app + các chunk nó import + dữ liệu bản đồ
+  NGHINH PHONG (`PRELOAD`), tải song song với entry. Đo (2026-10-06, `vite build`): main 953 KB / 285 KB gzip → JS lúc đầu
+  886 KB / 263 KB gzip (main 609 / 183 + chunk dùng chung nó import, phần lớn `lowpoly` + three: 277 / 80); feature + config
+  của world ẩn ~72 KB, chỉ tải khi mở chúng.
 - **Điểm dừng**: `cfg.stops: [{ id, at, name, zone?, yard? }]`, bao nhiêu cũng được. Địa hình san phẳng
   khu nhà cho điểm có `zone`, sân ga cho điểm có `yard`. Dựng gì ở đó là việc của feature: `station` /
   `halt` nhận `{ stop: id }` (mặc định: điểm dừng đầu tiên chưa dựng), `halt` chỉ có khu phố khi điểm
@@ -90,8 +101,12 @@ sách feature**).
 - **Dùng chung trong 1 world thì đăng ký, đừng truyền tay**: `world.site` (vật cản `obstacles`,
   `colliders` cho người, `solids` cho tầm nhìn camera, `surfaces` để đi lên — `site.spotOK`,
   `site.walkHeight`, `site.occludes`), `world.batch` (khối tĩnh, gộp ở bước cuối), và các service tạo
-  lần đầu khi cần: `lamps(world)` (cửa sổ/đèn sáng ban đêm), `houses(world)` (nhà rỗng + cửa + khói),
-  `waterLife(world, rng)` (chỗ nước sâu + gợn sóng).
+  lần đầu khi cần (`world.service`, ở `src/services/` — không phải feature): `lamps(world)` (cửa sổ/đèn sáng ban đêm),
+  `houses(world)` (nhà rỗng + cửa + khói), `waterLife(world, rng)` (chỗ nước sâu + gợn sóng); `curfewOf`
+  (`world/night.js`), `coastOf` (`world/coast.js`). Service có `tick(world, f)` được gọi mỗi frame trước các system
+  (Curfew: giờ, camera thấy gì) — lõi không gọi tên service nào. Người camera nghe thấy ngoài `people`/`pedestrians`:
+  feature đăng ký `world.voices.push((out) => …)` (bãi biển). Lõi còn biết đúng một feature: `checkSeal()` với tháp
+  `nghinh-phong` (niêm phong, cố ý để cứng).
 - **Ngẫu nhiên theo feature**: mỗi feature một luồng `rng` riêng (seed world + id), thêm/bớt feature
   không xáo trộn feature khác. `stream: n` cho các feature dùng chung một luồng — PYN dùng 2 luồng như
   bản gốc (0 cho phong cảnh, 7 cho sự sống) để giữ nguyên từng cái cây; **đổi thứ tự hay thêm feature
@@ -327,7 +342,7 @@ dynamic import, kiểm tra, chiếu vào sa bàn) — sau đó world như mọi 
   ngang phố bằng phẳng tới nửa bề rộng + 1,5 rồi thoải về mặt đất trong 2,5; địa hình lerp về đó (chỉ
   world có `cfg.roads`), không san chỗ nước (cầu).
 - **Chỉ hiện NGHINH PHONG**: `SHOWN` (`worlds/index.js`) là các world app đưa ra (nút chọn, phím N, world mặc định);
-  world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>`. Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
+  world khác vẫn dựng + test đủ (golden, e2e) và mở bằng `?world=<id>` (nạp lúc đó: `loadWorld`). Test đổi world gọi `__pyn.switchWorld(id)` (chỉ
   bản dev) thay phím N.
 - **Đồng hồ theo giờ thật** (`state.clock` trong `main.js`): mặc định `'real'` = **giờ Việt Nam lúc này** (`vietnamHour`, UTC+7,
   `sky.js`, có test), trôi như thật; bấm một buổi (Sáng/Trưa/Chiều/Đêm, phím T) hay `⟳ Tua nhanh`/phím C thì `'fast'` (1 giờ
@@ -561,7 +576,7 @@ Các khối cơ bản `box/ball/cyl/cone/prism/slab` tô màu theo đỉnh → m
   `spawn()`.
 - **Không thêm `PointLight`/`SpotLight` cho đèn trang trí.** Mỗi đèn được tính cho mọi pixel của
   mọi vật có chiếu sáng, kể cả ban ngày khi cường độ = 0. Đèn ga/phố/cửa nhà = bóng đèn `lampMat` +
-  quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) của `lamps(world)` (`features/lamps.js`). Chỉ còn đèn pha tàu là
+  quầng sáng (`halos`) + vũng sáng dưới đất (`pools`) của `lamps(world)` (`services/lamps.js`). Chỉ còn đèn pha tàu là
   đèn thật.
 - **Dáng đi của người tính theo quãng đường, không theo thời gian** (`Walker.step` trong `world/walker.js`:
   `gait += s·π / (STEP_LENGTH·scale)`, nửa chu kỳ = 1 bước). Đừng đổi lại thành `t × tốc độ` (tay
