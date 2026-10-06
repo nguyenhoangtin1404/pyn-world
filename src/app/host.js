@@ -1,10 +1,12 @@
 // @ts-check
 import * as THREE from 'three';
 import { qrSvg } from './qr.js';
+import { lang, t, tr } from './i18n.js';
 
 // The author's chat bubble (features/host.js puts them in the world as world.host): a tap on them flies the
 // camera up to them and opens a bubble with their greeting, a QR code of their portfolio and a link to it
-// (a new tab). ✕, Esc, a tap elsewhere on the scene or another world closes it.
+// (a new tab). ✕, Esc, a tap elsewhere on the scene or another world closes it. The bubble takes the focus
+// when it opens (a screen reader reads it, Tab reaches its link) and gives it back when it closes.
 // A tap is a press and release that hardly moved (a drag turns the camera); it is tested against where
 // the two are on screen — no raycast into the merged meshes (CLAUDE.md).
 
@@ -21,6 +23,8 @@ export function createHostCard({ camera, rig, canvas, world, onOpen }) {
   const link = /** @type {HTMLAnchorElement} */ ($('host-link'));
   const v = new THREE.Vector3();
   let shownFor = '';
+  /** @type {HTMLElement | null} */
+  let returnFocus = null; // where the focus was before the bubble opened
 
   /** Where `p` is on screen (px from the canvas's top left), or null behind the camera. */
   const screen = (/** @type {THREE.Vector3} */ p) => {
@@ -48,23 +52,32 @@ export function createHostCard({ camera, rig, canvas, world, onOpen }) {
       const host = world()?.host;
       if (!host) return false;
       onOpen?.();
-      if (shownFor !== host.url) {
+      if (shownFor !== host.url + lang()) {
         title.textContent = host.title;
-        text.textContent = host.greeting;
-        qr.innerHTML = qrSvg(host.url, { label: `Mã QR tới ${host.title}` });
+        text.textContent = tr(host.greeting); // (the default greeting has an English one: app/i18n.js)
+        qr.innerHTML = qrSvg(host.url, { label: t('host.qr', { title: host.title }) });
         link.href = host.url;
-        shownFor = host.url;
+        shownFor = host.url + lang();
       }
       // In front of them and a little above, looking at a point below their feet so that they stand in the top
       // half of the screen, over the bubble (sizes as tall as they are drawn, × a few).
       const tall = host.head.y - host.person.group.position.y;
       const at = host.head.clone().addScaledVector(host.facing, tall * 5).add(new THREE.Vector3(0, tall * 1.2, 0));
       rig.flyTo(at, host.head.clone().add(new THREE.Vector3(0, -tall * 1.5, 0)), 1.4);
+      if (card.hidden) {
+        const at = document.activeElement;
+        returnFocus = at instanceof HTMLElement && at !== document.body ? at : null;
+      }
       card.hidden = false;
+      card.focus({ preventScroll: true });
       return true;
     },
     hide() {
+      if (card.hidden) return;
+      const inside = card.contains(document.activeElement);
       card.hidden = true;
+      if (inside && returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+      returnFocus = null;
     },
   };
 

@@ -19,24 +19,49 @@ export const waitForWorld = (page, id) =>
 
 // Open the app on a world and wait until it is on screen. The clock starts at 9:00 and runs fast (?clock=fast),
 // as it did before the app followed the real time: what a test sees must not depend on when it runs.
-export async function openWorld(page, id) {
+// `paused`: the page's own loop never advances the world (state.paused from the moment window.__pyn exists,
+// before the first frame) — what simulate() starts from doesn't depend on how many frames the page had time for.
+export async function openWorld(page, id, { paused = false } = {}) {
+  if (paused) {
+    await page.addInitScript(() => {
+      let pyn;
+      Object.defineProperty(window, '__pyn', {
+        configurable: true,
+        get: () => pyn,
+        set(v) {
+          pyn = v;
+          v.state.paused = true;
+        },
+      });
+    });
+  }
   await page.goto(`/?world=${id}&clock=fast`);
   await waitForWorld(page, id);
 }
 
-// Runs in the page: what the world on screen is made of.
+// Runs in the page: what the world on screen is made of. Geometry (every vertex) and placed instances
+// (every tree, rock, flower) are hashed as a whole (`total`) and by the part of the build that added
+// them to the scene (`by`: core part or feature id — World.steps() tags userData.builtBy; 'finish' is
+// the static batch, merged from every feature), "<how many>:<hash>", so a red run names what changed.
 export function fingerprint() {
   const { W } = window.__pyn;
   const geos = new Set();
   const instanced = [];
+  const parts = new Map(); // builtBy → { geos, instanced }
   let meshes = 0;
-  W.scene.traverse((o) => {
-    if (o.isMesh) {
-      meshes++;
-      geos.add(o.geometry);
-    }
-    if (o.isInstancedMesh && o.frustumCulled) instanced.push(o); // placed once (trees…), not animated
-  });
+  for (const top of W.scene.children) {
+    const by = top.userData.builtBy ?? 'other';
+    if (!parts.has(by)) parts.set(by, { geos: new Set(), instanced: [] });
+    const part = parts.get(by);
+    top.traverse((o) => {
+      if (o.isMesh) {
+        meshes++;
+        geos.add(o.geometry);
+        part.geos.add(o.geometry);
+      }
+      if (o.isInstancedMesh && o.frustumCulled) instanced.push(o), part.instanced.push(o); // placed once (trees…), not animated
+    });
+  }
   const sum = (a) => {
     let s = 0;
     for (let i = 0; i < a.length; i++) s += a[i] * ((i % 13) + 1);
@@ -47,14 +72,20 @@ export function fingerprint() {
     for (const c of list.sort().join('|')) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
     return (h >>> 0).toString(16);
   };
+  const geoKeys = (set) => [...set].filter((g) => g.attributes.position).map((g) => `${g.attributes.position.count}:${sum(g.attributes.position.array).toFixed(2)}`);
+  const instKeys = (list) => list.map((m) => `${m.count}:${sum(m.instanceMatrix.array).toFixed(2)}`);
+  const byPart = (keysOf, pick) => Object.fromEntries([...parts].flatMap(([by, p]) => {
+    const keys = keysOf(pick(p));
+    return keys.length ? [[by, `${keys.length}:${hash(keys)}`]] : [];
+  }));
   const r = window.__pyn.renderer;
   const spots = {};
   // Spots that stay put (the steamer moves; the rowboat only bobs on its spot).
   for (const k of ['courting', 'bridgeSheep', 'summit', 'fisherman']) if (W.spots[k]) spots[k] = [W.spots[k].x, W.spots[k].z].map((v) => +v.toFixed(2));
   return {
     meshes,
-    geometry: hash([...geos].filter((g) => g.attributes.position).map((g) => `${g.attributes.position.count}:${sum(g.attributes.position.array).toFixed(2)}`)),
-    instances: hash(instanced.map((m) => `${m.count}:${sum(m.instanceMatrix.array).toFixed(2)}`)),
+    geometry: { total: hash(geoKeys(geos)), by: byPart(geoKeys, (p) => p.geos) },
+    instances: { total: hash(instKeys(instanced)), by: byPart(instKeys, (p) => p.instanced) },
     colliders: W.site.colliders.length,
     stations: W.stations.map((s) => s.id),
     people: W.people.length,
@@ -65,10 +96,12 @@ export function fingerprint() {
   };
 }
 
-// Runs in the page: 300 s of simulated time in 0.1 s steps (rain from half-way), without drawing.
+// Runs in the page: 300 s of simulated time in 0.1 s steps (rain from half-way), without drawing. Open the
+// world with openWorld(page, id, { paused: true }): every run then starts from the world as built (startedAt 0).
 export function simulate() {
   const { W, camera, rig, state } = window.__pyn;
   state.paused = true; // the page's own loop stops advancing the world
+  const startedAt = W.time; // simulated seconds the page ran before (0 when opened paused)
   const houses = W.services.get('houses');
   const hikers = W.followables.people.filter((p) => p.label.startsWith('Người leo')).map((p) => p.anchor());
   const start = hikers.map((h) => h.position.clone());
@@ -130,7 +163,7 @@ export function simulate() {
   });
   const tour = { count: tourists.length, outside: 0, intoTower: 0, xs: new Set(), photoing: 0, bubbles: 0, standing: 0, samples: 0, fastest: 0, speaking: new Set() };
   const lastPos = tourists.map((w) => w.pos.clone());
-  const s = { people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
+  const s = { startedAt, people: W.people.length, houses: !!houses, boarding: 0, alighting: 0, doorOpenMax: 0, umbrellas: 0, hikers: hikers.length, hikersMoved: 0, trainStops: 0 };
   let pulled = 0; // the furthest a bus has moved over to the kerb
   // On the sea and the beach (features/seacraft.js, beach.js): boats never aground, swimmers never on dry land, nobody else in the water or on a street.
   const g = W.terrain.meshHeightAt;

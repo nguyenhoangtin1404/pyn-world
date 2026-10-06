@@ -1,9 +1,30 @@
 // Keeping the frame rate up, and measuring it.
 
+/**
+ * How much the device is asked to draw, decided once before the renderer and the shaders are made (the shader
+ * keys must not change after precompile()). 'low' on a touch screen (phones, tablets) or a device with little
+ * memory: no MSAA, a 1024² shadow map, and the pixel ratio may drop to 0.75. 'high' everywhere else — a desktop
+ * draws exactly as before (the goldens and screenshots are taken there). `?quality=low|high` forces either.
+ * @returns {'low' | 'high'}
+ */
+export function qualityTier() {
+  const forced = new URLSearchParams(location.search).get('quality');
+  if (forced === 'low' || forced === 'high') return forced;
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const memory = /** @type {{ deviceMemory?: number }} */ (navigator).deviceMemory;
+  return coarse || (memory !== undefined && memory <= 4) ? 'low' : 'high';
+}
+
+/** What each tier sets. */
+export const QUALITY = {
+  low: { antialias: false, shadowMap: 1024, minDpr: 0.75 },
+  high: { antialias: true, shadowMap: 2048, minDpr: 1 },
+};
+
 // Drop the pixel ratio a step when frames run slow for a couple of seconds, and give it back once
-// they are comfortably fast again (not too eagerly, or it would flip back and forth). Call the
-// returned function every frame with the real frame time; onChange() runs after a change.
-export function createResolutionAdapter(renderer, maxDpr, onChange) {
+// they are comfortably fast again (not too eagerly, or it would flip back and forth), never below `minDpr`.
+// Call the returned function every frame with the real frame time; onChange() runs after a change.
+export function createResolutionAdapter(renderer, maxDpr, onChange, minDpr = 1) {
   const adapt = { t: 0, n: 0, sum: 0, calm: 0 };
   return function adaptResolution(raw) {
     if (raw > 0.25) return; // a stall (tab switch, loading), not the steady frame rate
@@ -16,7 +37,7 @@ export function createResolutionAdapter(renderer, maxDpr, onChange) {
     let next = dpr;
     if (avg > 1 / 40) {
       adapt.calm = 0;
-      if (dpr > 1) next = Math.max(1, dpr - 0.25);
+      if (dpr > minDpr) next = Math.max(minDpr, dpr - 0.25);
     } else if (avg < 1 / 55) {
       if (dpr < maxDpr && ++adapt.calm >= 5) next = Math.min(maxDpr, dpr + 0.25); // ~10 s of smooth frames
     } else adapt.calm = 0;

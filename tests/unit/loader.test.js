@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hintsFor } from '../../src/app/loader.js';
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 
 describe('the loading screen hints', () => {
   it('only tell of what the world being built has', () => {

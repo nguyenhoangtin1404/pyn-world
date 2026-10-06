@@ -1,4 +1,4 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld } from './helpers.js';
 
 // The keyboard shortcuts (see the help panel): camera modes, fly-to spots, time, pause, HUD, pixels.

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WATER_Y } from '../config.js';
 import { ball, cone, Instancer } from '../world/lowpoly.js';
-import { waterLife } from './waterlife.js';
+import { waterLife } from '../services/waterlife.js';
 
 // Fish swimming in the river and the lakes, jumping now and then (with ripples). Options: count (26).
 const FISH_COLORS = ['#ff8a3d', '#f2b632', '#c9d3db', '#e0603f', '#8fb8d8', '#f4efe6', '#9fc26a'];

@@ -4,8 +4,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TRACK_Y } from '../config.js';
 import { box, cyl, shape, VERTEX_COLORED } from '../world/lowpoly.js';
 import { shadowed, labelTexture } from './common.js';
-import { lamps } from './lamps.js';
-import { houses, WOOD } from './houses.js';
+import { lamps } from '../services/lamps.js';
+import { houses, WOOD } from '../services/houses.js';
 import { buildPlatform, frameIndex, PLAT_TOP } from './platform.js';
 
 // A halt at a stop (option `stop`: an id from cfg.stops, by default the first one not built yet): a

@@ -1,5 +1,5 @@
 // @ts-check
-import { houses } from './houses.js';
+import { houses } from '../services/houses.js';
 
 // Houses scattered over the flat plateau inward from a station (its zone in cfg.stops), square to
 // the world axes and turned towards the station. Their people belong to that stop.

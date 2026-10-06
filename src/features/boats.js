@@ -1,6 +1,6 @@
 // @ts-check
 import { createBoats } from '../world/boats.js';
-import { waterLife } from './waterlife.js';
+import { waterLife } from '../services/waterlife.js';
 
 // A paddle steamer going up and down the river and a fisherman in a rowboat (spots "steamer",
 // key L, and "fisherman", key J).

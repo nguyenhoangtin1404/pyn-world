@@ -281,7 +281,10 @@ export default {
       }
       const v = b.turning ? b.speed * 0.5 : b.speed;
       const nx = b.x + Math.sin(b.h) * v * dt, nz = b.z + Math.cos(b.h) * v * dt;
-      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5) && deep(nx, nz)) [b.x, b.z] = [nx, nz];
+      if (open(nx, nz, Math.max(1, b.cells - 2), b.size * 0.5) && deep(nx, nz)) {
+        b.x = nx;
+        b.z = nz;
+      }
     }
   },
 };

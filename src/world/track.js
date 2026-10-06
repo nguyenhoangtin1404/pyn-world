@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { TRACK_Y, GAUGE } from '../config.js';
 

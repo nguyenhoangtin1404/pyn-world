@@ -1,7 +1,38 @@
 {
   "meshes": 380,
-  "geometry": "f540acab",
-  "instances": "963889a",
+  "geometry": {
+    "total": "f540acab",
+    "by": {
+      "terrain": "8:54d6a71d",
+      "bridges": "14:122948f7",
+      "station": "6:a6e62f6a",
+      "road": "2:37245709",
+      "village": "2:95aa9610",
+      "traffic": "16:737ac455",
+      "halt": "6:f088fb7e",
+      "halt#2": "6:f80ad0b2",
+      "sheep": "3:ce8db07c",
+      "trees": "5:94809041",
+      "clouds": "16:fb6f02c7",
+      "train": "189:d8957990",
+      "fish": "5:8cccf0",
+      "boats": "14:dcb6943d",
+      "balloons": "28:ce7382f9",
+      "villagers": "32:17181679",
+      "birds": "9:68020",
+      "hikers": "12:bebe62e0",
+      "aircraft": "3:6d056512",
+      "sky": "1:f37756a1",
+      "finish": "3:f92ca629"
+    }
+  },
+  "instances": {
+    "total": "963889a",
+    "by": {
+      "bridges": "2:1f90d83b",
+      "trees": "5:b048cf2f"
+    }
+  },
   "colliders": 1675,
   "stations": [
     "vale",

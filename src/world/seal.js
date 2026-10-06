@@ -30,7 +30,16 @@ export function hash(str, seed = 0x9e37) {
 export function tamper(why) {
   const msg = `Ứng dụng đã bị chỉnh sửa nên không thể tải (mã ${why}). Hãy dùng bản gốc.`;
   try {
-    document.body.innerHTML = `<div style="position:fixed;inset:0;display:grid;place-items:center;background:#111;color:#ff5a5a;font:600 20px Arial,sans-serif;text-align:center;padding:24px">${msg}</div>`;
+    // A calm card rather than an alarm: most who see it did nothing wrong (an extension, a cached copy) — a reload
+    // from the original site is the way out.
+    document.body.innerHTML = `<div id="tampered" role="alert" style="position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:#1b2a3a;font:500 17px/1.5 Arial,sans-serif">
+      <div style="max-width:26rem;padding:24px 26px;border-radius:18px;background:#fbf4e2;color:#3f2a1f;text-align:center;box-shadow:0 12px 36px rgba(0,0,0,.35)">
+        <p style="margin:0 0 16px"></p>
+        <button type="button" style="padding:10px 22px;min-height:44px;border:0;border-radius:999px;background:#2f5d7c;color:#fff;font:600 16px Arial,sans-serif;cursor:pointer">↻ Tải lại</button>
+      </div></div>`;
+    const card = document.getElementById('tampered');
+    card.querySelector('p').textContent = msg;
+    card.querySelector('button').addEventListener('click', () => location.reload());
   } catch {
     /* (no page: the exception below still stops whatever was running) */
   }
@@ -70,17 +79,37 @@ export function sealTexture() {
   return t;
 }
 
+// Checks in a row that an ancestor of the sign may be switched off before it counts: the app never hides the
+// sign's group, but a check may land in the middle of something that hides groups for a moment (a test hiding
+// what moves for a screenshot, a step that switches things off and on).
+const GRACE = 3;
+
 /**
  * Watches the sign's mesh: `check()` stops the app if the sign is gone, hidden, moved off the
  * water, resized, drawn from another texture or with other words.
+ * What counts is what decides whether it is drawn: the mesh itself switched on, on the camera's layer, inside a
+ * scene, its group and every one above it switched on (an ancestor off is let pass for GRACE checks), its
+ * material and texture. Not whether it is on screen this frame: the camera looking elsewhere (frustum
+ * culling), the tour, the HUD hidden or other groups hidden are all fine.
  * @param {THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>} mesh
  */
 export function guard(mesh) {
+  let hiddenChecks = 0; // checks in a row with an ancestor switched off
   return {
     check() {
       const map = mesh.material?.map;
       if (hash(sealText(), 7) !== map?.userData.seal) tamper('T2');
-      if (!mesh.visible || !mesh.parent || mesh.parent.visible === false) tamper('T3');
+      if (!mesh.visible || !mesh.parent || !mesh.layers.isEnabled(0)) tamper('T3');
+      /** @type {THREE.Object3D} */
+      let root = mesh;
+      let shown = true;
+      while (root.parent) {
+        root = root.parent;
+        if (!root.visible) shown = false;
+      }
+      if (!(/** @type {THREE.Scene} */ (root).isScene)) tamper('T3'); // (taken out, into a group of its own)
+      hiddenChecks = shown ? 0 : hiddenChecks + 1;
+      if (hiddenChecks >= GRACE) tamper('T3');
       const { scale, material, geometry } = mesh;
       if (scale.x !== 1 || scale.y !== 1 || scale.z !== 1 || material.opacity !== 1 || material.colorWrite === false || material.visible === false) tamper('T4');
       if (!(geometry.parameters.width > 20) || !(geometry.parameters.height > 2) || !Number.isFinite(mesh.position.y)) tamper('T5');

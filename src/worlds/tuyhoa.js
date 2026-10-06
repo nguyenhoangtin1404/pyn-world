@@ -17,6 +17,7 @@ export default defineGeoWorld({
   id: 'tuyhoa',
   name: 'TUY HÒA',
   tagline: 'TỪ BẢN ĐỒ THẬT',
+  snow: false, // the tropics: no snow button (hud.js), no snow
   seed: 1302,
   size: 600, // 6 km across: 10 m per unit (the data file's frame), from Tháp Nghinh Phong in the north to the Đà Rằng in the south
   data: () => import('./data/tuyhoa.json'),

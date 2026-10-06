@@ -5,7 +5,7 @@
 //
 // From the Vbee console (API → app): the app id and its token. Never commit them.
 // Optional: VBEE_VOICE (voice code, from the console's voice list; default: Tường Vy nâng cao, below), VBEE_SPEED (1.0),
-// VBEE_API (default https://vbee.vn/api/v1/tts). Each request is queued at Vbee: the script asks for
+// VBEE_API (default https://vbee.vn/api/v1/tts), VBEE_CALLBACK (see callback_url below). Each request is queued at Vbee: the script asks for
 // it, then polls until the audio link is ready and downloads it. If Vbee answers something
 // unexpected the script stops and prints the answer as it came.
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -15,6 +15,7 @@ const { VBEE_APP_ID: appId, VBEE_TOKEN: token } = process.env;
 const voice = process.env.VBEE_VOICE ?? 'sg_female_tuongvy_call_24k-stl';
 const speed = process.env.VBEE_SPEED ?? '1.0';
 const api = process.env.VBEE_API ?? 'https://vbee.vn/api/v1/tts';
+const callback = process.env.VBEE_CALLBACK ?? 'https://vbee-callback.invalid/';
 if (!appId || !token) {
   console.error('Thiếu VBEE_APP_ID hoặc VBEE_TOKEN (lấy trong trang quản lý API của Vbee).');
   process.exit(1);
@@ -42,7 +43,12 @@ async function record(text) {
       bitrate: 128,
       speed_rate: speed,
       response_type: 'indirect',
-      callback_url: 'https://example.com/vbee-callback', // (not used: the script polls)
+      // Not used — the script polls for the result — but Vbee's API asks for one, and Vbee POSTs the
+      // finished request (with the audio link) to it. It used to be https://example.com/…, a real
+      // host owned by someone else: every recording's link went to a third party. `.invalid` is a
+      // reserved name that never resolves (RFC 2606/6761), so the callback reaches no one. If Vbee
+      // ever rejects it, set VBEE_CALLBACK to an endpoint you own.
+      callback_url: callback,
     }),
   }), 'Gửi yêu cầu');
   const id = asked.result?.request_id;

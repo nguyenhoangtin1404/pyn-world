@@ -1,4 +1,4 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld, fingerprint, simulate } from './helpers.js';
 
 // Every world, built in the browser, is exactly as recorded in tests/e2e/golden/<id>.json — every
@@ -14,8 +14,9 @@ for (const { id } of WORLDS) {
     });
 
     test('comes alive: train, people, doors, rain, hikers, vehicles', async ({ page }) => {
-      await openWorld(page, id);
+      await openWorld(page, id, { paused: true }); // (from the world as built: the same start every run)
       const life = await page.evaluate(simulate);
+      expect(life.startedAt, 'the page never advanced the world before the simulation').toBe(0);
       if (life.train) expect(life.trainStops, 'the train keeps calling at stops').toBeGreaterThanOrEqual(2);
       if (life.people > 0) {
         expect(life.boarding, 'people board the train').toBeGreaterThan(0);

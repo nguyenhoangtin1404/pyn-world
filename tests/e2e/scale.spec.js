@@ -1,4 +1,4 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld } from './helpers.js';
 
 // Every world's props are the size its scale says (world/scale.js): people, storeys, lanes, cars,

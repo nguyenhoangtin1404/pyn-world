@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TRACK_Y, BASE_Y } from './config.js';
 import { clamp, easeInOut } from './utils.js';
 import { PASSENGER_SEAT, DRIVER_SEAT } from './world/interiors.js';
+import { reducedMotion } from './app/motion.js';
 
 export const CAMERA_MODES = [
   { id: 'overview', label: 'Toàn cảnh', key: '1' },
@@ -227,7 +228,9 @@ export class CameraRig {
     this.controls.target.copy(target);
   }
 
+  // (Less motion asked for: a cut, the next frame, instead of a swoop.)
   flyTo(pos, target, dur = 1.6) {
+    if (reducedMotion()) dur = 1e-3;
     this.fly = { p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, dur };
   }
 

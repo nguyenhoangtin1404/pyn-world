@@ -15,7 +15,7 @@ import { mulberry32 } from './utils.js';
 import { coastOf } from './world/coast.js';
 import { soundLevels } from './world/soundscape.js';
 import { WATER_Y } from './config.js';
-import { FEATURES } from './features/index.js';
+import { FEATURE_IDS, featureById, loadFeatures } from './features/index.js';
 
 // One complete world built from a WorldConfig (src/worlds/): its own scene — sky, lights and fog
 // included — and everything that lives in it. The app (main.js) owns the renderer, the camera, the
@@ -30,7 +30,7 @@ import { FEATURES } from './features/index.js';
 // - group: added to the scene
 // - update(f): every frame, before the camera moves — f = { dt, raw, t, speed, camera, rain, lights }
 // - lateUpdate(f): after the camera and the sky — f also has { focus, lights, overcast, snow }
-// - finish(): once, when every feature has been built (lamps.js builds its glow then)
+// - finish(): once, when every feature has been built (services/lamps.js builds its glow then)
 // - dispose(): anything World.dispose() can't find in the scene
 // `dt` is simulated time (0 while paused), `raw` real time, `t` the world's simulated clock.
 const TMP = { p: new THREE.Vector3(), q: new THREE.Quaternion(), sc: new THREE.Vector3() };
@@ -75,44 +75,45 @@ export class World {
     this.people = [];
     /** @type {Record<string, THREE.Vector3>} places the camera can fly to (keys F, G, K, J, L) */
     this.spots = {};
-    /** @type {{ id: string, name: string, spot: THREE.Vector3, view: number, walk?: THREE.Vector3[], plaza?: THREE.Vector3[], walkHeight?: (x: number, z: number) => number, tour?: import('./landmarks/common.js').TourStop[] }[]} famous buildings (features/landmarks.js), key V; walk: a loop round it for people on foot, plaza: the ground they may wander on, tour: a narrated tour (key I) */
+    // What the features leave here for the ones after them, the app and the tests (types.d.ts WorldOutputs):
+    /** @type {Outputs['landmarks']} famous buildings, key V */
     this.landmarks = [];
     /** @type {{ people: Followable[], birds: Followable[], vehicles: Followable[], tourists: Followable[], balloons: Followable[] }} keys 6, 7, 8, 9 and 0 */
     this.followables = { people: [], birds: [], vehicles: [], tourists: [], balloons: [] };
-    /** @type {{ id: string, width: number, heightAt: (x: number, z: number) => number, shared: number,
-     *   signals: import('./world/roads/signals.js').SignalCycle[], gates: import('./world/roads/signals.js').CrossingGate[],
-     *   junctions: { p: [number, number], signals: import('./world/roads/signals.js').SignalCycle[] }[],
-     *   routes: { id: string, path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[],
-     *     group: string, start: number }[] }[]} roads (features/road.js) */
+    /** @type {Outputs['roads']} */
     this.roads = [];
     /** @type {import('./world/vehicles/vehicle.js').Vehicle[]} everything with wheels or wings */
     this.vehicles = [];
-    /** @type {{ kind: string, name: string, width: number, lanes: number, median: number, points: [number, number][], length: number, heightAt: (x: number, z: number) => number, pavementAt: (x: number, z: number) => number }[]} a town's streets as drawn (features/streets.js): carriageway and pavement surfaces */
+    /** @type {Outputs['streets']} */
     this.streets = [];
-    /** @type {{ x: number, z: number, length: number, width: number, angle: number, foot: number, height: number }[]} a town's buildings as drawn (features/buildings.js): footprint (length along `angle`, a rotation.y), the ground under its lowest corner, its height from there */
+    /** @type {Outputs['buildings']} */
     this.buildings = [];
-    /** @type {import('./world/streetnet.js').Ring[]} a town's roundabouts (features/streets.js): centre, outer radius R, island radius ri */
+    /** @type {Outputs['roundabouts']} */
     this.roundabouts = [];
-    /** @type {{ x: number, z: number, h: number, half: number, depth: number, signal: import('./world/roads/signals.js').SignalCycle }[]} crosswalks at a town's lit crossroads (features/citytraffic.js): centre, heading of the street they cross, its half width, their depth along it; people start across when signal.walk(time to get over) */
+    /** @type {Outputs['crosswalks']} */
     this.crosswalks = [];
-    /** @type {{ pos: THREE.Vector3, group: THREE.Object3D }[]} people on foot about the town who don't take the train (features/strollers.js) */
+    /** @type {Outputs['pedestrians']} */
     this.pedestrians = [];
-    /** @type {import('./world/tourist.js').Party[]} the tourists' parties (features/tourists.js) */
+    /** @type {Outputs['parties']} */
     this.parties = [];
-    /** @type {{ path: import('./world/vehicles/path.js').LoopPath, stops: import('./world/vehicles/traffic.js').StopPoint[], side: number, kerb: number, pavementAt: (x: number, z: number) => number }[]} the city traffic's routes (features/citytraffic.js); side: from a lane to the middle of the pavement beside it, kerb: to the edge of the carriageway, in world units */
+    /** @type {Outputs['cityRoutes']} */
     this.cityRoutes = [];
-    /** @type {{ boarded: number, alighted: number, stops: number, walks: [number, number, number, number][] } | null} tourists who got on / off a bus, buses that stopped (features/busstop.js); walks: where they walk between the grounds and the stop (ax, az, bx, bz) */
+    /** @type {Outputs['busStop']} */
     this.busStop = null;
-    /** @type {{ group: THREE.Group, boats: any[], parasails: { ski: any, at: THREE.Vector3 }[], foam?: { mesh: THREE.Mesh, uTime: { value: number } } } | null} boats on the sea, parasails over it (at: where each flies) and foam on the shore (features/seacraft.js) */
+    /** @type {Outputs['seacraft']} */
     this.seacraft = null;
-    /** @type {{ group: THREE.Group, people: { role: string, walker?: any, person: any }[], shades: number } | null} people on the beach (features/beach.js) */
+    /** @type {Outputs['beach']} */
     this.beach = null;
-    /** @type {{ group: THREE.Group, props: { x: number, z: number, r: number, kind: string }[], shops: number, bikes: number, cars: number, cafes: number, carts: number } | null} what stands along a town's streets (features/streetlife.js): props are the circles they take on the ground */
+    /** @type {Outputs['streetLife']} */
     this.streetLife = null;
-    /** @type {{ url: string, title: string, greeting: string, person: any, head: THREE.Vector3, facing: THREE.Vector3, group: THREE.Group, facingCamera: boolean } | null} the author standing by the landmark, who shows a QR code to their portfolio when tapped (facingCamera: turned round to a camera that came close, grinning) (features/host.js, src/app/host.js) */
+    /** @type {Outputs['host']} */
     this.host = null;
     /** @type {Map<string, any>} shared helpers created by the first feature that needs them */
     this.services = new Map();
+    /** @type {{ tick(world: World, f: Frame): void }[]} the services that keep up with the clock: tick() each frame, before the systems */
+    this.ticking = [];
+    /** @type {((out: THREE.Vector3[]) => void)[]} more people the camera can hear (listen): each adds where those of its people who are out stand */
+    this.voices = [];
     /** @type {Map<number, () => number>} random streams, see rngFor() */
     this.streams = new Map();
   }
@@ -129,14 +130,19 @@ export class World {
   }
 
   /**
-   * One shared helper per world (lamps, houses…), created on first use.
+   * One shared helper per world (lamps, houses…), created on first use. One with a tick(world, f) is
+   * called each frame before the systems (world/night.js Curfew: the hour, what the camera sees).
    * @template T
    * @param {string} name
    * @param {() => T} create
    * @returns {T}
    */
   service(name, create) {
-    if (!this.services.has(name)) this.services.set(name, create());
+    if (!this.services.has(name)) {
+      const s = create();
+      this.services.set(name, s);
+      if (typeof (/** @type {any} */ (s)?.tick) === 'function') this.ticking.push(/** @type {any} */ (s));
+    }
     return this.services.get(name);
   }
 
@@ -184,6 +190,11 @@ export class World {
     return this.streams.get(stream);
   }
 
+  /** Loads the code of the features the config lists (some are loaded only by the worlds that use them): before steps(). */
+  async load() {
+    await loadFeatures(this.cfg.features);
+  }
+
   /**
    * The build, as [label, step] pairs run one after the other so the loading screen can paint
    * between them.
@@ -193,8 +204,21 @@ export class World {
     const { cfg, scene } = this;
     const features = cfg.features.map((entry) => (typeof entry === 'string' ? { id: entry } : entry));
     checkFeatures(features, !!cfg.track);
-    /** @type {(label: string, run: () => void) => [string, () => void]} */
-    const step = (label, run) => [label, run];
+    // Every object a step adds to the scene remembers which step put it there (userData.builtBy: a core
+    // part, a feature id, or 'finish' — the static batch, merged from every feature): the e2e golden
+    // (tests/e2e/helpers.js) hashes each one's part apart, so a red run names what changed.
+    const seen = new Map();
+    /** @type {(label: string, run: () => void, key: string) => [string, () => void]} */
+    const step = (label, run, key) => {
+      const n = (seen.get(key) ?? 0) + 1;
+      seen.set(key, n);
+      const by = n > 1 ? `${key}#${n}` : key;
+      return [label, () => {
+        const before = scene.children.length;
+        run();
+        for (const o of scene.children.slice(before)) o.userData.builtBy ??= by;
+      }];
+    };
     return [
       step('Đang trải đường ray', () => {
         // (No railway — cfg.track null: a stand-in nothing is near, and no stops.)
@@ -202,7 +226,7 @@ export class World {
         const M = this.track.frames.length;
         // Every stop in the config with its place on the track (frame); features build on them.
         this.stops = cfg.stops.map((st) => ({ ...st, frame: this.track.frame(Math.round(M * st.at)) }));
-      }),
+      }, 'track'),
       step('Đang nặn địa hình', () => {
         const terrain = (this.terrain = createTerrain(cfg, this.track, this.stops, this.rivers));
         this.heightAt = terrain.heightAt;
@@ -211,12 +235,12 @@ export class World {
           update: (f) => terrain.update(f.t),
           lateUpdate: (f) => terrain.setSnow(f.snow),
         });
-      }),
+      }, 'terrain'),
       ...(cfg.tunnel
         ? [step('Đang đào đường hầm', () => {
           const tunnel = (this.tunnel = createTunnel(this.track, this.heightAt, cfg.tunnel));
           this.add({ group: tunnel.group, lateUpdate: (f) => tunnel.setSnow(f.snow) });
-        })]
+        }, 'tunnel')]
         : []),
       step('Đang dựng cầu và tà vẹt', () => {
         if (cfg.track) {
@@ -233,21 +257,21 @@ export class World {
         }
         const yards = this.stops.filter((st) => st.yard).map((st) => st.frame.p);
         this.site = new Site({ cfg, track: this.track, heightAt: this.heightAt, tunnel: this.tunnel, yards, rivers: this.rivers });
-      }),
+      }, 'bridges'),
       ...features.map((entry) => {
         const { id, stream, ...options } = entry;
-        const feature = FEATURES[id];
+        const feature = featureById(id);
         return step(feature.label, () => {
           const system = feature.build(this, { ...options, rng: this.rngFor(entry) });
           if (system) this.add(system);
-        });
+        }, id);
       }),
       step('Đang pha màu bầu trời', () => {
         this.sky = new Sky(scene, { latitude: cfg.latitude ?? null, day: cfg.sunDay ?? 80 });
         const weather = (this.weather = new Weather(scene));
         // Last: everything else reads last frame's rain, as it was when the frame started.
         this.add({ update: (f) => weather.update(f.dt, f.raw, f.camera) });
-      }),
+      }, 'sky'),
       step('Đang hoàn thiện', () => {
         for (const s of this.systems) s.finish?.();
         for (const p of this.people) {
@@ -266,7 +290,7 @@ export class World {
         // on a big map it takes long enough to make a frame stutter and the simulation jump.
         if (cfg.landcover) coastOf(this);
         this.checkSeal();
-      }),
+      }, 'finish'),
     ];
   }
 
@@ -289,12 +313,8 @@ export class World {
   update({ dt, raw, speed, camera }) {
     this.time += dt;
     const f = Object.assign(this.frame, { dt, raw, speed, camera, t: this.time, rain: this.weather.rain });
-    // Who's out at this hour, and what the camera sees (world/night.js) — for the features that use it.
-    const curfew = this.services.get('curfew');
-    if (curfew) {
-      curfew.hour = this.sky.hour;
-      if (camera) curfew.look(camera);
-    }
+    // (Services that keep up with the clock: who's out at this hour, and what the camera sees — world/night.js.)
+    for (const s of this.ticking) s.tick(this, f);
     for (const s of this.systems) s.update?.(f);
   }
 
@@ -330,8 +350,22 @@ export class World {
   /** @param {THREE.Vector3} ear */
   listen(ear) {
     const shore = this.cfg.landcover ? coastOf(this).shore : []; // (worked out while building)
-    const vehicles = this.vehicles.filter((v) => !v.spec.flies && !v.away).map((v) => ({ x: v.group.position.x, y: v.group.position.y, z: v.group.position.z, moving: v.v > 0.5 }));
-    const people = [...this.people, ...this.pedestrians.filter((p) => p.group.visible), ...(this.beach?.people ?? []).filter((p) => p.person.group.visible)].map((/** @type {any} */ p) => p.pos ?? p.person.group.position);
+    // (The same arrays and records every time: asked five times a second.)
+    const self = /** @type {any} */ (this), ears = (self.ears ??= { vehicles: [], cars: [], people: [] });
+    const { vehicles, cars, people } = ears;
+    vehicles.length = people.length = 0;
+    for (const v of this.vehicles) {
+      if (v.spec.flies || v.away) continue;
+      const c = (cars[vehicles.length] ??= { x: 0, y: 0, z: 0, moving: false }), at = v.group.position;
+      c.x = at.x;
+      c.y = at.y;
+      c.z = at.z;
+      c.moving = v.v > 0.5;
+      vehicles.push(c);
+    }
+    for (const p of this.people) people.push(p.pos ?? p.person.group.position);
+    for (const p of /** @type {any[]} */ (this.pedestrians)) if (p.group.visible) people.push(p.pos ?? p.person.group.position);
+    for (const add of this.voices) add(people); // (the beach…)
     return soundLevels(ear, { shore, waterY: WATER_Y, vehicles, people, map: this.scale.map, props: this.scale.props });
   }
 
@@ -396,22 +430,27 @@ export class World {
 /** @typedef {import('./types').System} System */
 /** @typedef {import('./types').Frame} Frame */
 /** @typedef {import('./types').Followable} Followable */
+/** @typedef {import('./types').WorldOutputs} Outputs */
 
 /**
  * @param {{ id: string }[]} features
  * @param {boolean} railway whether the world has one (cfg.track)
  */
 // Before anything is built: every feature exists, comes after the features it needs (feature.needs:
-// ids, or a list of ids any one of which will do), and a world with a railway has a train on it
-// (the cameras ride it); one without has nothing that runs on it.
+// ids, or a list of ids any one of which will do) and after those of feature.after the world has, and a
+// world with a railway has a train on it (the cameras ride it); one without has nothing that runs on it.
 function checkFeatures(features, railway = true) {
   const before = new Set();
-  for (const { id } of features) {
-    const feature = FEATURES[id];
-    if (!feature) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+  for (const [i, { id }] of features.entries()) {
+    const feature = featureById(id);
+    if (!FEATURE_IDS.includes(id)) throw new Error(`Không có feature "${id}" (src/features/index.js)`);
+    if (!feature) throw new Error(`Feature "${id}" chưa được nạp (await world.load() trước world.steps())`);
     for (const need of feature.needs ?? []) {
       const options = [need].flat();
       if (!options.some((n) => before.has(n))) throw new Error(`Feature "${id}" cần ${options.map((n) => `"${n}"`).join(' hoặc ')} đứng trước nó trong cfg.features`);
+    }
+    for (const a of feature.after ?? []) {
+      if (features.some((f, j) => j > i && f.id === a)) throw new Error(`Feature "${id}" phải đứng sau "${a}" trong cfg.features (world này có "${a}")`);
     }
     before.add(id);
   }

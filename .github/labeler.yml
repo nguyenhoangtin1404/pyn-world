@@ -4,7 +4,7 @@
       - any-glob-to-any-file: ['src/World.js', 'src/world/**', 'src/worlds/**', 'src/config.js']
 'area: features':
   - changed-files:
-      - any-glob-to-any-file: ['src/features/**']
+      - any-glob-to-any-file: ['src/features/**', 'src/services/**']
 'area: render':
   - changed-files:
       - any-glob-to-any-file: ['src/render/**', 'src/world/lowpoly.js', 'src/world/particles.js', 'src/world/sky.js', 'src/world/water.js', 'src/world/weather.js']

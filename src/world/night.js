@@ -76,7 +76,7 @@ export function shareOf(who, h, lead = 0) {
 
 const GOLDEN = 0.6180339887498949;
 
-/** The hour, what the camera sees, and everyone's rank (World keeps it up to date each frame). */
+/** The hour, what the camera sees, and everyone's rank (kept up to date each frame: tick(), World.service). */
 export class Curfew {
   constructor() {
     this.hour = 12;
@@ -100,6 +100,12 @@ export class Curfew {
    */
   out(rank, who = 'town', lead = 0) {
     return rank < shareOf(who, this.hour, lead);
+  }
+
+  /** Each frame, before the systems (World calls it on every service that has one). @param {{ sky: { hour: number } }} world @param {{ camera: THREE.Camera | null }} f */
+  tick(world, f) {
+    this.hour = world.sky.hour;
+    if (f.camera) this.look(f.camera);
   }
 
   /** @param {THREE.Camera} camera */

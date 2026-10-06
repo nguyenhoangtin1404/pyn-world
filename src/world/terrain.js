@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 import { TRACK_Y, WATER_Y, RIVER_BED, BASE_Y } from '../config.js';

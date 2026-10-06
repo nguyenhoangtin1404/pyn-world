@@ -4,6 +4,8 @@
 // are both LoopPaths. The points are joined by straight lines, so give them densely (every few
 // units) for a smooth path — roundedRect() and ellipse() below do.
 
+const HA = [0, 0], HB = [0, 0]; // (scratch for headingAt)
+
 export class LoopPath {
   /** @param {[number, number][]} points at least 3, not repeating the first at the end */
   constructor(points) {
@@ -45,9 +47,33 @@ export class LoopPath {
    * @returns {[number, number]}
    */
   pointAt(s) {
-    const { i, k } = this.locate(s);
-    const [ax, az] = this.points[i], [bx, bz] = this.points[(i + 1) % this.points.length];
-    return [ax + (bx - ax) * k, az + (bz - az) * k];
+    /** @type {[number, number]} */
+    const out = [0, 0];
+    this.pointInto(s, out);
+    return out;
+  }
+
+  /**
+   * pointAt without making an array: (x, z) at distance s written into `out` (the same numbers).
+   * @param {number} s
+   * @param {[number, number] | Float64Array | number[]} out
+   */
+  pointInto(s, out) {
+    s = this.wrap(s);
+    const at = this.at, pts = this.points;
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (at[mid] <= s) lo = mid;
+      else hi = mid - 1;
+    }
+    const len = at[lo + 1] - at[lo];
+    const k = len > 0 ? (s - at[lo]) / len : 0;
+    const a = pts[lo], b = pts[(lo + 1) % pts.length];
+    const ax = a[0], az = a[1];
+    out[0] = ax + (b[0] - ax) * k;
+    out[1] = az + (b[1] - az) * k;
+    return out;
   }
 
   /**
@@ -57,8 +83,9 @@ export class LoopPath {
    * @param {number} [span]
    */
   headingAt(s, span = 2) {
-    const [ax, az] = this.pointAt(s - span), [bx, bz] = this.pointAt(s + span);
-    return Math.atan2(bx - ax, bz - az);
+    this.pointInto(s - span, HA);
+    this.pointInto(s + span, HB);
+    return Math.atan2(HB[0] - HA[0], HB[1] - HA[1]);
   }
 
   /**
@@ -108,6 +135,18 @@ export class OpenPath {
    * @returns {[number, number]}
    */
   pointAt(s) {
+    /** @type {[number, number]} */
+    const out = [0, 0];
+    this.pointInto(s, out);
+    return out;
+  }
+
+  /**
+   * pointAt without making an array: (x, z) at distance s written into `out`.
+   * @param {number} s
+   * @param {[number, number] | Float64Array | number[]} out
+   */
+  pointInto(s, out) {
     s = Math.min(this.length, Math.max(0, s));
     let lo = 0, hi = this.points.length - 2;
     while (lo < hi) {
@@ -117,8 +156,11 @@ export class OpenPath {
     }
     const len = this.at[lo + 1] - this.at[lo];
     const k = len > 0 ? (s - this.at[lo]) / len : 0;
-    const [ax, az] = this.points[lo], [bx, bz] = this.points[lo + 1];
-    return [ax + (bx - ax) * k, az + (bz - az) * k];
+    const a = this.points[lo], b = this.points[lo + 1];
+    const ax = a[0], az = a[1];
+    out[0] = ax + (b[0] - ax) * k;
+    out[1] = az + (b[1] - az) * k;
+    return out;
   }
 
   /**

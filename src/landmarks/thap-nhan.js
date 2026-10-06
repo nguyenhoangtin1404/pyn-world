@@ -1,6 +1,6 @@
 // @ts-check
 import { box, cone, ball, prism } from '../world/lowpoly.js';
-import { lamps } from '../features/lamps.js';
+import { lamps } from '../services/lamps.js';
 import { above, toWorld } from './common.js';
 
 // Tháp Nhạn, on the top of Núi Nhạn: a Cham brick tower (11th–12th century). A square body with

@@ -1,4 +1,5 @@
-import { SHOWN, WORLDS } from '../../src/worlds/index.js';
+import { SHOWN } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld, waitForWorld } from './helpers.js';
 
 // Switching worlds frees the old one: coming back to a world, the GPU holds the same number of
@@ -6,6 +7,7 @@ import { test, expect, openWorld, waitForWorld } from './helpers.js';
 // app switches as key N does, through __pyn.switchWorld).
 test('switching worlds frees the old one', async ({ page }) => {
   test.skip(WORLDS.length < 2, 'only one world');
+  test.setTimeout(480_000); // (13 world builds: ~2 min alone, past 4 on a busy machine)
   await openWorld(page, WORLDS[0].id);
   const gpu = () =>
     page.evaluate(() => {

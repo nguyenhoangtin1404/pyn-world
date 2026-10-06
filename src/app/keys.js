@@ -1,14 +1,15 @@
 import { CAMERA_MODES } from '../cameras.js';
 import { TIME_PRESETS } from '../world/sky.js';
 import { PIXEL_LEVELS } from '../hud.js';
+import { t, tr } from './i18n.js';
 
 // Keys that fly the camera to a spot in the world (world.spots).
 export const SPOT_KEYS = {
-  KeyF: { id: 'courting', toast: 'Bay tới đôi cừu đang yêu 💕' },
-  KeyG: { id: 'bridgeSheep', toast: 'Bay tới chú cừu ngắm sông' },
-  KeyK: { id: 'summit', toast: 'Bay lên đỉnh núi ⛰' },
-  KeyJ: { id: 'fisherman', toast: 'Bay tới ông câu cá 🎣' },
-  KeyL: { id: 'steamer', toast: 'Bay tới tàu hơi nước ⛴' },
+  KeyF: { id: 'courting', toast: 'toast.courting' },
+  KeyG: { id: 'bridgeSheep', toast: 'toast.bridgeSheep' },
+  KeyK: { id: 'summit', toast: 'toast.summit' },
+  KeyJ: { id: 'fisherman', toast: 'toast.fisherman' },
+  KeyL: { id: 'steamer', toast: 'toast.steamer' },
 };
 
 // The keyboard shortcuts (the help panel in index.html lists them). `app` gives what they act on:
@@ -18,6 +19,7 @@ export function createKeyHandler(app) {
   return function onKey(e) {
     const hud = app.hud(), world = app.world();
     if (e.target.closest?.('input, select, textarea')) return;
+    if (document.querySelector('dialog[open]')) return; // (the About dialog: its keys are its own — Esc closes it)
     if (e.repeat) return;
     if (e.code === 'KeyN') {
       const i = worlds.findIndex((w) => w.id === state.world);
@@ -31,7 +33,7 @@ export function createKeyHandler(app) {
     if (mode) {
       const m = mode;
       if (!actions.setMode(m.id)) return; // nothing to follow here (it said so)
-      hud.toast(rig.followLabel ? `Đang theo: ${rig.followLabel}` : `Camera: ${m.label}`);
+      hud.toast(rig.followLabel ? t('toast.following', { label: tr(rig.followLabel) }) : t('toast.camera', { label: t(`cam.${m.id}`) }));
       return;
     }
     const spot = SPOT_KEYS[e.code];
@@ -39,11 +41,11 @@ export function createKeyHandler(app) {
       // Features put these spots in the world; a world without sheep has no sheep to fly to.
       actions.stopTour(true);
       const p = world.spots[spot.id];
-      if (!p) return hud.toast('Thế giới này không có chỗ đó');
+      if (!p) return hud.toast(t('toast.noSpot'));
       rig.flyToSpot(p);
       state.mode = 'overview';
       hud.sync();
-      hud.toast(spot.toast);
+      hud.toast(t(spot.toast));
       return;
     }
     switch (e.code) {
@@ -61,47 +63,47 @@ export function createKeyHandler(app) {
         rig.nextBridge();
         state.mode = 'bridge';
         hud.sync();
-        hud.toast(`Cầu số ${rig.bridgeIndex + 1}`);
+        hud.toast(t('toast.bridge', { n: rig.bridgeIndex + 1 }));
         break;
       case 'KeyP': {
         const i = PIXEL_LEVELS.findIndex((l) => l.v === state.pixel);
         const next = PIXEL_LEVELS[(i + 1) % PIXEL_LEVELS.length];
         actions.setPixel(next.v);
-        hud.toast(`Pixel art: ${next.label}`);
+        hud.toast(t('toast.pixel', { label: t(`pixel.${next.v}`) }));
         break;
       }
       case 'KeyO':
         actions.setOutline(!state.outline);
-        hud.toast(state.outline ? 'Viền mực: bật' : 'Viền mực: tắt');
+        hud.toast(t(state.outline ? 'toast.outlineOn' : 'toast.outlineOff'));
         break;
       case 'KeyT': {
         const i = TIME_PRESETS.findIndex((p) => p.id === state.timeOfDay);
         const n = TIME_PRESETS.length;
         const next = TIME_PRESETS[(i + (e.shiftKey ? n - 1 : 1)) % n];
         actions.setTime(next.id);
-        hud.toast(`${next.icon} ${next.label}`);
+        hud.toast(`${next.icon} ${t(`time.${next.id}`)}`);
         break;
       }
       case 'KeyC':
         actions.setClock(state.clock === 'fast' ? 'real' : 'fast');
-        hud.toast(state.clock === 'fast' ? '⟳ Ngày trôi nhanh (1 ngày = 4 phút)' : '🕒 Giờ thật (giờ Việt Nam)');
+        hud.toast(t(state.clock === 'fast' ? 'toast.fast' : 'toast.real'));
         break;
       case 'Space':
         e.preventDefault();
         state.paused = !state.paused;
         hud.sync();
-        hud.toast(state.paused ? 'Tạm dừng' : 'Tiếp tục');
+        hud.toast(t(state.paused ? 'toast.paused' : 'toast.resumed'));
         break;
       case 'KeyX':
         actions.setTimeScale(state.timeScale > 0 ? 0 : 1);
-        hud.toast(`Thời gian ${state.timeScale}×`);
+        hud.toast(t('toast.timeScale', { n: state.timeScale }));
         break;
       case 'KeyH':
         hud.toggleHud();
         break;
       case 'KeyM':
         actions.toggleMute();
-        hud.toast(state.muted ? 'Tắt tiếng' : 'Bật tiếng');
+        hud.toast(t(state.muted ? 'toast.muted' : 'toast.unmuted'));
         break;
     }
   };

@@ -34,7 +34,7 @@ const PAVEMENT_COLOR = '#c4bfb4';
  * An open polyline walked by distance (Paint's `Line`).
  * @param {[number, number][]} pts
  */
-function openLine(pts) {
+export function openLine(pts) {
   const at = [0];
   for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const length = at.at(-1) ?? 0;

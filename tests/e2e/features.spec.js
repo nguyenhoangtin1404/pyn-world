@@ -1,4 +1,4 @@
-import { WORLDS } from '../../src/worlds/index.js';
+import { WORLDS } from '../../src/worlds/all.js';
 import { test, expect, openWorld } from './helpers.js';
 
 // Small worlds build and run in the browser (textures, shaders, the loop), and a world missing a
@@ -15,7 +15,7 @@ const cases = {
   'traffic without a road': { features: ['station', 'traffic', 'train'], error: /"traffic".*"road"/ },
   'ring road with traffic lights, no roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 }, lights: ['a1', { side: 'b0', at: 0.3 }] }, 'traffic', 'train'] },
   'crossroads on a plain ring': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 20 }, junctions: [{ side: 'a0', at: 0.4 }] }, 'traffic', 'train'] },
-  'street life before the bus stop': { world: 'nghinhphong', streetlifeFirst: true, error: /"streetlife" cần bến xe buýt dựng trước/ },
+  'street life before the bus stop': { world: 'nghinhphong', streetlifeFirst: true, error: /"streetlife" phải đứng sau "busstop"/ },
   'branch without a roundabout': { world: 'maple', features: ['station', { id: 'road', stop: 'vale', inset: { a1: 22, b: 26 }, branch: 40 }, 'train'], error: /"road" cần một vòng xoay/ },
 };
 
@@ -23,7 +23,7 @@ test('small worlds build and run; missing pieces are reported', async ({ page })
   await openWorld(page, WORLDS[0].id);
   const results = await page.evaluate(async (cases) => {
     const { World } = await import('/src/World.js');
-    const { WORLDS } = await import('/src/worlds/index.js');
+    const { WORLDS } = await import('/src/worlds/all.js');
     const { camera, rig } = window.__pyn;
     const out = {};
     for (const [name, { world, features, stops, tunnel, streetlifeFirst }] of Object.entries(cases)) {
@@ -41,6 +41,7 @@ test('small worlds build and run; missing pieces are reported', async ({ page })
         if (stops === 3) cfg.stops = [...cfg.stops, { id: 'extra', at: 0.75, name: 'EXTRA' }];
         if (tunnel === false) delete cfg.tunnel;
         const w = new World(cfg);
+        await w.load();
         for (const [, step] of w.steps()) step();
         for (let i = 0; i < 50; i++) {
           w.update({ dt: 0.1, raw: 0.1, speed: 1, camera });

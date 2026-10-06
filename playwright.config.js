@@ -1,8 +1,8 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests (npm run e2e): every world built in a real browser, see tests/e2e/.
 // Software GL (SwiftShader): the same pixels and draw calls on every machine, GPU or not.
-const PORT = 5199;
+const PORT = Number(process.env.E2E_PORT) || 5199; // E2E_PORT: a second checkout running e2e at the same time
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -20,7 +20,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' }, testIgnore: /mobile\.spec\.js/ },
+    // A phone (touch, a coarse pointer, a tall narrow screen): a smoke test only (tests/e2e/mobile.spec.js).
+    { name: 'mobile', use: { ...devices['Pixel 7'], browserName: 'chromium' }, testMatch: /mobile\.spec\.js/ },
+  ],
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,

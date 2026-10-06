@@ -1,6 +1,7 @@
+// @ts-check
 import * as THREE from 'three';
 import './style.css';
-import { TIME_PRESETS, presetAtHour, vietnamHour } from './world/sky.js';
+import { TIME_PRESETS, presetAtHour, setShadowMapSize, vietnamHour } from './world/sky.js';
 import { PostFX } from './render/post.js';
 import { CameraRig } from './cameras.js';
 import { AudioEngine } from './audio.js';
@@ -9,17 +10,21 @@ import { createLoader } from './app/loader.js';
 import { createKeyHandler } from './app/keys.js';
 import { createTour } from './app/tour.js';
 import { createHostCard } from './app/host.js';
-import { createResolutionAdapter, createStats } from './app/perf.js';
+import { QUALITY, createResolutionAdapter, createStats, qualityTier } from './app/perf.js';
+import { showFallback } from './app/fallback.js';
+import { onLangChange, t, tr } from './app/i18n.js';
+import { reducedMotion } from './app/motion.js';
 import { nextFrame } from './utils.js';
 import { World } from './World.js';
-import { SHOWN, worldById } from './worlds/index.js';
+import { SHOWN, loadWorld, worldId } from './worlds/index.js';
 
 // The app: renderer, camera, sound, UI and the frame loop. What is on screen is `world` — one
 // World (src/World.js) built from a WorldConfig (src/worlds/); the world picker or N switches.
-// Around it, in src/app/: the loading screen, the keyboard shortcuts, frame-rate upkeep.
+// Around it, in src/app/: the loading screen, the keyboard shortcuts, frame-rate upkeep. The page loads this
+// through boot.js, which first makes sure the browser can draw WebGL (else app/fallback.js).
 
 const state = {
-  world: worldById(new URLSearchParams(location.search).get('world')).id,
+  world: worldId(new URLSearchParams(location.search).get('world')),
   switchingTo: null, // id of the world being built, while switching
   mode: 'overview',
   timeOfDay: 'day',
@@ -42,7 +47,19 @@ const state = {
 if (state.clock === 'real') state.hour = vietnamHour(new Date());
 state.timeOfDay = presetAtHour(state.hour);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Phones and low-memory devices draw less (app/perf.js) — decided here, before any shader is compiled.
+const quality = QUALITY[qualityTier()];
+setShadowMapSize(quality.shadowMap);
+
+/** @type {THREE.WebGLRenderer} */
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, powerPreference: 'high-performance' });
+} catch (err) {
+  // (boot.js found WebGL, but this context could not be made after all: a busy or blocklisted GPU)
+  showFallback('nogl');
+  throw err;
+}
 // Reading shader logs after every compile makes the browser wait for each compile to finish; only
 // worth it while developing.
 renderer.debug.checkShaderErrors = import.meta.env.DEV;
@@ -55,6 +72,8 @@ renderer.shadowMap.enabled = true;
 // three.js r186 dropped PCFSoftShadowMap and falls back to PCFShadowMap at the first shadow render,
 // which made every shader compiled before that (the whole precompile) compile a second time.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute('aria-label', t('canvas.label')); // (named after the world in show())
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2000);
@@ -65,7 +84,7 @@ const rig = new CameraRig(camera, renderer.domElement);
 let world = null; // the World on screen (null while the next one is being built)
 if (import.meta.env.DEV) window.__pyn = { get W() { return world; }, renderer, post, rig, camera, state, switchWorld: (id) => switchWorld(id) };
 
-const adaptResolution = createResolutionAdapter(renderer, MAX_DPR, resize);
+const adaptResolution = createResolutionAdapter(renderer, MAX_DPR, resize, Math.min(quality.minDpr, MAX_DPR));
 const stats = createStats(renderer);
 const loader = createLoader();
 
@@ -80,6 +99,14 @@ function resize() {
 let hud;
 let landmarkIndex = -1;
 const tour = createTour({ rig, camera, muted: () => state.muted, volume: () => state.volume, base: import.meta.env.BASE_URL, duck: (on) => audio.duck(on), onEnd: () => document.getElementById('app').classList.remove('touring') });
+// The GPU took the context away (out of memory, a driver reset): the world can't be drawn again from here —
+// stop the loop and offer a reload instead of a frozen picture.
+let contextLost = false;
+renderer.domElement.addEventListener('webglcontextlost', () => {
+  contextLost = true;
+  tour.stop();
+  showFallback('lost');
+});
 const actions = {
   setWorld(id) {
     switchWorld(id);
@@ -88,7 +115,7 @@ const actions = {
   setMode(id) {
     tour.stop();
     if (!rig.setMode(id)) {
-      hud.toast('Thế giới này không có gì để theo');
+      hud.toast(t('toast.nothingToFollow'));
       return false;
     }
     state.mode = id;
@@ -100,7 +127,7 @@ const actions = {
     tour.stop();
     const list = world?.landmarks ?? [];
     if (!list.length) {
-      hud.toast('Thế giới này không có công trình nổi tiếng');
+      hud.toast(t('toast.noLandmark'));
       return;
     }
     landmarkIndex = (landmarkIndex + 1) % list.length;
@@ -108,13 +135,13 @@ const actions = {
     rig.flyToSpot(lm.spot, lm.view);
     state.mode = 'overview';
     hud.sync();
-    hud.toast(`Bay tới ${lm.name} 🏛`);
+    hud.toast(t('toast.flyTo', { name: tr(lm.name) }));
   },
   // The narrated tour of the (first) landmark that has one: I to start, again (or Esc) to stop.
   toggleTour(auto = false) {
     if (tour.active) return actions.stopTour();
     const lm = world?.landmarks.find((l) => l.tour?.length);
-    if (!lm) return hud.toast('Thế giới này không có thuyết minh');
+    if (!lm) return hud.toast(t('toast.noTour'));
     if (!auto) audio.init(); // (a page that starts it by itself can't make sound yet)
     if (rig.mode !== 'overview') rig.setMode('overview', { fly: false });
     state.mode = 'overview';
@@ -126,7 +153,7 @@ const actions = {
   stopTour(quiet = false) {
     if (!tour.active) return;
     tour.stop();
-    if (!quiet) hud.toast('Đã dừng thuyết minh');
+    if (!quiet) hud.toast(t('toast.tourStopped'));
   },
   // Jump the clock to a preset's hour; the day then runs fast from there.
   setTime(id) {
@@ -145,6 +172,7 @@ const actions = {
     hud.sync();
   },
   setWeather(id) {
+    if (id === 'snow' && world?.cfg.snow === false) return;
     state.weather = id;
     world?.weather.set(id);
     hud.sync();
@@ -209,7 +237,7 @@ const clock = new THREE.Clock();
 function frame() {
   requestAnimationFrame(frame);
   const delta = clock.getDelta();
-  if (!world) return; // the next world is being built behind the loading screen
+  if (!world || contextLost) return; // the next world is being built behind the loading screen
   const frameStart = performance.now();
   stats?.begin();
   adaptResolution(delta);
@@ -251,10 +279,11 @@ function frame() {
 async function buildWorld(cfg) {
   if (cfg.load) {
     // A world from map data: fetch and check its data first (world/geodata.js).
-    loader.phase('Đang tải bản đồ');
+    loader.phase(t('load.map'));
     await cfg.load();
   }
   const next = new World(cfg);
+  await next.load(); // (the code of features only hidden worlds use)
   const steps = next.steps();
   for (let i = 0; i < steps.length; i++) {
     loader.phase(steps[i][0]);
@@ -265,7 +294,7 @@ async function buildWorld(cfg) {
     loader.progress(Math.round(((i + 1) / steps.length) * 100));
   }
   rig.attach(next.view); // compile from where the camera will start
-  loader.phase('Đang chuẩn bị shader');
+  loader.phase(t('load.shaders'));
   await next.precompile(renderer, camera);
   return next;
 }
@@ -273,9 +302,12 @@ async function buildWorld(cfg) {
 // Hand the sound and the current settings (clock, weather, shadows) to a newly built world.
 function show(next) {
   world = next;
+  nameCanvas();
   state.mode = 'overview';
   hud?.setWorld(world);
   world.sky.setHour(state.hour, true);
+  // (No snow in the tropics: a world with `snow: false` has no snow button, and falls back to clear skies.)
+  if (state.weather === 'snow' && world.cfg.snow === false) state.weather = 'clear';
   world.weather.set(state.weather);
   world.sky.sun.castShadow = state.shadows;
   // Station departure whistle, chuffs and rail joints drive the synthesised sound.
@@ -286,13 +318,25 @@ function show(next) {
   }
 }
 
+// What the canvas shows, for a screen reader (the scene itself is pixels), in the language on screen.
+function nameCanvas() {
+  if (!world) return;
+  const sights = world.landmarks.map((l) => tr(l.name)).join(', ');
+  renderer.domElement.setAttribute('aria-label', t('canvas.world', { name: world.cfg.name, around: sights ? t('canvas.around', { sights }) : '' }));
+}
+onLangChange(nameCanvas);
+
 async function switchWorld(id) {
   if (state.switchingTo || id === state.world) return;
-  const cfg = worldById(id);
-  state.switchingTo = cfg.id; // the world picker shows it pending and waits
+  state.switchingTo = worldId(id); // the world picker shows it pending and waits
   tour.stop();
   hostCard.hide();
   hud.sync();
+  const cfg = await loadWorld(id).catch((err) => console.error(err)); // (a hidden world's config: loaded only now)
+  if (!cfg) {
+    state.switchingTo = null;
+    return hud.sync();
+  }
   loader.show(cfg);
   // Free the old world first: two worlds in memory at once is a lot for a phone.
   world?.dispose();
@@ -302,7 +346,7 @@ async function switchWorld(id) {
     show(await buildWorld(cfg));
     state.world = cfg.id;
     loader.hide();
-    hud.toast(`Thế giới: ${cfg.name}`);
+    hud.toast(t('toast.world', { name: cfg.name }));
   } catch (err) {
     loader.error(err);
   } finally {
@@ -312,11 +356,11 @@ async function switchWorld(id) {
 }
 
 async function boot() {
-  const cfg = worldById(state.world);
-  loader.show(cfg);
-  resize();
   let first;
+  resize();
   try {
+    const cfg = await loadWorld(state.world);
+    loader.show(cfg);
     first = await buildWorld(cfg);
     await renderer.compileAsync(post.quadScene, post.quadCam); // pixel-art / outline pass
   } catch (err) {
@@ -333,9 +377,10 @@ async function boot() {
 
   requestAnimationFrame(frame);
   loader.hide();
-  // A visitor who just arrives (no ?world=, no ?notour) is given the narrated tour of the landmark.
+  // A visitor who just arrives (no ?world=, no ?notour) is given the narrated tour of the landmark — unless
+  // they asked their system for less motion: then the camera stays put until they start it.
   const params = new URLSearchParams(location.search);
-  if (!params.has('world') && !params.has('notour')) actions.toggleTour(true);
+  if (!params.has('world') && !params.has('notour') && !reducedMotion()) actions.toggleTour(true);
 }
 
 boot();

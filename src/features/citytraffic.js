@@ -518,7 +518,8 @@ export default {
       }
     };
 
-    const people = [];
+    /** @type {{ x: number, z: number }[]} */
+    const people = [], spots = [];
     return {
       group,
       update({ dt }) {
@@ -529,7 +530,13 @@ export default {
           for (const w of walks) w.stop.visible = !(w.walk.visible = signal.walk(w.margin));
         }
         people.length = 0;
-        for (const w of world.pedestrians) if (w.group.visible) people.push({ x: w.pos.x / k, z: w.pos.z / k }); // (not those at home, or on the bus)
+        for (const w of world.pedestrians) {
+          if (!w.group.visible) continue; // (not those at home, or on the bus)
+          const p = (spots[people.length] ??= { x: 0, z: 0 }); // (the same records every frame)
+          p.x = w.pos.x / k;
+          p.z = w.pos.z / k;
+          people.push(p);
+        }
         active.length = 0;
         for (const c of cars) {
           const out = curfew.out(c.rank, 'traffic', 1), seen = curfew.seen(c.group.position, c.length * k);

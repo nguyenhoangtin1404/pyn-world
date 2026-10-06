@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp } from '../utils.js';
+import { clamp, mulberry32 } from '../utils.js';
 
 const BOX = 160; // horizontal size of the precipitation volume around the camera
 const HEIGHT = 80;
@@ -45,12 +45,15 @@ export class Weather {
     };
     const wrapY = (speed) => `transformed.y = mod(transformed.y + ${(HEIGHT / 2).toFixed(1)} - uTime * ${speed.toFixed(1)}, ${HEIGHT.toFixed(1)}) - ${(HEIGHT / 2).toFixed(1)};`;
 
+    // Where each drop and flake starts: the same every load (a fixed seed, not the world's streams).
+    const random = mulberry32(0x5eed);
+
     // Rain: short streaks. Both ends of a streak share the start point; aK = 0 bottom, 1 top.
     const RN = 6000;
     const rpos = new Float32Array(RN * 6);
     const rk = new Float32Array(RN * 2);
     for (let i = 0; i < RN; i++) {
-      const x = (Math.random() - 0.5) * BOX, y = (Math.random() - 0.5) * HEIGHT, z = (Math.random() - 0.5) * BOX;
+      const x = (random() - 0.5) * BOX, y = (random() - 0.5) * HEIGHT, z = (random() - 0.5) * BOX;
       rpos.set([x, y, z, x, y, z], i * 6);
       rk[i * 2 + 1] = 1;
     }
@@ -68,10 +71,10 @@ export class Weather {
     const spos = new Float32Array(SN * 3);
     const sk = new Float32Array(SN);
     for (let i = 0; i < SN; i++) {
-      spos[i * 3] = (Math.random() - 0.5) * BOX;
-      spos[i * 3 + 1] = (Math.random() - 0.5) * HEIGHT;
-      spos[i * 3 + 2] = (Math.random() - 0.5) * BOX;
-      sk[i] = Math.random() * Math.PI * 2;
+      spos[i * 3] = (random() - 0.5) * BOX;
+      spos[i * 3 + 1] = (random() - 0.5) * HEIGHT;
+      spos[i * 3 + 2] = (random() - 0.5) * BOX;
+      sk[i] = random() * Math.PI * 2;
     }
     const sgeo = new THREE.BufferGeometry();
     sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3));

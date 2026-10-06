@@ -1,5 +1,7 @@
 # Lint, types, unit tests, build and end-to-end tests on every PR and on main; deploys main to
 # GitHub Pages once everything is green (see the deploy job for how to turn that on).
+# Every action is pinned to a full commit SHA (the tag in the comment); Dependabot bumps both
+# (.github/dependabot.yml).
 name: CI
 
 on:
@@ -20,8 +22,8 @@ jobs:
     name: Lint & types
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -33,58 +35,115 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Vitest's fsModuleCache (vitest.config.js): transformed modules keyed on their contents, so a
+      # stale entry is never used — restoring the newest one is always safe. After npm ci, which
+      # deletes node_modules.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: node_modules/.vitest-cache
+          key: vitest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: vitest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm test
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Tên miền riêng thapnghinhphong.vn (public/CNAME) phục vụ ở gốc /, không cần --base.
+      # This artifact is what the deploy job publishes: the build that was tested is the one shipped.
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: dist
+          if-no-files-found: error
           retention-days: 7
 
-  e2e:
-    name: E2E (Playwright)
+  # E2E in 3 shards (each runs a third of the tests); "E2E (Playwright)" below merges their reports
+  # and is the single check to require in branch protection.
+  e2e-shard:
+    name: E2E shard ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The browser build depends only on the Playwright version (goldens and pixels depend on it too).
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright's Chromium
-        uses: actions/cache@v4
+        id: browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-      # On failure: the HTML report, and a trace of each failed test (npx playwright show-trace).
-      - uses: actions/upload-artifact@v4
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install Chromium and its system libraries
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      # Cache hit: the browser is there, only the system libraries (apt) are missing on a fresh runner.
+      - name: Install Chromium's system libraries
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      # Reporter on the command line (not in playwright.config.js): a blob per shard, merged below.
+      - run: npx playwright test --shard=${{ matrix.shard }}/3 --reporter=github,blob
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
+
+  e2e:
+    name: E2E (Playwright)
+    if: ${{ !cancelled() }}
+    needs: [e2e-shard]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      # One HTML report for all shards, with a trace of each failed test (npx playwright show-trace).
+      - name: Merge the shards' reports
+        run: npx playwright merge-reports --reporter=html ./all-blob-reports
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
           name: playwright-report
-          path: |
-            playwright-report
-            test-results
+          path: playwright-report
           retention-days: 14
+      - name: Every shard passed
+        if: needs.e2e-shard.result != 'success'
+        run: |
+          echo "::error::An E2E shard did not pass (${{ needs.e2e-shard.result }}): see the playwright-report artifact."
+          exit 1
 
   # Continuous deployment: main → GitHub Pages, only after all checks pass. Off until the repo
   # enables it: Settings → Pages → Source: "GitHub Actions", then Settings → Secrets and variables →
@@ -92,7 +151,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true'
-    needs: [lint, unit, build, e2e]
+    needs: [lint, unit, build, e2e-shard, e2e]
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -104,16 +163,13 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # The exact build the Build job made and E2E tested against the same sources — not a rebuild.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # Tên miền riêng thapnghinhphong.vn (public/CNAME) phục vụ ở gốc /, không cần --base.
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+          name: dist
+          path: dist
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: dist
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

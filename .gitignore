@@ -5,3 +5,5 @@ dist
 playwright-report
 test-results
 .cache/
+blob-report/
+all-blob-reports/
