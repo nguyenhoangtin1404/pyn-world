@@ -70,7 +70,9 @@ export function initHud(state, actions, worlds) {
     toast(t('toast.lang'));
   });
   langBtn.id = 'lang-btn';
-  $('camera-modes').append(langBtn);
+  // Top left, outside the panel: the panel starts folded and says so in Vietnamese — a visitor who reads only
+  // English must see the way to English without opening it.
+  /** @type {HTMLElement} */ (document.querySelector('#hud-top .top-row')).append(langBtn);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
   $('time-of-day').append(clockEl);
