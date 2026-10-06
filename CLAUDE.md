@@ -417,7 +417,7 @@ xe; mô hình dựng sẵn ≈ 1 đơn vị/mét). Bản đồ nhỏ quá thì �
   `PENDING` liệt kê thứ biết là lệch — **chỉ được bớt, không thêm** để cho qua. Loại vật mới: thêm vào `SIZES`
   và `note` ở feature vẽ nó.
 - Đã theo `world.scale`: cây/hoa/đá (`trees`), nhà + phố từ bản đồ, **đường ray + tàu + ga**: `Track`
-  nhận `k` (`track.k`, `track.gauge`, `track.railTop` — dùng thay `GAUGE`/`RAIL_TOP` của `config.js`),
+  nhận `k` (`track.k`, `track.gauge`, `track.railTop` — dùng thay `GAUGE` của `config.js`; `RAIL_TOP` đã bỏ),
   `buildTrackMeshes` nhân mọi mặt cắt với `k` (tà vẹt cách `k`), `Train({ k })` thu nhỏ từng toa và chạy
   lịch (`Schedule`) **trong đơn vị của mô hình** (quãng đường thế giới / k) → tốc độ, quãng phanh, chỗ dừng
   co theo, bánh xe/tiếng xình xịch vẫn đúng; bên ngoài đọc `train.s`, `train.v`, `train.length` (đơn vị thế
