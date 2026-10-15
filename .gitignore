@@ -7,3 +7,4 @@ test-results
 .cache/
 blob-report/
 all-blob-reports/
+docs/media/raw/

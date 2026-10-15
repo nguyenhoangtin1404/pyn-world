@@ -1,15 +1,100 @@
-# PYN World · Train Diorama
+<div align="center">
 
-Thung lũng low-poly có đoàn tàu hơi nước chạy vòng, dựng hoàn toàn bằng code (procedural) với Three.js — không dùng file model 3D, không dùng file âm thanh.
+<img src="docs/media/hero.jpg" alt="PYN World — Tháp Nghinh Phong low-poly về đêm, đèn LED nhiều màu bên bờ biển Tuy Hòa" width="100%">
+
+<br>
+
+**Một sa bàn 3D sống động chạy ngay trên trình duyệt: tàu hơi nước, phố biển Tuy Hòa và Tháp Nghinh Phong. Mọi thứ được dựng bằng code.**
+
+Không dùng file model 3D, cũng không dùng file âm thanh. Địa hình, nhà cửa, con người, xe cộ, bầu trời và tiếng động đều sinh ra từ code.
+
+[![Three.js](https://img.shields.io/badge/Three.js-r186-000?logo=threedotjs&logoColor=white)](https://threejs.org)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?logo=playwright&logoColor=white)](tests/e2e)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-c8453a)](LICENSE)
+[![Data: ODbL](https://img.shields.io/badge/data-ODbL-3f2a1f)](LICENSE-DATA.md)
+
+[**Chạy thử**](#-chạy-thử-trong-30-giây) · [**Các thế giới**](#-ba-thế-giới) · [**Điều khiển**](#-điều-khiển) · [**Kỹ thuật**](#-bên-trong) · [**Đóng góp**](#-đóng-góp)
+
+</div>
+
+---
+
+## ✨ Vì sao đáng xem
+
+- **🗺️ Dựng từ bản đồ thật.** Tuy Hòa hiện lên với độ cao SRTM, khoảng 900 con phố, khoảng 26 000 ngôi nhà theo dữ liệu Overture/OpenStreetMap, sông Đà Rằng, Núi Nhạn và đường sắt Bắc–Nam.
+- **🏛️ Tháp Nghinh Phong.** Hai tháp cột đá lục giác bên quảng trường hơn 7 000 m² nhìn ra biển. Ban đêm tháp lên đèn nhiều màu, có thêm lời thuyết minh bằng tiếng Việt và tiếng Anh.
+- **🚶 Một thành phố biết sống.** Có người đi bộ, du khách chụp ảnh, xe máy, xe đạp và ô tô chạy theo đèn tín hiệu, tàu thuyền ngoài khơi, chim bay và khinh khí cầu. Vào giờ giới nghiêm, phố đêm vắng dần.
+- **🌗 Ngày, đêm và thời tiết.** Đồng hồ chạy theo giờ Việt Nam thật hoặc tua nhanh (một ngày trong 4 phút). Thời tiết có mưa (người đi đường bật ô) và tuyết.
+- **🎧 Âm thanh tổng hợp.** Tiếng tàu xình xịch, còi, ray, mưa và chim đều tạo bằng Web Audio, không dùng file mp3 nào.
+- **⚡ Nhẹ và nhanh.** Cảnh được gộp draw call, dùng instancing, `SkinnedMesh` cho nhân vật và biên dịch shader trước. Khoảng 270 draw call mỗi frame. Mức chất lượng tự điều chỉnh theo máy, kể cả điện thoại.
+
+<p align="center">
+  <img src="docs/media/daynight.jpg" alt="Tháp Nghinh Phong lúc 16:30 và lúc 20:30 với đèn LED nhiều màu" width="100%">
+</p>
+
+## 🌏 Ba thế giới
+
+<p align="center">
+  <img src="docs/media/worlds.jpg" alt="Ba thế giới: NGHINH PHONG, TUY HÒA và PYN" width="100%">
+</p>
+
+| Thế giới | Mở bằng | Có gì |
+|---|---|---|
+| **NGHINH PHONG** *(trang chủ)* | `/` | Khu 2 × 2 km quanh Tháp Nghinh Phong: phố thật, bãi biển, đại lộ có dải phân cách, vòng xuyến, đời sống phố về đêm |
+| **TUY HÒA** | `?world=tuyhoa` | Toàn thành phố từ bản đồ thật: bờ biển, sông Đà Rằng, Núi Nhạn với Tháp Nhạn, tàu con thoi Bắc–Nam |
+| **PYN** | `?world=pyn` | Thung lũng gốc: tàu hơi nước chạy vòng qua hầm và cầu, làng, cối xay gió, cừu, thuyền câu, người leo núi |
+
+<p align="center">
+  <img src="docs/media/moments.jpg" alt="Đại lộ Độc Lập, bãi biển và đoàn tàu lúc hoàng hôn" width="100%">
+</p>
+
+## 🚀 Chạy thử trong 30 giây
 
 ```bash
+git clone https://github.com/nguyenhoangtin1404/pyn-world.git
+cd pyn-world
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # xuất ra dist/ (site tĩnh, deploy lên Netlify/Vercel)
+npm run dev      # http://localhost:5173 (thêm ?stats để xem draw call / ms mỗi frame)
+```
+
+```bash
+npm run build    # xuất ra dist/: site tĩnh, deploy lên GitHub Pages / Netlify / Vercel
 npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright install chromium)
 ```
 
-## Cấu trúc
+Một vài tham số URL hữu ích: `?world=<id>` mở thẳng một thế giới, `?lang=en` (hoặc trang `/en/`) chuyển sang tiếng Anh, `?clock=fast` cho đồng hồ chạy nhanh từ 9:00.
+
+## 🎮 Điều khiển
+
+| Phím | Tác dụng | Phím | Tác dụng |
+|---|---|---|---|
+| `1`–`0` | Camera: toàn cảnh, theo tàu, cây cầu, hành khách, lái tàu, theo người, chim, xe, du khách, khinh khí cầu | `W` `A` `S` `D` | Bay tự do (ở chế độ toàn cảnh) |
+| `V` | Bay tới công trình (Tháp Nghinh Phong) | `I` | Bật/tắt thuyết minh |
+| `T` / `Shift+T` | Đổi buổi trong ngày | `C` | Giờ thật ↔ tua nhanh |
+| `Space` | Tạm dừng | `X` | Dừng/chạy thời gian |
+| `N` | Thế giới tiếp theo | `B` | Cây cầu tiếp theo |
+| `P` | Mức pixel art | `O` | Viền mực |
+| `H` | Ẩn/hiện bảng | `M` | Tắt/bật tiếng |
+
+Ở thung lũng PYN, các phím `F` `G` `K` `J` `L` đưa camera tới những góc nhỏ: đôi tình nhân, đàn cừu trên cầu, đỉnh núi, ông câu cá và tàu thủy.
+
+## 🧠 Bên trong
+
+```
+WorldConfig ──► World ──► lõi (ray, địa hình, hầm, cầu, trời, thời tiết)
+                     └──► features (ga, phố, nhà, xe, người, chim, tháp…)  ──► systems: update / lateUpdate mỗi frame
+```
+
+- **World = lõi + feature.** Mỗi thế giới là một `WorldConfig` trong [`src/worlds/`](src/worlds). Feature bật/tắt bằng `cfg.features`, khai báo phụ thuộc bằng `needs`/`after`, và mỗi feature có luồng ngẫu nhiên riêng nên thêm một feature không làm xáo trộn feature khác.
+- **Render dùng chung.** `StaticBatch` cho vật đứng yên, `Instancer` cho cả đàn vật giống nhau, `skinFigure` gộp nhân vật có khớp thành một `SkinnedMesh`, `ParticlePool` cho khói và gợn nước. Sóng, dòng chảy, mưa và tuyết chạy trong shader.
+- **Tỉ lệ như sa bàn.** `world.scale` tách tỉ lệ bản đồ khỏi cỡ đồ vật, nhờ vậy người và xe ở Tuy Hòa (1/10) vẫn nhìn rõ.
+- **Kiểm thử nghiêm ngặt.** Golden checksum tới từng đỉnh và từng cái cây, mô phỏng tua nhanh 300 giây, so ảnh từng điểm, kiểm tra rò rỉ GPU khi đổi thế giới, kèm axe a11y. Không có retry: test đỏ là lỗi thật.
+
+Đọc thêm: [CLAUDE.md](CLAUDE.md) (quy tắc kiến trúc), [docs/real-worlds.md](docs/real-worlds.md), [docs/vehicles.md](docs/vehicles.md), [docs/performance.md](docs/performance.md), [docs/i18n.md](docs/i18n.md).
+
+<details>
+<summary><b>📁 Cấu trúc mã nguồn</b> (bấm để mở)</summary>
 
 | File | Vai trò |
 |---|---|
@@ -56,17 +141,29 @@ npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright
 | `src/audio.js` | Âm thanh tổng hợp bằng Web Audio: tiếng xình xịch, ray, còi, mưa, chim |
 | `src/hud.js` | Bảng điều khiển, nút chọn world (góc trên trái) |
 
-## Dữ liệu bản đồ
+
+</details>
+
+## 🤝 Đóng góp
+
+1. Chạy `npm run check` trước khi push (CI chạy y như vậy).
+2. Commit và tiêu đề PR viết bằng **tiếng Anh**, theo [Conventional Commits](https://www.conventionalcommits.org): `feat(world): …`, `fix(people): …`.
+3. Cố ý thay đổi một thế giới thì chạy `npm run e2e -- --update-snapshots`, xem diff golden rồi commit kèm.
+4. Ảnh trong README được chụp lại bằng `node tools/readme/shoot.mjs` (cần `npx vite --port 5233` đang chạy) và ghép bằng `node tools/readme/compose.mjs`.
+
+## 🗺️ Dữ liệu bản đồ
 
 World TUY HÒA và NGHINH PHONG dùng độ cao SRTM (NASA/USGS, public domain) và bản đồ từ
 [Overture Maps](https://overturemaps.org) (đường sắt, đường phố, nhà, sông hồ) —
 © OpenStreetMap contributors, cấp phép [ODbL](https://opendatacommons.org/licenses/odbl/); nhà có thêm
 nguồn mở khác qua Overture. Nguồn ghi trong `sources` của `src/worlds/data/tuyhoa.json`.
 
-## Giấy phép
+## 📜 Giấy phép
 
 - **Mã nguồn**: [GNU AGPL-3.0 trở lên](LICENSE). Chạy bản đã sửa trên mạng thì phải cho người dùng lấy được mã của bản đó
   (site có liên kết "Mã nguồn" trong mục "Nâng cao" của bảng điều khiển). Cần dùng ngoài điều khoản này (ví dụ bản tùy biến đóng mã): liên hệ chủ repo.
 - **Dữ liệu bản đồ** (`src/worlds/data/`): [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/), © OpenStreetMap contributors.
 - **Âm thanh và hình** (`public/tour/`, `public/og.png`): bảo lưu mọi quyền.
 - Chi tiết và lưu ý về công trình thật: [LICENSE-DATA.md](LICENSE-DATA.md).
+
+<div align="center"><sub>Dựng bằng ❤️, Three.js và rất nhiều tam giác ở Phú Yên.</sub></div>
