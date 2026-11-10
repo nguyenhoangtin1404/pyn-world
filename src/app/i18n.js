@@ -1,6 +1,6 @@
 // @ts-check
 
-// The app in Vietnamese (the default) or English, for visitors from abroad. Every string a visitor sees is here,
+// The app in Vietnamese (the default), English, Korean, Chinese or Russian, for visitors from abroad. Every string a visitor sees is here,
 // under a key, in both languages:
 //  - static text in index.html: the element has `data-i18n="key"` (its text), `data-i18n-html="key"` (its HTML:
 //    links, <kbd>) or `data-i18n-attr="aria-label:key;title:key2"`; the Vietnamese text in index.html must be the
@@ -10,10 +10,23 @@
 //  - text that comes from the worlds' own data (build-step labels of the loading screen, the names of what the
 //    camera follows, landmark names, taglines): tr(vietnamese) looks the Vietnamese up in PHRASES (English only).
 // A key missing in English falls back to Vietnamese (and the unit test fails: every key has both).
-// Language: ?lang=en|vi, else the page (/en/ is English), else the visitor's choice remembered by the EN/VI button
-// (localStorage), else Vietnamese. Not the browser's language: most visitors read Vietnamese whatever it says.
+// Korean, Chinese and Russian live in ./lang/<code>.js (strings, PHRASES, the "Visitor at" pattern); what one of them
+// lacks falls back to English, then Vietnamese (the unit test fails: every key has every language).
+// Language: ?lang=vi|en|ko|zh|ru, else the page (/en/, /ko/, /zh/, /ru/), else the visitor's choice remembered by the
+// language button (localStorage), else Vietnamese. Not the browser's language: most visitors read Vietnamese whatever it says.
 
-/** @typedef {'vi' | 'en'} Lang */
+import * as ko from './lang/ko.js';
+import * as zh from './lang/zh.js';
+import * as ru from './lang/ru.js';
+
+/** @typedef {'vi' | 'en' | 'ko' | 'zh' | 'ru'} Lang */
+
+/** The languages, in the order the language button goes through them (then back to the first). @type {Lang[]} */
+export const LANGS = ['vi', 'en', 'ko', 'zh', 'ru'];
+/** Each language's name in itself (what the language menu lists, and what the language button shows). @type {Record<Lang, string>} */
+export const NATIVE = { vi: 'Tiếng Việt', en: 'English', ko: '한국어', zh: '简体中文', ru: 'Русский' };
+/** The language after `l` in the button's round. @param {Lang} l @returns {Lang} */
+export const nextLang = (l) => LANGS[(LANGS.indexOf(l) + 1) % LANGS.length];
 
 /** @type {Record<Lang, Record<string, string>>} */
 export const STRINGS = {
@@ -107,8 +120,7 @@ export const STRINGS = {
     'hud.outline': '✎ Viền mực',
     'hud.shadows': '◐ Bóng đổ',
     'hud.paused': 'Dừng',
-    'hud.lang': '🌐 EN',
-    'hud.langTitle': 'English version',
+    'hud.langTitle': 'Ngôn ngữ',
     'cam.overview': 'Toàn cảnh',
     'cam.train': 'Theo tàu',
     'cam.bridge': 'Cây cầu',
@@ -287,8 +299,7 @@ export const STRINGS = {
     'hud.outline': '✎ Ink outlines',
     'hud.shadows': '◐ Shadows',
     'hud.paused': 'Paused',
-    'hud.lang': '🌐 VI',
-    'hud.langTitle': 'Tiếng Việt',
+    'hud.langTitle': 'Language',
     'cam.overview': 'Overview',
     'cam.train': 'Train',
     'cam.bridge': 'Bridge',
@@ -374,6 +385,9 @@ export const STRINGS = {
     'fallback.photo': 'Nghinh Phong Tower on the seafront of Tuy Hòa',
     'fallback.retry': '↻ Try again',
   },
+  ko: ko.strings,
+  zh: zh.strings,
+  ru: ru.strings,
 };
 
 // Vietnamese text from the worlds' own data → English: the loading screen's build steps (World.js core steps
@@ -448,6 +462,11 @@ export const PHRASES = {
   'Cò trắng trên đồng': 'Egrets over the fields',
 };
 
+/** The pattern of "Visitor at <place>" by language ({place} is filled in). @type {Record<Lang, string>} */
+const VISITOR = { vi: 'Du khách {place}', en: 'Visitor at {place}', ko: ko.visitor, zh: zh.visitor, ru: ru.visitor };
+/** PHRASES of the other languages, keyed by the Vietnamese like PHRASES. @type {Record<Lang, Record<string, string>>} */
+export const PHRASES_BY = { vi: {}, en: PHRASES, ko: ko.phrases, zh: zh.phrases, ru: ru.phrases };
+
 /** @type {Lang} */
 let current = 'vi';
 /** @type {Set<(lang: Lang) => void>} */
@@ -461,7 +480,7 @@ export const lang = () => current;
  * @param {string} key @param {Record<string, string | number>} [vars] @param {Lang} [l]
  */
 export function t(key, vars, l = current) {
-  const s = STRINGS[l][key] ?? STRINGS.vi[key] ?? key;
+  const s = STRINGS[l][key] ?? STRINGS.en[key] ?? STRINGS.vi[key] ?? key;
   return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
 }
 
@@ -472,24 +491,29 @@ export function t(key, vars, l = current) {
  */
 export function tr(vi, l = current) {
   if (l === 'vi' || !vi) return vi;
-  if (PHRASES[vi]) return PHRASES[vi];
+  const word = (/** @type {string} */ w) => PHRASES_BY[l][w] ?? PHRASES[w]; // (English where the language has none)
+  if (word(vi)) return word(vi);
   const n = /^(.*\S) (\d+)$/.exec(vi); // "<what> <n>", or "<who> <landmark> <n>"
-  if (n && PHRASES[n[1]]) return `${PHRASES[n[1]]} ${n[2]}`;
+  if (n && word(n[1])) return `${word(n[1])} ${n[2]}`;
   const at = n && /^(Du khách|Khách thăm) (.+)$/.exec(n[1]);
-  if (at) return `Visitor at ${tr(at[2], l)} ${n[2]}`;
+  if (at) return `${VISITOR[l].replace('{place}', tr(at[2], l))} ${n[2]}`;
   return vi;
 }
 
+/** @param {string | null | undefined} x @returns {x is Lang} */
+const isLang = (x) => LANGS.includes(/** @type {Lang} */ (x));
+
 /**
- * The language to show: ?lang=, else the page (/en/), else the remembered choice, else Vietnamese.
+ * The language to show: ?lang=, else the page (/en/, /ko/, /zh/, /ru/), else the remembered choice, else Vietnamese.
  * @param {{ search?: string, pathname?: string, stored?: string | null }} where
  * @returns {Lang}
  */
 export function pickLang({ search = '', pathname = '/', stored = null }) {
   const asked = new URLSearchParams(search).get('lang');
-  if (asked === 'en' || asked === 'vi') return asked;
-  if (/\/en(\/|\/index\.html)?$/.test(pathname)) return 'en';
-  if (stored === 'en' || stored === 'vi') return stored;
+  if (isLang(asked)) return asked;
+  const page = /\/(en|ko|zh|ru)(\/|\/index\.html)?$/.exec(pathname);
+  if (page) return /** @type {Lang} */ (page[1]);
+  if (isLang(stored)) return stored;
   return 'vi';
 }
 
@@ -529,7 +553,7 @@ export function onLangChange(fn) {
 }
 
 /**
- * Switch the language on screen (the EN/VI button) and remember it. The address follows: /en/ for English,
+ * Switch the language on screen (the EN/VI button) and remember it. The address follows: /<code>/ for the others,
  * the site's root for Vietnamese (no ?lang=, so that a reload keeps the choice).
  * @param {Lang} l @param {string} [base] the site's base URL
  */
@@ -547,7 +571,7 @@ export function setLang(l, base = '/') {
     const params = new URLSearchParams(location.search);
     params.delete('lang');
     const q = params.toString();
-    history.replaceState(history.state, '', `${base}${l === 'en' ? 'en/' : ''}${q ? `?${q}` : ''}${location.hash}`);
+    history.replaceState(history.state, '', `${base}${l === 'vi' ? '' : `${l}/`}${q ? `?${q}` : ''}${location.hash}`);
   } catch {
     /* (a page served from elsewhere: keep its address) */
   }

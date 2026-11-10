@@ -1,7 +1,7 @@
 import { CAMERA_MODES } from './cameras.js';
 import { TIME_PRESETS } from './world/sky.js';
 import { WEATHER_OPTIONS } from './world/weather.js';
-import { lang, onLangChange, setLang, t } from './app/i18n.js';
+import { lang, LANGS, NATIVE, onLangChange, setLang, t } from './app/i18n.js';
 
 export const PIXEL_LEVELS = [
   { v: 1, label: 'Tắt' },
@@ -64,15 +64,77 @@ export function initHud(state, actions, worlds) {
     if (e.target === about) about.close(); // a tap on the backdrop, outside the card
   });
   $('camera-modes').append(aboutBtn);
-  // English ⇄ Vietnamese (remembered; app/i18n.js).
-  const langBtn = chip('', () => {
-    setLang(lang() === 'vi' ? 'en' : 'vi', import.meta.env?.BASE_URL ?? '/');
-    toast(t('toast.lang'));
-  });
+  // The language menu (remembered; app/i18n.js): a button with the language on screen, a list of all of them, each in
+  // its own name and script, the current one ticked. Top left, outside the panel: the panel starts folded and says
+  // so in Vietnamese — a visitor must see the way to their language without opening it.
+  const langMenu = document.createElement('div');
+  langMenu.className = 'lang-menu';
+  const langBtn = document.createElement('button');
+  langBtn.type = 'button';
   langBtn.id = 'lang-btn';
-  // Top left, outside the panel: the panel starts folded and says so in Vietnamese — a visitor who reads only
-  // English must see the way to English without opening it.
-  /** @type {HTMLElement} */ (document.querySelector('#hud-top .top-row')).append(langBtn);
+  langBtn.className = 'chip';
+  langBtn.setAttribute('aria-haspopup', 'menu');
+  langBtn.setAttribute('aria-expanded', 'false');
+  langBtn.setAttribute('aria-controls', 'lang-list');
+  const langList = document.createElement('div');
+  langList.id = 'lang-list';
+  langList.className = 'lang-list';
+  langList.setAttribute('role', 'menu');
+  langList.hidden = true;
+  /** @type {Map<import('./app/i18n.js').Lang, HTMLButtonElement>} */
+  const langItems = new Map(LANGS.map((l) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'lang-item';
+    item.setAttribute('role', 'menuitemradio');
+    item.lang = l; // (screen readers say each name in its own language)
+    item.textContent = NATIVE[l];
+    item.addEventListener('click', () => {
+      closeLangs(true);
+      if (l !== lang()) {
+        setLang(l, import.meta.env?.BASE_URL ?? '/');
+        toast(t('toast.lang'));
+      }
+    });
+    langList.append(item);
+    return [l, item];
+  }));
+  function closeLangs(refocus = false) {
+    if (langList.hidden) return;
+    langList.hidden = true;
+    langBtn.setAttribute('aria-expanded', 'false');
+    if (refocus) langBtn.focus();
+  }
+  function openLangs() {
+    langList.hidden = false;
+    langBtn.setAttribute('aria-expanded', 'true');
+    langItems.get(lang())?.focus();
+  }
+  langBtn.addEventListener('click', () => (langList.hidden ? openLangs() : closeLangs()));
+  langBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      openLangs();
+    }
+  });
+  langMenu.addEventListener('keydown', (e) => {
+    if (langList.hidden) return;
+    e.stopPropagation(); // (the app's own shortcuts: not while the open menu has the keys)
+    const items = [...langItems.values()], at = items.indexOf(/** @type {HTMLButtonElement} */ (document.activeElement));
+    const go = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (go !== undefined) {
+      e.preventDefault();
+      items[(go + items.length) % items.length].focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeLangs(true);
+    } else if (e.key === 'Tab') closeLangs();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!langMenu.contains(/** @type {Node} */ (e.target))) closeLangs();
+  });
+  langMenu.append(langBtn, langList);
+  /** @type {HTMLElement} */ (document.querySelector('#hud-top .top-row')).append(langMenu);
   const clockEl = document.createElement('span');
   clockEl.className = 'clock';
   $('time-of-day').append(clockEl);
@@ -149,10 +211,11 @@ export function initHud(state, actions, worlds) {
     tourBtn.textContent = t('hud.tour');
     keyed(tourBtn, 'I', t('hud.tourTitle'));
     aboutBtn.textContent = t('hud.about');
-    langBtn.textContent = t('hud.lang');
-    langBtn.title = t('hud.langTitle');
-    langBtn.lang = lang() === 'vi' ? 'en' : 'vi'; // (what it offers is in the other language)
-    clockEl.setAttribute('aria-label', t('aria.time'));
+    langBtn.textContent = `🌐 ${NATIVE[lang()]}`;
+    langBtn.title = langBtn.ariaLabel = t('hud.langTitle');
+    langBtn.lang = lang();
+    for (const [l, item] of langItems) item.setAttribute('aria-checked', String(l === lang()));
+        clockEl.setAttribute('aria-label', t('aria.time'));
     for (const [i, [id, b]] of timeBtns.entries()) b.innerHTML = `<span aria-hidden="true">${TIME_PRESETS[i].icon}</span>${t(`time.${id}`)}`;
     realBtn.textContent = t('hud.realTime');
     realBtn.title = t('hud.realTimeTitle');

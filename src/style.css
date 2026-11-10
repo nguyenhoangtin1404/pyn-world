@@ -715,3 +715,53 @@ input[type='range'] {
 .narration-note[hidden] {
   display: none;
 }
+
+/* The language menu (hud.js): a chip with the language on screen; its list drops below it, each language in its own name. */
+.lang-menu {
+  position: relative;
+}
+
+.lang-list {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 11em;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--chip);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+.lang-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.6em 0.8em;
+  min-height: 44px; /* (a finger) */
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 0.95rem 'Fredoka', system-ui, 'Noto Sans KR', 'Noto Sans SC', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lang-item:hover,
+.lang-item:focus-visible {
+  background: #fff;
+}
+
+.lang-item[aria-checked='true'] {
+  background: var(--accent-soft);
+  color: #7a231b;
+}
+
+.lang-item[aria-checked='true']::after {
+  content: '✓';
+  font-weight: 700;
+}

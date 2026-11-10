@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { STRINGS, PHRASES, t, tr, pickLang, localizeHtml } from '../../src/app/i18n.js';
+import { STRINGS, PHRASES, PHRASES_BY, LANGS, NATIVE, nextLang, t, tr, pickLang, localizeHtml } from '../../src/app/i18n.js';
 import { FEATURE_IDS, featureById, loadFeatures } from '../../src/features/index.js';
 import { KINDS } from '../../src/world/vehicles/kinds.js';
 import { LANDMARKS } from '../../src/landmarks/index.js';
@@ -18,11 +18,28 @@ const staticAttrs = [...html.matchAll(/<[^>]*\sdata-i18n-attr="([^"]+)"[^>]*>/g)
   }));
 
 describe('i18n', () => {
-  it('every Vietnamese string has an English one, and English has nothing Vietnamese lacks', () => {
-    const vi = Object.keys(STRINGS.vi), en = Object.keys(STRINGS.en);
-    expect(vi.filter((k) => !en.includes(k))).toEqual([]);
-    expect(en.filter((k) => !vi.includes(k))).toEqual([]);
-    for (const k of en) expect(STRINGS.en[k].trim(), k).not.toBe('');
+  it('every Vietnamese string has one in every language, and no language has what Vietnamese lacks', () => {
+    const vi = Object.keys(STRINGS.vi);
+    for (const l of LANGS) {
+      const keys = Object.keys(STRINGS[l]);
+      expect(vi.filter((k) => !keys.includes(k)), l).toEqual([]);
+      expect(keys.filter((k) => !vi.includes(k)), l).toEqual([]);
+      for (const k of keys) expect(STRINGS[l][k].trim(), `${l} ${k}`).not.toBe('');
+    }
+  });
+
+  it('the translations keep what must not change: {placeholders}, links, <kbd>', () => {
+    const holes = (s) => [...s.matchAll(/\{\w+\}/g)].map((m) => m[0]).sort();
+    const tags = (s) => [...s.matchAll(/<(a|kbd)\b[^>]*>/g)].map((m) => m[0]).sort();
+    for (const l of LANGS) for (const k of Object.keys(STRINGS.vi)) {
+      expect(holes(STRINGS[l][k]), `${l} ${k}`).toEqual(holes(STRINGS.vi[k]));
+      expect(tags(STRINGS[l][k]), `${l} ${k}`).toEqual(tags(STRINGS.vi[k]));
+    }
+  });
+
+  it('the language menu lists every language by its own name', () => {
+    expect(LANGS.map((l) => NATIVE[l])).toEqual(['Tiếng Việt', 'English', '한국어', '简体中文', 'Русский']);
+    expect(LANGS.map(nextLang)).toEqual(['en', 'ko', 'zh', 'ru', 'vi']);
   });
 
   it('index.html says what the Vietnamese strings say (one source of truth)', () => {
@@ -54,6 +71,13 @@ describe('i18n', () => {
     expect(pickLang({ pathname: '/', stored: 'en' })).toBe('en');
     expect(pickLang({ pathname: '/', stored: 'fr' })).toBe('vi');
     expect(pickLang({ pathname: '/garden/' })).toBe('vi');
+    for (const l of ['ko', 'zh', 'ru']) {
+      expect(pickLang({ pathname: `/${l}/` })).toBe(l);
+      expect(pickLang({ pathname: `/base/${l}/index.html`, stored: 'en' })).toBe(l);
+      expect(pickLang({ search: `?lang=${l}` })).toBe(l);
+      expect(pickLang({ stored: l })).toBe(l);
+    }
+    expect(pickLang({ search: '?lang=de', pathname: '/ru/' })).toBe('ru');
   });
 
   it('the worlds’ own words have English: build steps, what the cameras follow, landmarks, taglines', async () => {
@@ -67,6 +91,24 @@ describe('i18n', () => {
     expect(tr('Người đi dạo 12', 'en')).toBe('Walker 12');
     expect(tr('Người đi dạo 12', 'vi')).toBe('Người đi dạo 12');
     expect(tr('MAPLE VALE', 'en')).toBe('MAPLE VALE');
+    for (const l of ['ko', 'zh', 'ru']) {
+      for (const p of phrases) expect(PHRASES_BY[l][p], `${l} ${p}`).toBeTruthy();
+      expect(Object.keys(PHRASES_BY[l]).filter((p) => !(p in PHRASES))).toEqual([]);
+      for (const k of Object.values(KINDS)) expect(tr(`${k.label} 3`, l), `${l} ${k.label}`).toMatch(/ 3$/);
+      for (const k of Object.values(KINDS)) expect(tr(`${k.label} 3`, l), `${l} ${k.label}`).not.toBe(`${k.label} 3`);
+      expect(tr('Người đi dạo 12', l)).toBe(`${PHRASES_BY[l]['Người đi dạo']} 12`);
+      expect(tr('Du khách Tháp Nghinh Phong 3', l)).toContain(PHRASES_BY[l]['Tháp Nghinh Phong']);
+      expect(tr('Du khách Tháp Nghinh Phong 3', l)).toMatch(/ 3$/);
+    }
+  });
+
+  it('the translated pages: every marked text in their language, <html lang>', () => {
+    for (const l of ['ko', 'zh', 'ru']) {
+      const page = localizeHtml(html, l);
+      expect(page).toContain(`<html lang="${l}"`);
+      expect(page).toContain(`>${STRINGS[l]['panel.open']}<`);
+      expect(page).not.toContain('Mở bảng điều khiển');
+    }
   });
 
   it('the English page: every marked text and attribute in English, <html lang="en">', () => {
@@ -78,6 +120,23 @@ describe('i18n', () => {
     expect(en).not.toContain('Mở bảng điều khiển');
     const tight = (s) => squash(s).replace(/> /g, '>').replace(/ </g, '<');
     expect(tight(localizeHtml(html, 'vi'))).toBe(tight(html)); // (Vietnamese: the page as it is)
+  });
+
+  it('the Korean, Chinese and Russian tours say the same stops, with the same verified facts (and none that is not)', () => {
+    const vi = tourWords();
+    const facts = {
+      ko: ['HUNI architectes', '2021', '쉰 개', '35미터', '30미터', '2미터', '15미터', '7,000제곱미터', '여러 가지 색', 'Hoàng Sa와 Trường Sa는 베트남에 속합니다'],
+      zh: ['HUNI architectes', '2021', '五十根', '35 米', '30 米', '宽 2 米', '长 15 米', '7,000 平方米', '多彩', 'Hoàng Sa 和 Trường Sa 属于越南'],
+      ru: ['HUNI architectes', '2021', 'пятидесяти', '35 метров', '30 метров', 'шириной 2 метра', 'длиной 15 метров', '7 000 квадратных метров', 'разноцветными', 'Hoàng Sa и Trường Sa принадлежат Вьетнаму'],
+    };
+    for (const l of ['ko', 'zh', 'ru']) {
+      const words = tourWords(l);
+      expect(words.map((w) => w.id), l).toEqual(vi.map((w) => w.id));
+      const all = words.map((w) => w.say).join(' ');
+      for (const fact of facts[l]) expect(all, `${l} ${fact}`).toContain(fact);
+      expect(all, l).not.toMatch(/7[,. ]?190|花岗|화강|гранит|반원|半圆|полукруг|红灯|빨간 등|красн\S* (огн|свет)|旗|깃발|флаг/i); // (not verified: CLAUDE.md)
+      expect(all, l).toContain(vi[5].say.split(': ')[1].replace(/\.$/, '')); // (the sea sign, in its own words)
+    }
   });
 
   it('the English tour says the same stops, translated (only the verified facts)', () => {
