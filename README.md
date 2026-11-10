@@ -63,7 +63,7 @@ npm run build    # xuất ra dist/: site tĩnh, deploy lên GitHub Pages / Netli
 npm run check    # lint + kiểu + unit test + e2e (lần đầu: npx playwright install chromium)
 ```
 
-Một vài tham số URL hữu ích: `?world=<id>` mở thẳng một thế giới, `?lang=en` (hoặc trang `/en/`) chuyển sang tiếng Anh, `?clock=fast` cho đồng hồ chạy nhanh từ 9:00.
+Một vài tham số URL hữu ích: `?world=<id>` mở thẳng một thế giới, `?lang=en|ko|zh|ru` (hoặc trang `/en/`, `/ko/`, `/zh/`, `/ru/`) chuyển sang tiếng Anh, Hàn, Trung, Nga, `?clock=fast` cho đồng hồ chạy nhanh từ 9:00.
 
 ## 🎮 Điều khiển
 

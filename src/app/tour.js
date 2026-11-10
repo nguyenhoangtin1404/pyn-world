@@ -8,7 +8,7 @@ import { lang, onLangChange, t as msg, tr } from './i18n.js';
 // subtitle. Said by the stop's recording (public/tour/*.mp3, made by tools/tour/voice.mjs) where it
 // exists, else by the browser's speech synthesis where it has a Vietnamese voice (Chrome on Windows and
 // Mac has none); with neither, or the sound off, the panel says so and shows the subtitles alone.
-// In English (app/i18n.js) the subtitles are the stop's `en` and the recordings (Vietnamese) are not played: the
+// In another language (app/i18n.js) the subtitles are the stop's `words[lang]` and the recordings (Vietnamese) are not played: the
 // browser's English voice says them where there is one (most browsers have one), else the subtitles alone.
 // Between flights the camera circles slowly round what it looks at. The next stop comes when the
 // words are said (or, with no voice, when there has been time to read them); ‹ › step by hand, ✕ or
@@ -24,12 +24,17 @@ const recording = (/** @type {string} */ base, /** @type {string} */ path) => ba
 const FLY = 2.4; // s, the flight to each stop (in the simulation's time: longer on a slow machine)
 const PAUSE = 1.2; // s, a breath after the words before flying on
 const DRIFT = 0.035; // rad/s, the slow circling at a stop
+/** The speech voice's language when the device's voice names none. @type {Record<import('./i18n.js').Lang, string>} */
+const VOICE_LANG = { vi: 'vi-VN', en: 'en-US', ko: 'ko-KR', zh: 'zh-CN', ru: 'ru-RU' };
 
-/** Seconds to read `text` on screen (about 14 characters a second, at least 5 s). */
-export const readingTime = (/** @type {string} */ text) => Math.max(5, text.length / 14);
+/** Seconds to read `text` on screen (about 14 characters a second, at least 5 s; a Chinese or Korean character carries more, so counts 2.5). */
+export const readingTime = (/** @type {string} */ text) => {
+  const wide = (text.match(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g) ?? []).length;
+  return Math.max(5, (text.length + 1.5 * wide) / 14);
+};
 
 /** The sentences of `text`, for speaking one at a time (some browsers cut a long utterance short). */
-export const sentences = (/** @type {string} */ text) => text.split(/(?<=[.!?:])\s+/).filter(Boolean);
+export const sentences = (/** @type {string} */ text) => text.split(/(?<=[.!?:])\s+|(?<=[。！？])/).filter(Boolean);
 
 /**
  * @param {{ rig: import('../cameras.js').CameraRig, camera: THREE.PerspectiveCamera, muted: () => boolean, volume: () => number, duck: (on: boolean) => void, base?: string, onEnd?: () => void }} app
@@ -51,14 +56,14 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
 
   // A Vietnamese voice, the most natural-sounding the device has (Edge's "Online (Natural)" neural
   // voices, Google's, Apple's) before the plainer ones.
-  // (English: an English voice, the same way.)
+  // (Another language: a voice of that language, the same way.)
   const voice = () => {
-    const want = lang() === 'en' ? /^en/i : /^vi/i;
+    const want = new RegExp(`^${lang()}`, 'i');
     const vi = synth?.getVoices().filter((x) => want.test(x.lang)) ?? [];
     return vi.find((x) => /natural|neural|online/i.test(x.name)) ?? vi.find((x) => /google/i.test(x.name)) ?? vi[0] ?? null;
   };
   /** What a stop says, in the language on screen. @param {import('../landmarks/common.js').TourStop} s */
-  const words = (s) => (lang() === 'en' && s.en ? s.en : s.say);
+  const words = (s) => (lang() !== 'vi' && s.words?.[/** @type {'en' | 'ko' | 'zh' | 'ru'} */ (lang())]) || s.say;
 
   const tell = (/** @type {string} */ msg) => { note.textContent = msg; note.hidden = !msg; };
   const finished = (/** @type {number} */ id) => () => { if (id === said) { speaking = false; duck(false); } };
@@ -124,7 +129,7 @@ export function createTour({ rig, camera, muted, volume, duck, base = '/', onEnd
     duck(true);
     parts.forEach((part, n) => {
       const u = new SpeechSynthesisUtterance(part);
-      u.lang = lang() === 'en' ? vi.lang || 'en-US' : 'vi-VN';
+      u.lang = vi.lang || VOICE_LANG[lang()];
       u.voice = vi;
       if (n === parts.length - 1) u.onend = u.onerror = finished(id);
       synth.speak(u);

@@ -1,7 +1,7 @@
 import { CAMERA_MODES } from './cameras.js';
 import { TIME_PRESETS } from './world/sky.js';
 import { WEATHER_OPTIONS } from './world/weather.js';
-import { lang, onLangChange, setLang, t } from './app/i18n.js';
+import { lang, nextLang, onLangChange, setLang, t } from './app/i18n.js';
 
 export const PIXEL_LEVELS = [
   { v: 1, label: 'Tắt' },
@@ -64,9 +64,9 @@ export function initHud(state, actions, worlds) {
     if (e.target === about) about.close(); // a tap on the backdrop, outside the card
   });
   $('camera-modes').append(aboutBtn);
-  // English ⇄ Vietnamese (remembered; app/i18n.js).
+  // Vietnamese → English → Korean → Chinese → Russian → Vietnamese (remembered; app/i18n.js). The label names the next one.
   const langBtn = chip('', () => {
-    setLang(lang() === 'vi' ? 'en' : 'vi', import.meta.env?.BASE_URL ?? '/');
+    setLang(nextLang(lang()), import.meta.env?.BASE_URL ?? '/');
     toast(t('toast.lang'));
   });
   langBtn.id = 'lang-btn';
@@ -151,7 +151,7 @@ export function initHud(state, actions, worlds) {
     aboutBtn.textContent = t('hud.about');
     langBtn.textContent = t('hud.lang');
     langBtn.title = t('hud.langTitle');
-    langBtn.lang = lang() === 'vi' ? 'en' : 'vi'; // (what it offers is in the other language)
+    langBtn.lang = nextLang(lang()); // (what it offers is in the other language)
     clockEl.setAttribute('aria-label', t('aria.time'));
     for (const [i, [id, b]] of timeBtns.entries()) b.innerHTML = `<span aria-hidden="true">${TIME_PRESETS[i].icon}</span>${t(`time.${id}`)}`;
     realBtn.textContent = t('hud.realTime');

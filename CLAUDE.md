@@ -67,11 +67,11 @@ File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dò
 
 ## Tiếng Anh (`src/app/i18n.js`)
 
-Mặc định tiếng Việt; `?lang=en`, trang `/en/` hoặc nút 🌐 EN/VI (nhớ trong `localStorage`) chuyển sang tiếng Anh, không theo ngôn
-ngữ trình duyệt. **Thêm chữ nào người xem thấy thì thêm khoá vào cả `STRINGS.vi` và `STRINGS.en`** (`t('khoá')`; trong
+Mặc định tiếng Việt; `?lang=en|ko|zh|ru`, trang `/en/` `/ko/` `/zh/` `/ru/` hoặc nút 🌐 (vòng vi → en → ko → zh → ru, nhớ trong `localStorage`) đổi ngôn ngữ, không theo ngôn
+ngữ trình duyệt. **Thêm chữ nào người xem thấy thì thêm khoá vào `STRINGS.vi`, `STRINGS.en` và cả ba `src/app/lang/{ko,zh,ru}.js`** (`t('khoá')`; trong
 `index.html`: `data-i18n*`, chữ Việt y như `STRINGS.vi`); chữ đến từ dữ liệu world (nhãn feature, tên thứ camera theo, tên công
-trình, tagline) thì thêm vào `PHRASES` (`tr()`). Thuyết minh tiếng Anh: `tourWords('en')` — dịch sát, không thêm số liệu, không
-phát mp3 tiếng Việt. Trang `en/index.html` sinh lúc build (`tools/seo/en.js`: head tiếng Anh cùng số liệu đã kiểm chứng). Test:
+trình, tagline) thì thêm vào `PHRASES` (`tr()`; Hàn/Trung/Nga: `phrases` trong file ngôn ngữ của chúng). Thuyết minh: `tourWords(lang)` — dịch sát, không thêm số liệu, giữ nguyên tên riêng tiếng Việt, không
+phát mp3 tiếng Việt. Trang `<lang>/index.html` sinh lúc build (`tools/seo/heads.js`: head từng ngôn ngữ cùng số liệu đã kiểm chứng). Test:
 `tests/unit/i18n.test.js`, `tests/e2e/i18n.spec.js`. Chi tiết: **`docs/i18n.md`**.
 
 ## Nhiều world

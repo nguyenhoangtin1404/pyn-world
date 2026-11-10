@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import seo, { englishPage } from '../../tools/seo/plugin.js'
+import seo, { englishPage, localizedPage } from '../../tools/seo/plugin.js'
 
 // What the plugin writes at build: robots.txt, sitemap.xml, llms.txt and the English page (from a built index.html).
 const build = (index = '<html lang="vi"><head><!-- seo:start --><title>x</title><!-- seo:end --></head></html>') => {
@@ -49,7 +49,7 @@ describe('seo', () => {
   it('plugin thay SITE_URL và sinh robots/sitemap/llms', () => {
     const p = seo()
     expect(p.transformIndexHtml('<a href="%SITE_URL%">')).not.toContain('%SITE_URL%')
-    expect(Object.keys(build()).sort()).toEqual(['en/index.html', 'llms.txt', 'robots.txt', 'sitemap.xml'])
+    expect(Object.keys(build()).sort()).toEqual(['en/index.html', 'ko/index.html', 'llms.txt', 'robots.txt', 'ru/index.html', 'sitemap.xml', 'zh/index.html'])
   })
 
   it('trang tiếng Anh: head riêng (canonical /en/, hreflang, JSON-LD cùng số liệu), chữ tiếng Anh', () => {
@@ -59,7 +59,7 @@ describe('seo', () => {
     expect(en).toContain('<html lang="en"')
     expect(en).toContain(`<link rel="canonical" href="${url}en/" />`)
     for (const page of [vi, en]) {
-      for (const [lang, href] of [['vi', url], ['en', `${url}en/`], ['x-default', url]])
+      for (const [lang, href] of [['vi', url], ['en', `${url}en/`], ['ko', `${url}ko/`], ['zh-Hans', `${url}zh/`], ['ru', `${url}ru/`], ['x-default', url]])
         expect(page).toContain(`<link rel="alternate" hreflang="${lang}" href="${href}" />`)
     }
     expect(en).not.toContain('Tháp Nghinh Phong Tuy Hòa 3D – Sa bàn') // (the Vietnamese title is gone)
@@ -76,10 +76,40 @@ describe('seo', () => {
     expect(about).not.toMatch(/Mã nguồn|Bản đồ ©/)
   })
 
-  it('sitemap và llms.txt có trang tiếng Anh', () => {
+  it('trang tiếng Hàn, Trung, Nga: head riêng, cùng số liệu và cùng địa điểm trong JSON-LD, chữ đúng ngôn ngữ', () => {
+    const url = 'https://x.test/'
+    const vi = html.replaceAll('%SITE_URL%', url)
+    const viTower = JSON.parse(vi.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'].find((n) => n['@type'] === 'TouristAttraction')
+    const want = {
+      ko: { lang: 'ko', title: /응인퐁 타워/, facts: ['HUNI architectes', '2021', '50', '35 m', '30 m', '7,000 m²'] },
+      zh: { lang: 'zh', title: /迎风塔/, facts: ['HUNI architectes', '2021', '50', '35 米', '30 米', '7,000 平方米'] },
+      ru: { lang: 'ru', title: /Нгиньфонг/, facts: ['HUNI architectes', '2021', '50', '35 м', '30 м', '7 000 м²'] },
+    }
+    for (const [l, w] of Object.entries(want)) {
+      const page = localizedPage(vi, url, l)
+      expect(page).toContain(`<html lang="${w.lang}"`)
+      expect(page).toContain(`<link rel="canonical" href="${url}${l}/" />`)
+      expect(page).not.toContain('%SITE_URL%')
+      expect(page.match(/<title>([^<]*)<\/title>/)[1]).toMatch(w.title)
+      const ld = JSON.parse(page.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])
+      const tower = ld['@graph'].find((n) => n['@type'] === 'TouristAttraction')
+      expect(tower['@id']).toBe(viTower['@id'])
+      expect(tower.geo).toEqual(viTower.geo)
+      for (const fact of w.facts) expect(tower.description, `${l} ${fact}`).toContain(fact)
+      expect(ld['@graph'].find((n) => n['@type'] === 'FAQPage').mainEntity).toHaveLength(3)
+      const about = page.match(/<dialog id="about"[\s\S]*?<\/dialog>/)[0]
+      for (const s of ['HUNI architectes', 'OpenStreetMap', 'ODbL', 'Overture Maps', 'SRTM', 'AGPL-3.0']) expect(about).toContain(s)
+      expect(about).not.toMatch(/Mã nguồn|Bản đồ ©/)
+    }
+  })
+
+  it('sitemap và llms.txt có trang tiếng Anh, Hàn, Trung, Nga', () => {
     const out = build()
     expect(out['sitemap.xml']).toMatch(/<loc>https:\/\/[^<]+\/en\/<\/loc>/)
     expect(out['sitemap.xml']).toContain('hreflang="en"')
+    for (const l of ['ko', 'zh', 'ru']) expect(out['sitemap.xml']).toMatch(new RegExp(`<loc>https://[^<]+/${l}/</loc>`))
+    expect(out['sitemap.xml']).toContain('hreflang="zh-Hans"')
+    for (const l of ['ko', 'zh', 'ru']) expect(out['llms.txt']).toContain(`/${l}/)`)
     expect(out['llms.txt']).toMatch(/\/en\/\)/)
     expect(out['llms.txt']).toContain('## In English')
     expect(out['llms.txt']).toContain('more than 7,000 m²')
