@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { STRINGS, PHRASES, PHRASES_BY, LANGS, nextLang, t, tr, pickLang, localizeHtml } from '../../src/app/i18n.js';
+import { STRINGS, PHRASES, PHRASES_BY, LANGS, NATIVE, nextLang, t, tr, pickLang, localizeHtml } from '../../src/app/i18n.js';
 import { FEATURE_IDS, featureById, loadFeatures } from '../../src/features/index.js';
 import { KINDS } from '../../src/world/vehicles/kinds.js';
 import { LANDMARKS } from '../../src/landmarks/index.js';
@@ -37,10 +37,9 @@ describe('i18n', () => {
     }
   });
 
-  it('the language button goes round every language and back', () => {
+  it('the language menu lists every language by its own name', () => {
+    expect(LANGS.map((l) => NATIVE[l])).toEqual(['Tiếng Việt', 'English', '한국어', '简体中文', 'Русский']);
     expect(LANGS.map(nextLang)).toEqual(['en', 'ko', 'zh', 'ru', 'vi']);
-    // (its label names the next language)
-    expect(LANGS.map((l) => t('hud.lang', undefined, l))).toEqual(['🌐 EN', '🌐 한국어', '🌐 中文', '🌐 РУ', '🌐 VI']);
   });
 
   it('index.html says what the Vietnamese strings say (one source of truth)', () => {

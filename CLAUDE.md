@@ -67,7 +67,7 @@ File mới trong `src/features/` hay `src/worlds/`: thêm `// @ts-check` ở dò
 
 ## Tiếng Anh (`src/app/i18n.js`)
 
-Mặc định tiếng Việt; `?lang=en|ko|zh|ru`, trang `/en/` `/ko/` `/zh/` `/ru/` hoặc nút 🌐 (vòng vi → en → ko → zh → ru, nhớ trong `localStorage`) đổi ngôn ngữ, không theo ngôn
+Mặc định tiếng Việt; `?lang=en|ko|zh|ru`, trang `/en/` `/ko/` `/zh/` `/ru/` hoặc menu 🌐 `#lang-btn` (liệt kê mọi ngôn ngữ bằng tên của chính nó, nhớ trong `localStorage`) đổi ngôn ngữ, không theo ngôn
 ngữ trình duyệt. **Thêm chữ nào người xem thấy thì thêm khoá vào `STRINGS.vi`, `STRINGS.en` và cả ba `src/app/lang/{ko,zh,ru}.js`** (`t('khoá')`; trong
 `index.html`: `data-i18n*`, chữ Việt y như `STRINGS.vi`); chữ đến từ dữ liệu world (nhãn feature, tên thứ camera theo, tên công
 trình, tagline) thì thêm vào `PHRASES` (`tr()`; Hàn/Trung/Nga: `phrases` trong file ngôn ngữ của chúng). Thuyết minh: `tourWords(lang)` — dịch sát, không thêm số liệu, giữ nguyên tên riêng tiếng Việt, không

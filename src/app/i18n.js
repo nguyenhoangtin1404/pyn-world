@@ -23,6 +23,8 @@ import * as ru from './lang/ru.js';
 
 /** The languages, in the order the language button goes through them (then back to the first). @type {Lang[]} */
 export const LANGS = ['vi', 'en', 'ko', 'zh', 'ru'];
+/** Each language's name in itself (what the language menu lists, and what the language button shows). @type {Record<Lang, string>} */
+export const NATIVE = { vi: 'Tiếng Việt', en: 'English', ko: '한국어', zh: '简体中文', ru: 'Русский' };
 /** The language after `l` in the button's round. @param {Lang} l @returns {Lang} */
 export const nextLang = (l) => LANGS[(LANGS.indexOf(l) + 1) % LANGS.length];
 
@@ -118,8 +120,7 @@ export const STRINGS = {
     'hud.outline': '✎ Viền mực',
     'hud.shadows': '◐ Bóng đổ',
     'hud.paused': 'Dừng',
-    'hud.lang': '🌐 EN',
-    'hud.langTitle': 'English version',
+    'hud.langTitle': 'Ngôn ngữ',
     'cam.overview': 'Toàn cảnh',
     'cam.train': 'Theo tàu',
     'cam.bridge': 'Cây cầu',
@@ -298,8 +299,7 @@ export const STRINGS = {
     'hud.outline': '✎ Ink outlines',
     'hud.shadows': '◐ Shadows',
     'hud.paused': 'Paused',
-    'hud.lang': '🌐 한국어',
-    'hud.langTitle': '한국어',
+    'hud.langTitle': 'Language',
     'cam.overview': 'Overview',
     'cam.train': 'Train',
     'cam.bridge': 'Bridge',
