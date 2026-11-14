@@ -8,3 +8,5 @@ test-results
 blob-report/
 all-blob-reports/
 docs/media/raw/
+.wrangler/
+
